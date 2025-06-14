@@ -1,0 +1,13 @@
+{
+  "scripts": {
+    "redis": "wsl && sudo service redis-server start && exit",
+    "client": "cd client && npm run dev",
+    "server": "cd server && npm run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\""
+  },
+  "dependencies": {
+    "@mui/x-data-grid": "^8.5.1",
+    "concurrently": "^9.1.2",
+    "use-debounce": "^10.0.5"
+  }
+}

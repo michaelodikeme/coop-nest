@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES6",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "baseUrl": "./src",
+    "paths": {
+      // "prisma/*": ["../prisma/*"],
+      "*": ["node_modules/*", "*"]
+    }
+  },
+  "typeRoots": ["./node_modules/@types", "./src/types"],
+  "include": ["src/**/*", "src/types/**/*", "prisma/client.ts", "twilio/twilioUtils.ts"],
+  "exclude": ["node_modules", "**/*.spec.ts", "dist"]
+}

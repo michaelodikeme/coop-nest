@@ -1,0 +1,700 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ======= USER & ROLE MANAGEMENT =======
+
+model User {
+  id               String            @id @default(uuid()) @db.Uuid
+  biodataId        String?           @db.Uuid
+  username         String?           @unique
+  password         String?
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  
+  // Role Management
+  roleIds          UserRole[]       // Many-to-many relationship with roles
+  permissions      UserPermission[] // Direct permissions
+  
+  // Related Records
+  biodata          Biodata?         @relation(fields: [biodataId], references: [id])
+  sessions         Session[]
+  adminProfile     AdminUserProfile? @relation("AdminProfile")
+  
+  // Approval Related
+  initiatedRequests    Request[]        @relation("RequestInitiator")
+  reviewedRequests     RequestReview[]  @relation("RequestReviewer")
+  approvedRequests     Request[]        @relation("RequestApprover")
+  
+  // Transaction Related
+  initiatedTransactions Transaction[] @relation("TransactionInitiator")
+  approvedTransactions  Transaction[] @relation("TransactionApprover")
+  notifications         Notification[] @relation("UserNotifications")
+
+  @@index([username])
+}
+
+model AdminUserProfile {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @unique @db.Uuid
+  firstName    String
+  lastName     String
+  emailAddress String   @unique
+  phoneNumber  String   @unique
+  address      String?
+  department   String
+  staffId      String   @unique
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User?    @relation("AdminProfile", fields: [userId], references: [id])
+
+  @@map("admin_profiles")
+}
+
+// Enhanced Role Management
+model Role {
+  id            String     @id @default(uuid()) @db.Uuid
+  name          String     @unique
+  description   String?
+  isAdmin       Boolean    @default(false)
+  isSystem      Boolean    @default(false)  // System roles cannot be modified
+  
+  // Approval Chain Configuration
+  canInitiateRequests      Boolean    @default(false)
+  canReviewRequests        Boolean    @default(false)
+  canApproveRequests       Boolean    @default(false)
+  requiresAdditionalApproval Boolean   @default(false)
+  approvalOrder            Int?       // Order in approval chain
+  
+  // Timestamps
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  // Relations
+  permissions   RolePermission[]
+  users         UserRole[]
+
+  @@map("roles")
+}
+
+// Many-to-Many relationship between Users and Roles
+model UserRole {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  roleId    String   @db.Uuid
+  assignedAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  role      Role     @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, roleId])
+}
+
+// Enhanced Permission System
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String?
+  module      String   // e.g., "LOANS", "SAVINGS", "ADMIN"
+  action      String   // e.g., "CREATE", "READ", "APPROVE"
+  
+  // Relations
+  roles       RolePermission[]
+  users       UserPermission[]
+
+  @@map("permissions")
+}
+
+// Many-to-Many relationship between Roles and Permissions
+model RolePermission {
+  id            String     @id @default(uuid()) @db.Uuid
+  roleId        String     @db.Uuid
+  permissionId  String     @db.Uuid
+  assignedAt    DateTime   @default(now())
+  role          Role       @relation(fields: [roleId], references: [id])
+  permission    Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// Many-to-Many relationship between Users and Permissions (direct permissions)
+model UserPermission {
+  id            String     @id @default(uuid()) @db.Uuid
+  userId        String     @db.Uuid
+  permissionId  String     @db.Uuid
+  assignedAt    DateTime   @default(now())
+  user          User       @relation(fields: [userId], references: [id])
+  permission    Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([userId, permissionId])
+  @@map("user_permissions")
+}
+
+// ======= ENHANCED REQUEST MANAGEMENT =======
+
+model Request {
+  id              String         @id @default(uuid()) @db.Uuid
+  requestNumber   String         @unique // Human-readable request number
+  type            RequestType
+  status          RequestStatus  @default(PENDING)
+  currentStage    Int            @default(1)
+  content         Json           // Request details
+  metadata        Json?          // Additional metadata
+  
+  // Request Flow
+  initiatorId     String         @db.Uuid
+  initiator       User           @relation("RequestInitiator", fields: [initiatorId], references: [id])
+  approverId      String?        @db.Uuid
+  approver        User?          @relation("RequestApprover", fields: [approverId], references: [id])
+  
+  // Related Entity
+  entityId        String?        @db.Uuid // ID of related entity (loan, savings, etc.)
+  entityType      String?        // Type of related entity
+  
+  // Timestamps
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  completedAt     DateTime?
+  
+  // Related Records
+  reviews         RequestReview[]
+  statusHistory   RequestStatusHistory[]
+  transactions    Transaction[]  @relation("RequestTransactions")
+  notifications   Notification[] @relation("RequestNotifications")
+  biodataId       String?        @db.Uuid
+  biodata         Biodata?       @relation(fields: [biodataId], references: [id])
+
+  @@index([initiatorId])
+  @@index([status])
+  @@index([type])
+  @@index([entityId])
+}
+
+// Request Review Tracking
+model RequestReview {
+  id          String       @id @default(uuid()) @db.Uuid
+  requestId   String       @db.Uuid
+  reviewerId  String       @db.Uuid
+  stage       Int          @default(1)
+  status      ReviewStatus
+  notes       String?      @db.Text
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  request     Request      @relation(fields: [requestId], references: [id])
+  reviewer    User         @relation("RequestReviewer", fields: [reviewerId], references: [id])
+
+  @@index([requestId])
+  @@index([reviewerId])
+}
+
+// Request Status History
+model RequestStatusHistory {
+  id          String        @id @default(uuid()) @db.Uuid
+  requestId   String        @db.Uuid
+  fromStatus  RequestStatus
+  toStatus    RequestStatus
+  stage       Int
+  changedById String        @db.Uuid
+  reason      String?       @db.Text
+  createdAt   DateTime      @default(now())
+  request     Request       @relation(fields: [requestId], references: [id])
+
+  @@index([requestId])
+}
+
+// ======= UNIFIED TRANSACTION SYSTEM =======
+
+model Transaction {
+  id                  String               @id @default(uuid()) @db.Uuid
+  transactionNumber   String               @unique // Human-readable transaction number
+  type                TransactionType
+  category            TransactionCategory
+  status              TransactionStatus    @default(PENDING)
+  amount              Decimal              @db.Decimal(12, 2)
+  
+  // Transaction Details
+  description         String?              @db.Text
+  metadata            Json?                // Module-specific data
+  reference           String?              @unique // External reference number
+  
+  // Related Entities
+  requestId           String?              @db.Uuid
+  request             Request?             @relation("RequestTransactions", fields: [requestId], references: [id])
+  biodataId           String?              @db.Uuid
+  biodata             Biodata?             @relation(fields: [biodataId], references: [id])
+  loanId              String?              @db.Uuid
+  loan                Loans?               @relation(fields: [loanId], references: [id])
+  savingsId           String?              @db.Uuid
+  savings             Savings?             @relation(fields: [savingsId], references: [id])
+  
+  // Transaction Flow
+  initiatorId         String               @db.Uuid
+  initiator           User                 @relation("TransactionInitiator", fields: [initiatorId], references: [id])
+  approverId          String?              @db.Uuid
+  approver            User?                @relation("TransactionApprover", fields: [approverId], references: [id])
+  
+  // Reversals and Links
+  parentTransactionId String?              @db.Uuid
+  parentTransaction   Transaction?         @relation("TransactionHistory", fields: [parentTransactionId], references: [id])
+  childTransactions   Transaction[]        @relation("TransactionHistory")
+  
+  // Timestamps
+  createdAt           DateTime             @default(now())
+  processedAt         DateTime?
+  completedAt         DateTime?
+  
+  // Balance Impact
+  debitAccount        String?              // Account being debited
+  creditAccount       String?              // Account being credited
+  runningBalance      Decimal?             @db.Decimal(12, 2)
+  
+  // Related Records
+  notifications       Notification[]       @relation("TransactionNotifications")
+
+  @@index([type])
+  @@index([status])
+  @@index([category])
+  @@index([initiatorId])
+  @@index([biodataId])
+  @@index([loanId])
+  @@index([savingsId])
+  @@index([requestId])
+}
+
+// ======= ENHANCED NOTIFICATION SYSTEM =======
+
+model Notification {
+  id          String                @id @default(uuid()) @db.Uuid
+  userId      String                @db.Uuid
+  type        NotificationType
+  priority    NotificationPriority  @default(NORMAL)
+  title       String
+  message     String                @db.Text
+  metadata    Json?
+  isRead      Boolean               @default(false)
+  readAt      DateTime?
+  createdAt   DateTime              @default(now())
+  
+  // Related Records
+  requestId   String?               @db.Uuid
+  request     Request?              @relation("RequestNotifications", fields: [requestId], references: [id])
+  transactionId String?             @db.Uuid
+  transaction Transaction?          @relation("TransactionNotifications", fields: [transactionId], references: [id])
+  user        User                  @relation("UserNotifications", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
+}
+
+// ======= BIODATA & ACCOUNT MANAGEMENT =======
+
+model Biodata {
+  id                      String                @id @default(uuid()) @db.Uuid
+  erpId                   String                @unique @map("erp_id")
+  ippisId                 String                @unique @map("ippis_id")
+  firstName               String                @map("first_name")
+  middleName              String?               @map("middle_name")
+  lastName                String                @map("last_name")
+  fullName                String                @unique @map("name")
+  dateOfEmployment        DateTime              @map("date_of_employment")
+  staffNo                 String                @unique @map("staff_no")
+  department              String
+  residentialAddress      String                @map("residential_address")
+  emailAddress            String                @unique @map("email_address")
+  phoneNumber             String                @unique @map("phone_number")
+  nextOfKin               String                @map("next_of_kin")
+  relationshipOfNextOfKin String                @map("relationship_of_next_of_kin")
+  nextOfKinPhoneNumber    String                @map("next_of_kin_phone_number")
+  nextOfKinEmailAddress   String                @map("next_of_kin_email_address")
+  profilePhoto            String?               @map("profile_photo")
+  
+  // Status flags
+  status                  BiodataStatus         @default(PENDING)
+  isVerified              Boolean               @default(false)
+  isApproved              Boolean               @default(false)
+  isDeleted               Boolean               @default(false)
+  
+  // Timestamps
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  
+  // Related Records
+  accountInfo             AccountInfo[]
+  users                   User[]
+  savings                 Savings[]
+  shares                  Shares[]
+  loans                   Loans[]
+  transactions            Transaction[]
+  requests                Request[]
+  notifications           Notification[]        @relation("BiodataNotifications")
+
+  @@unique([id, erpId])
+  @@index([erpId])
+}
+
+model AccountInfo {
+  id                      String    @id @default(uuid()) @db.Uuid
+  biodataId               String    @db.Uuid
+  bankId                  String    @db.Uuid
+  bankAccountNumber       String    @map("bank_account_number")
+  bankVerificationNumber  String    @map("bank_verification_number")
+  accountHolderName       String    @map("account_holder_name")
+  isDefault               Boolean   @default(true)  // Is this the default account for the member
+  isVerified              Boolean   @default(false)
+  verifiedBy              String?   @db.Uuid
+  verifiedAt              DateTime?
+  
+  // Relations
+  bank                    Bank      @relation(fields: [bankId], references: [id])
+  biodata                 Biodata   @relation(fields: [biodataId], references: [id])
+
+  @@index([biodataId])
+  @@unique([biodataId, bankAccountNumber]) // No duplicate account numbers for same member
+}
+
+model Bank {
+  id                      String        @id @default(uuid()) @db.Uuid
+  name                    String        @unique
+  code                    String        @unique
+  status                  Boolean       @default(true)
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  accounts                AccountInfo[]
+
+  @@index([code])
+}
+
+// ======= SAVINGS & SHARES MANAGEMENT =======
+
+model Savings {
+  id                      String        @id @default(uuid()) @db.Uuid
+  biodataId               String        @db.Uuid
+  erpId                   String        @map("erp_id")
+  grossAmount             Decimal       @map("gross_amount") // Total amount before shares deduction
+  monthlyAmount           Decimal       @map("monthly_amount") // Net amount after shares deduction
+  totalAmount             Decimal       @map("total_amount") // Cumulative net savings
+  grossTotal              Decimal       @map("gross_total") // Cumulative gross savings
+  month                   Int           // Month number (1-12)
+  year                    Int
+  isProcessed             Boolean       @default(false) // Indicates if shares have been split
+  status                  SavingsStatus @default(ACTIVE)
+  description             String?
+  createdAt               DateTime      @default(now())
+  
+  // Relations
+  biodata                 Biodata       @relation(fields: [biodataId], references: [id])
+  shares                  Shares[]      @relation("SavingsShares")
+  transactions            Transaction[]
+
+  @@unique([erpId, month, year])
+  @@index([biodataId, erpId])
+  @@index([status])
+}
+
+model Shares {
+  id                      String        @id @default(uuid()) @db.Uuid
+  biodataId               String        @db.Uuid
+  erpId                   String        @map("erp_id")
+  monthlyAmount           Decimal       @default(3000) @map("monthly_amount")
+  totalAmount             Decimal       @map("total_amount")
+  month                   Int           // Month number (1-12)
+  year                    Int
+  savingsId               String        @db.Uuid // Reference to source savings entry
+  status                  SharesStatus  @default(ACTIVE)
+  createdAt               DateTime      @default(now())
+  
+  // Relations
+  biodata                 Biodata       @relation(fields: [biodataId], references: [id])
+  savings                 Savings       @relation("SavingsShares", fields: [savingsId], references: [id])
+
+  @@unique([erpId, month, year]) // Prevent duplicate monthly entries
+  @@index([biodataId, erpId])
+  @@index([status])
+}
+
+// ======= LOAN MANAGEMENT =======
+
+model Loans {
+  id                      String                @id @default(uuid()) @db.Uuid
+  loanNumber              String                @unique // Human-readable loan number
+  biodataId               String                @db.Uuid
+  erpId                   String                @map("erp_id")
+  loanAmount              Decimal               @map("loan_amount")
+  totalInterest           Decimal               @map("total_interest")
+  totalRepayableAmount    Decimal               @map("total_repayable_amount")
+  paidAmount              Decimal               @default(0) @map("paid_amount")
+  remainingBalance        Decimal               @map("remaining_balance")
+  loanTenure              Int                   @map("loan_tenure")
+  
+  // Loan status and dates
+  status                  LoanStatus            @default(PENDING)
+  requestId               String?               @db.Uuid // Reference to original request
+  disbursedAt             DateTime?
+  completedAt             DateTime?
+  lastPaymentDate         DateTime?             @map("last_payment_date")
+  nextPaymentDue          DateTime?             @map("next_payment_due")
+  
+  // Payment tracking
+  latePaymentCount        Int                   @default(0) @map("late_payment_count")
+  totalLatePaymentDays    Int                   @default(0) @map("total_late_payment_days")
+  
+  // Loan details
+  loanPurpose             String                @db.Text
+  approvedBy              String?               @map("approved_by")
+  approvedAt              DateTime?
+  approvalNotes           String?               @db.Text
+  rejectionReason         String?               @db.Text
+  loanTypeId              String                @db.Uuid
+  
+  // Timestamps
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  
+  // Relations
+  biodata                 Biodata               @relation(fields: [biodataId], references: [id])
+  loanType                LoanType              @relation("LoanTypeLoans", fields: [loanTypeId], references: [id])
+  paymentSchedules        LoanPaymentSchedule[]
+  repayments              LoanRepayment[]
+  transactions            Transaction[]
+  statusHistory           LoanStatusHistory[]
+
+  @@index([biodataId])
+  @@index([erpId])
+  @@index([status])
+}
+
+model LoanType {
+  id                      String        @id @default(uuid()) @db.Uuid
+  typeName                String        @map("type_name") // e.g., "Soft Loan", "1 Year Regular Loan", "1 Year Plus"
+  description             String        @default("")
+  interestRate            Decimal       @map("interest_rate") // Interest rate as a decimal (e.g., 0.10 for 10%)
+  minDuration             Int           @map("min_duration") // Minimum duration in months
+  maxDuration             Int           @map("max_duration") // Maximum duration in months
+  maxLoanAmount           Decimal       @map("max_loan_amount") // Maximum loan amount based on savings
+  minSavingsMultiplier    Decimal       @default(0) @map("min_savings_multiplier") // Minimum savings multiplier (e.g., 3x savings)
+  interestType            InterestType  @default(ANNUAL) // Interest calculation type
+  allowMultiple           Boolean       @default(false) // Whether multiple loans of this type are allowed
+  
+  // Relations
+  loans                   Loans[]       @relation("LoanTypeLoans")
+}
+
+model LoanPaymentSchedule {
+  id                      String         @id @default(uuid()) @db.Uuid
+  loanId                  String         @db.Uuid
+  scheduledNumber         Int            // Payment number in sequence
+  scheduledDate           DateTime       @map("scheduled_date")
+  actualPaymentDate       DateTime?      @map("actual_payment_date")
+  principalAmount         Decimal        @map("principal_amount")
+  interestAmount          Decimal        @map("interest_amount")
+  totalAmount             Decimal        @map("total_amount")
+  remainingBalance        Decimal        @map("remaining_balance")
+  isPaid                  Boolean        @default(false)
+  isLate                  Boolean        @default(false)
+  daysLate                Int            @default(0)
+  status                  PaymentStatus  @default(PENDING)
+  repaymentId             String?        @db.Uuid
+  
+  // Relations
+  loan                    Loans          @relation(fields: [loanId], references: [id])
+  repayment               LoanRepayment? @relation(fields: [repaymentId], references: [id])
+
+  @@index([loanId])
+  @@index([status])
+}
+
+model LoanRepayment {
+  id                      String                @id @default(uuid()) @db.Uuid
+  loanId                  String                @db.Uuid
+  amount                  Decimal
+  repaymentDate           DateTime              @map("repayment_date")
+  uploadedDate            DateTime              @default(now()) @map("uploaded_date")
+  repaymentMonth          Int
+  repaymentYear           Int
+  uploadedBy              String                @db.Uuid
+  description             String?               @db.Text
+  isReconciled            Boolean               @default(false)
+  transactionId           String?               @db.Uuid // Reference to transaction
+  
+  // Relations
+  loan                    Loans                 @relation(fields: [loanId], references: [id])
+  schedules               LoanPaymentSchedule[]
+
+  @@unique([loanId, repaymentMonth, repaymentYear])
+  @@index([loanId])
+}
+
+model LoanStatusHistory {
+  id                      String     @id @default(uuid()) @db.Uuid
+  loanId                  String     @db.Uuid
+  fromStatus              LoanStatus
+  toStatus                LoanStatus
+  changedBy               String     @db.Uuid
+  changeDate              DateTime   @default(now())
+  reason                  String?    @db.Text
+  
+  // Relations
+  loan                    Loans      @relation(fields: [loanId], references: [id])
+
+  @@index([loanId])
+}
+
+// ======= SESSION MANAGEMENT =======
+
+model Session {
+  id                      String   @id @default(uuid()) @db.Uuid
+  userId                  String   @db.Uuid
+  deviceInfo              String?
+  ipAddress               String?
+  lastActivity            DateTime @default(now())
+  isActive                Boolean  @default(true)
+  expiresAt               DateTime
+  refreshToken            String?  @unique
+  
+  // Relations
+  user                    User     @relation(fields: [userId], references: [id])
+  
+  // Timestamps
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+// ======= ENUMS =======
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+  RESIGNED
+  TERMINATED
+}
+
+enum BiodataStatus {
+  PENDING
+  VERIFIED
+  APPROVED
+  SUSPENDED
+  CLOSED
+}
+
+enum RequestType {
+  BIODATA_APPROVAL
+  BIODATA_UPDATE
+  ACCOUNT_UPDATE
+  LOAN_APPLICATION
+  LOAN_DISBURSEMENT
+  SAVINGS_WITHDRAWAL
+  ACCOUNT_CLOSURE
+}
+
+enum RequestStatus {
+  PENDING
+  IN_REVIEW
+  REVIEWED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+  PENDING_DISBURSEMENT
+  DISBURSED
+  COMPLETED
+}
+
+enum ReviewStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  ESCALATED
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+}
+
+enum TransactionCategory {
+  SAVINGS_DEPOSIT
+  SAVINGS_WITHDRAWAL
+  SHARES_DEPOSIT
+  LOAN_DISBURSEMENT
+  LOAN_REPAYMENT
+  LOAN_INTEREST
+  LOAN_PENALTY
+  ACCOUNT_CLOSURE
+  SYSTEM_ADJUSTMENT
+}
+
+enum TransactionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum NotificationType {
+  TRANSACTION_ALERT
+  REQUEST_CREATED
+  REQUEST_STATUS_CHANGE
+  APPROVAL_REQUIRED
+  LOAN_DUE_REMINDER
+  SYSTEM_MESSAGE
+  ACCOUNT_UPDATE
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum SavingsStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum SharesStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum LoanStatus {
+  PENDING
+  IN_REVIEW
+  REVIEWED
+  APPROVED
+  REJECTED
+  PENDING_DISBURSEMENT
+  DISBURSED
+  ACTIVE
+  COMPLETED
+  DEFAULTED
+  RESTRUCTURED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+  LATE
+  OVERDUE
+  WAIVED
+}
+
+enum InterestType {
+  MONTHLY
+  ANNUAL
+}

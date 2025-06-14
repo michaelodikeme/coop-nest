@@ -1,0 +1,124 @@
+import { api, type PaginatedResponse } from '../../api';
+import type { Share, ShareTransaction, ShareStats } from '../../types';
+
+interface SharesSummary {
+  totalShares: number;
+  shareValue: number;
+  totalShareValue: number;
+  lastTransaction?: ShareTransaction;
+}
+
+export interface SharesUploadResult {
+  processed: number;
+  failed: number;
+  errors?: string[];
+}
+
+class SharesApiService {
+  // Member endpoints
+  async getSharesSummary(biodataId?: string): Promise<SharesSummary> {
+    // Authenticated member can view their own summary
+    // Admin can view any member's summary by providing biodataId
+    const endpoint = biodataId ? `/shares/summary/${biodataId}` : '/shares/summary';
+    return api.get<SharesSummary>(endpoint);
+  }
+
+  async getMemberShares(biodataId?: string): Promise<Share[]> {
+    // Authenticated member can view their own shares
+    // Admin can view any member's shares by providing biodataId
+    const endpoint = biodataId ? `/shares/${biodataId}` : '/shares';
+    return api.get<Share[]>(endpoint);
+  }
+
+  async getShareTransactionHistory(params: {
+    page?: number;
+    limit?: number;
+    startDate?: string;
+    endDate?: string;
+    type?: string;
+    biodataId?: string;
+  } = {}): Promise<PaginatedResponse<ShareTransaction>> {
+    // Authenticated member can view their own transaction history
+    // Admin can view any member's transactions by providing biodataId in params
+    return api.get<PaginatedResponse<ShareTransaction>>('/shares/transactions', {
+      params,
+    });
+  }
+
+  async requestShareWithdrawal(biodataId: string, amount: number, reason: string): Promise<any> {
+    // Requires 'create_share_withdrawal_request' permission
+    return api.post('/requests/share-withdrawal', {
+      type: 'SHARE_WITHDRAWAL',
+      biodataId,
+      details: { amount, reason },
+    });
+  }
+
+  async getSharesStats(year: number, biodataId?: string): Promise<ShareStats> {
+    // Member or admin
+    const endpoint = biodataId 
+      ? `/shares/stats/${year}/${biodataId}` 
+      : `/shares/stats/${year}`;
+    return api.get<ShareStats>(endpoint);
+  }
+
+  // Admin endpoints
+  async getAllMemberShares(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  } = {}): Promise<PaginatedResponse<Share>> {
+    // Admin only - requires view_all_profiles permission
+    return api.get('/admin/shares', { params });
+  }
+
+  async createMemberShares(sharesData: {
+    erpId: string;
+    numberOfShares: number;
+    valuePerShare: number;
+    date: string;
+    notes?: string;
+  }): Promise<Share> {
+    // Admin only
+    return api.post('/shares/create', sharesData);
+  }
+
+  async processSharesUpload(
+    file: File,
+    onProgress?: (progress: number) => void
+  ): Promise<SharesUploadResult> {
+    // Admin only
+    const formData = new FormData();
+    formData.append('uploadFile', file);
+    
+    return api.post<SharesUploadResult>('/shares/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(progress);
+        }
+      },
+    });
+  }
+
+  async downloadSharesBackup(): Promise<void> {
+    // Admin only
+    return api.download('/shares/backup', 'shares_backup.xlsx');
+  }
+
+  async generateSharesStatement(erpId: string, dateRange?: {
+    startDate: string;
+    endDate: string;
+  }): Promise<void> {
+    // Admin or own profile
+    const url = dateRange 
+      ? `/shares/statement/${erpId}/download?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`
+      : `/shares/statement/${erpId}/download`;
+    return api.download(url, 'shares_statement.pdf');
+  }
+}
+
+export const sharesApi = new SharesApiService();

@@ -1,0 +1,777 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enhanced User Management
+model User {
+  id              String            @id @default(uuid()) @db.Uuid
+  biodataId       String?           @db.Uuid
+  username        String?           @unique
+  password        String?
+  isActive        Boolean           @default(true)
+  isMember        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  roleAssignments UserRole[]
+  biodata         Biodata?          @relation(fields: [biodataId], references: [id])
+  adminProfile    AdminUserProfile?
+  notifications   Notification[]
+  sessions        Session[]
+
+  // Request relationships
+  initiatedRequests Request[] @relation("RequestInitiator")
+  assignedRequests  Request[] @relation("RequestAssignee")
+  approvedRequests  Request[] @relation("RequestApprover")
+
+  // Transaction relationships
+  initiatedTxns Transaction[] @relation("TransactionInitiator")
+  approvedTxns  Transaction[] @relation("TransactionApprover")
+
+  // Loan relationships
+  uploadedRepayments  BulkRepaymentUpload[] @relation("RepaymentUploader")
+  processedRepayments LoanRepayment[]       @relation("RepaymentProcessor")
+
+  // Status change tracking
+  statusChanges   LoanStatusHistory[] @relation("StatusChanger")
+  RequestApproval RequestApproval[]
+
+  @@index([username])
+}
+
+// Enhanced Role Management
+model Role {
+  id              String     @id @default(uuid()) @db.Uuid
+  name            String     @unique
+  description     String?
+  permissions     String[]
+  approvalLevel   Int // Position in approval chain
+  canApprove      Boolean    @default(false)
+  moduleAccess    String[] // Which modules this role can access
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  userAssignments UserRole[]
+
+  @@map("roles")
+}
+
+// Flexible User-Role Assignment
+model UserRole {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  roleId     String    @db.Uuid
+  assignedAt DateTime  @default(now())
+  expiresAt  DateTime?
+  isActive   Boolean   @default(true)
+  user       User      @relation(fields: [userId], references: [id])
+  role       Role      @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// Enhanced Admin Profile
+model AdminUserProfile {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @unique @db.Uuid
+  firstName    String
+  lastName     String
+  emailAddress String   @unique
+  phoneNumber  String   @unique
+  department   String
+  position     String
+  staffId      String   @unique
+  isActive     Boolean  @default(true)
+  isVerified   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User?    @relation(fields: [userId], references: [id])
+
+  @@map("admin_profiles")
+}
+
+// Enhanced Account Management
+model AccountInfo {
+  id               String    @id @default(uuid()) @db.Uuid
+  biodataId        String    @db.Uuid
+  bankId           String    @db.Uuid
+  accountNumber    String    @map("account_number")
+  bvn              String    @map("bank_verification_number")
+  accountName      String    @map("account_name")
+  isVerified       Boolean   @default(false)
+  verificationDate DateTime?
+  verifiedBy       String?   @db.Uuid
+  bank             Bank      @relation(fields: [bankId], references: [id])
+  biodata          Biodata   @relation(fields: [biodataId], references: [id])
+
+  @@unique([biodataId, bankId])
+  @@index([biodataId])
+}
+
+// Bank Information
+model Bank {
+  id        String        @id @default(uuid()) @db.Uuid
+  name      String        @unique
+  code      String        @unique
+  status    Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  accounts  AccountInfo[]
+
+  @@index([code])
+}
+
+// Enhanced Member Biodata
+model Biodata {
+  id                      String            @id @default(uuid()) @db.Uuid
+  erpId                   String            @unique @map("erp_id")
+  ippisId                 String            @unique @map("ippis_id")
+  firstName               String            @map("first_name")
+  middleName              String?           @map("middle_name")
+  lastName                String            @map("last_name")
+  fullName                String            @unique @map("name")
+  dateOfEmployment        DateTime          @map("date_of_employment")
+  staffNo                 String            @unique @map("staff_no")
+  department              String
+  residentialAddress      String            @map("residential_address")
+  emailAddress            String            @unique @map("email_address")
+  phoneNumber             String            @unique @map("phone_number")
+  nextOfKin               String            @map("next_of_kin")
+  relationshipOfNextOfKin String            @map("relationship_of_next_of_kin")
+  nextOfKinPhoneNumber    String            @map("next_of_kin_phone_number")
+  nextOfKinEmailAddress   String            @map("next_of_kin_email_address")
+  profilePhoto            String?           @map("profile_photo")
+  isVerified              Boolean           @default(false)
+  isApproved              Boolean           @default(false)
+  isDeleted               Boolean           @default(false)
+  membershipStatus        MembershipStatus  @default(ACTIVE)
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  accountInfo             AccountInfo[]
+  users                   User[]
+  savings                 Savings[]
+  shares                  Shares[]
+  loans                   Loan[]
+  Request                 Request[]
+  PersonalSavings         PersonalSavings[]
+
+  @@unique([id, erpId])
+  @@index([erpId])
+  @@index([membershipStatus])
+}
+
+// Enhanced Savings Management
+model Savings {
+  id                 String  @id @default(uuid()) @db.Uuid
+  memberId           String  @db.Uuid
+  erpId              String  @map("erp_id")
+  balance            Decimal @db.Decimal(15, 2)
+  monthlyTarget      Decimal @db.Decimal(15, 2)
+  totalGrossAmount   Decimal @default(0)
+  totalSavingsAmount Decimal @default(0)
+
+  lastDeposit  DateTime?
+  month        Int // Month number (1-12)
+  year         Int
+  isProcessed  Boolean       @default(false) // Indicates if shares have been split
+  status       AccountStatus @default(ACTIVE)
+  description  String?
+  createdAt    DateTime      @default(now())
+  member       Biodata       @relation(fields: [memberId, erpId], references: [id, erpId])
+  requests     Request[] // Withdrawal requests
+  transactions Transaction[] // Related transactions
+  shares       Shares[]      @relation("SavingsShares")
+
+  @@unique([erpId, month, year])
+  @@index([memberId, erpId])
+  @@index([status])
+}
+
+// Personal Savings model for individual savings plans
+model PersonalSavingsPlan {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationship
+  personalSavings PersonalSavings[]
+}
+
+model PersonalSavings {
+  id             String                @id @default(uuid()) @db.Uuid
+  memberId       String                @db.Uuid
+  erpId          String                @map("erp_id")
+  planTypeId     String                @db.Uuid // NEW: Reference to PersonalSavingsPlan
+  planName       String? // Optional: user-customized name
+  targetAmount   Decimal?              @db.Decimal(15, 2)
+  currentBalance Decimal               @default(0) @db.Decimal(15, 2)
+  status         PersonalSavingsStatus @default(ACTIVE)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  // Relationships
+  member       Biodata             @relation(fields: [memberId], references: [id])
+  planType     PersonalSavingsPlan @relation(fields: [planTypeId], references: [id])
+  transactions Transaction[]
+  requests     Request[]
+
+  @@index([memberId, erpId])
+  @@index([planTypeId])
+  @@index([status])
+}
+
+// Enhanced Shares Management
+model Shares {
+  id        String @id @default(uuid()) @db.Uuid
+  memberId  String @db.Uuid
+  erpId     String @map("erp_id")
+  savingsId String @db.Uuid // Reference to source savings entry
+
+  unitsHeld         Int
+  valuePerUnit      Decimal   @db.Decimal(15, 2)
+  totalValue        Decimal   @db.Decimal(15, 2)
+  monthlyTarget     Decimal   @default(3000) @map("monthly_amount") @db.Decimal(15, 2)
+  totalSharesAmount Decimal   @default(0)
+  lastPurchase      DateTime?
+  month             Int // Month number (1-12)
+  year              Int
+
+  status       AccountStatus @default(ACTIVE)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  member       Biodata       @relation(fields: [memberId], references: [id])
+  savings      Savings       @relation("SavingsShares", fields: [savingsId], references: [id])
+  transactions Transaction[] // Share purchase/liquidation transactions
+
+  @@unique([erpId, month, year]) // Prevent duplicate monthly entries
+  @@index([memberId])
+  @@index([status])
+  @@index([erpId])
+}
+
+// Enhanced Loan Types
+model LoanType {
+  id                String  @id @default(uuid()) @db.Uuid
+  name              String  @unique
+  description       String  @default("")
+  interestRate      Decimal @map("interest_rate")
+  minDuration       Int     @map("min_duration")
+  maxDuration       Int     @map("max_duration")
+  maxLoanAmount     Decimal @map("max_loan_amount")
+  savingsMultiplier Decimal @default(3.00) // Maximum loan amount as multiple of savings
+  isActive          Boolean @default(true)
+  requiresApproval  Boolean @default(true)
+  loans             Loan[]
+}
+
+// Enhanced Loan Management
+model Loan {
+  id         String   @id @default(uuid()) @db.Uuid
+  memberId   String   @db.Uuid
+  erpId      String   @map("erp_id")
+  member     Biodata  @relation(fields: [memberId], references: [id])
+  loanTypeId String   @db.Uuid
+  loanType   LoanType @relation(fields: [loanTypeId], references: [id])
+
+  // Loan details
+  principalAmount  Decimal @db.Decimal(15, 2)
+  interestAmount   Decimal @db.Decimal(15, 2)
+  totalAmount      Decimal @db.Decimal(15, 2)
+  paidAmount       Decimal @default(0) @db.Decimal(15, 2)
+  remainingBalance Decimal @db.Decimal(15, 2)
+  tenure           Int // Duration in months
+
+  // Status tracking
+  status        LoanStatus          @default(PENDING)
+  statusHistory LoanStatusHistory[]
+
+  // Dates
+  disbursedAt     DateTime?
+  completedAt     DateTime?
+  lastPaymentDate DateTime?
+  nextPaymentDue  DateTime?
+
+  // Payment tracking
+  paymentSchedules LoanSchedule[]
+  repayments       LoanRepayment[]
+
+  // Request tracking
+  requests Request[]
+
+  // Application details
+  purpose     String        @db.Text
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  Transaction Transaction[]
+
+  savingsSnapshot Json? // Store savings state at loan creation
+
+  @@index([erpId])
+  @@index([memberId])
+  @@index([status])
+}
+
+// Enhanced Loan Schedule
+model LoanSchedule {
+  id                String          @id @default(uuid()) @db.Uuid
+  loanId            String          @db.Uuid
+  loan              Loan            @relation(fields: [loanId], references: [id])
+  dueDate           DateTime
+  expectedAmount    Decimal         @db.Decimal(15, 2)
+  principalAmount   Decimal         @db.Decimal(15, 2)
+  interestAmount    Decimal         @db.Decimal(15, 2)
+  paidAmount        Decimal         @default(0) @db.Decimal(15, 2)
+  remainingBalance  Decimal         @db.Decimal(15, 2)
+  status            PaymentStatus   @default(PENDING)
+  actualPaymentDate DateTime?
+  repayments        LoanRepayment[]
+
+  @@index([loanId])
+  @@index([status])
+}
+
+// Enhanced Loan Repayment Management
+model BulkRepaymentUpload {
+  id           String          @id @default(uuid()) @db.Uuid
+  uploadedBy   String          @db.Uuid
+  uploader     User            @relation("RepaymentUploader", fields: [uploadedBy], references: [id])
+  fileName     String
+  uploadDate   DateTime        @default(now())
+  totalAmount  Decimal         @db.Decimal(15, 2)
+  totalCount   Int
+  successCount Int             @default(0)
+  errorCount   Int             @default(0)
+  status       UploadStatus    @default(PROCESSING)
+  errorDetails Json? // Store any upload errors
+  metadata     Json? // Additional upload metadata
+  repayments   LoanRepayment[]
+
+  // Tracking
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([uploadedBy])
+  @@index([status])
+}
+
+model LoanRepayment {
+  id             String   @id @default(uuid()) @db.Uuid
+  loanId         String   @db.Uuid
+  loan           Loan     @relation(fields: [loanId], references: [id])
+  amount         Decimal  @db.Decimal(15, 2)
+  repaymentDate  DateTime
+  uploadedDate   DateTime @default(now())
+  repaymentMonth Int
+  repaymentYear  Int
+
+  // Upload tracking
+  uploadedBy    String               @db.Uuid
+  uploader      User                 @relation("RepaymentProcessor", fields: [uploadedBy], references: [id])
+  uploadBatchId String?              @db.Uuid
+  bulkUpload    BulkRepaymentUpload? @relation(fields: [uploadBatchId], references: [id])
+
+  // Reconciliation
+  isReconciled        Boolean   @default(false)
+  reconciledAt        DateTime?
+  reconciledBy        String?   @db.Uuid
+  reconciliationNotes String?   @db.Text
+
+  // Schedule links
+  scheduleId String?       @db.Uuid
+  schedule   LoanSchedule? @relation(fields: [scheduleId], references: [id])
+
+  @@unique([loanId, repaymentMonth, repaymentYear])
+  @@index([loanId])
+  @@index([uploadBatchId])
+  @@index([scheduleId])
+}
+
+model LoanStatusHistory {
+  id         String     @id @default(uuid()) @db.Uuid
+  loanId     String     @db.Uuid
+  loan       Loan       @relation(fields: [loanId], references: [id])
+  fromStatus LoanStatus
+  toStatus   LoanStatus
+  changedBy  String     @db.Uuid
+  changeUser User       @relation("StatusChanger", fields: [changedBy], references: [id])
+  changeDate DateTime   @default(now())
+  reason     String?    @db.Text
+
+  @@index([loanId])
+  @@index([changedBy])
+}
+
+// Enhanced Request & Approval System
+model Request {
+  id       String          @id @default(uuid()) @db.Uuid
+  type     RequestType
+  module   RequestModule
+  status   RequestStatus   @default(PENDING)
+  priority RequestPriority @default(NORMAL)
+  content  Json // Request details
+  metadata Json? // Additional data
+
+  // Initiator and approval chain
+  initiatorId       String  @db.Uuid
+  initiator         User    @relation("RequestInitiator", fields: [initiatorId], references: [id])
+  assigneeId        String? @db.Uuid
+  assignee          User?   @relation("RequestAssignee", fields: [assigneeId], references: [id])
+  approverId        String? @db.Uuid
+  approver          User?   @relation("RequestApprover", fields: [approverId], references: [id])
+  nextApprovalLevel Int     @default(1)
+
+  // Related records
+  loanId    String?  @db.Uuid
+  loan      Loan?    @relation(fields: [loanId], references: [id])
+  savingsId String?  @db.Uuid
+  savings   Savings? @relation(fields: [savingsId], references: [id])
+  biodataId String?  @db.Uuid
+  biodata   Biodata? @relation(fields: [biodataId], references: [id])
+
+  // Personal Savings
+  personalSavingsId String?          @db.Uuid
+  personalSavings   PersonalSavings? @relation(fields: [personalSavingsId], references: [id])
+
+  // Tracking
+  notes         String?           @db.Text
+  transactions  Transaction[]
+  approvalSteps RequestApproval[]
+  notifications Notification[]    @relation("RequestNotifications")
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  completedAt   DateTime?
+
+  @@index([type])
+  @@index([status])
+  @@index([initiatorId])
+  @@index([assigneeId])
+  @@index([personalSavingsId])
+}
+
+// Request Approval Chain Tracking
+model RequestApproval {
+  id           String         @id @default(uuid()) @db.Uuid
+  requestId    String         @db.Uuid
+  request      Request        @relation(fields: [requestId], references: [id])
+  level        Int // Approval level (1,2,3 etc)
+  status       ApprovalStatus @default(PENDING)
+  approverId   String?        @db.Uuid
+  approver     User?          @relation(fields: [approverId], references: [id])
+  approverRole String // Role required for this level
+  notes        String?        @db.Text
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  approvedAt   DateTime?
+
+  @@unique([requestId, level])
+  @@index([requestId])
+  @@index([status])
+}
+
+// Enhanced Notification System
+model Notification {
+  id       String           @id @default(uuid()) @db.Uuid
+  userId   String           @db.Uuid
+  user     User             @relation(fields: [userId], references: [id])
+  type     NotificationType
+  title    String
+  message  String           @db.Text
+  metadata Json? // Additional context
+
+  // Related records
+  requestId     String?      @db.Uuid
+  request       Request?     @relation("RequestNotifications", fields: [requestId], references: [id])
+  transactionId String?      @db.Uuid
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+
+  // Status tracking
+  isRead    Boolean              @default(false)
+  readAt    DateTime?
+  createdAt DateTime             @default(now())
+  expiresAt DateTime?
+  priority  NotificationPriority @default(NORMAL)
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// Enhanced Session management
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  user         User     @relation(fields: [userId], references: [id])
+  token        String
+  refreshToken String?
+  deviceInfo   String?
+  ipAddress    String?
+  userAgent    String?
+  lastActive   DateTime @default(now())
+  expiresAt    DateTime
+  isActive     Boolean  @default(true)
+  isRevoked    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, token])
+  @@index([userId, deviceInfo, isActive])
+  @@index([token])
+  @@index([refreshToken])
+}
+
+// Enhanced Transaction System
+model Transaction {
+  id              String            @id @default(uuid()) @db.Uuid
+  transactionType TransactionType
+  baseType        TransactionType // Add this field for CREDIT/DEBIT tracking
+  module          TransactionModule
+  amount          Decimal           @db.Decimal(15, 2)
+  balanceAfter    Decimal           @db.Decimal(15, 2)
+  status          TransactionStatus @default(PENDING)
+  description     String?           @db.Text
+  metadata        Json? // Module-specific data
+
+  // User tracking
+  initiatedBy String  @db.Uuid
+  initiator   User    @relation("TransactionInitiator", fields: [initiatedBy], references: [id])
+  approvedBy  String? @db.Uuid
+  approver    User?   @relation("TransactionApprover", fields: [approvedBy], references: [id])
+
+  // Related records
+  requestId String?  @db.Uuid
+  request   Request? @relation(fields: [requestId], references: [id])
+  loanId    String?  @db.Uuid
+  loan      Loan?    @relation(fields: [loanId], references: [id])
+  savingsId String?  @db.Uuid
+  savings   Savings? @relation(fields: [savingsId], references: [id])
+  sharesId  String?  @db.Uuid
+  shares    Shares?  @relation(fields: [sharesId], references: [id])
+
+  // Personal Savings
+  personalSavingsId String?          @db.Uuid
+  personalSavings   PersonalSavings? @relation(fields: [personalSavingsId], references: [id])
+
+  // Transaction chain
+  parentTxnId       String?       @db.Uuid
+  parentTransaction Transaction?  @relation("TransactionHistory", fields: [parentTxnId], references: [id])
+  childTransactions Transaction[] @relation("TransactionHistory")
+
+  // Notifications
+  notifications Notification[]
+
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([personalSavingsId])
+  @@index([transactionType])
+  @@index([status])
+  @@index([module])
+  @@index([requestId])
+  @@index([loanId])
+  @@index([savingsId])
+  @@index([sharesId])
+}
+
+// Enhanced System Settings Management
+model SystemSettings {
+  id          String                  @id @default(uuid()) @db.Uuid
+  key         String                  @unique
+  value       String // Stored as JSON string
+  type        String // data type (number, string, boolean, etc)
+  group       String // For categorizing settings (SHARES, SAVINGS, etc)
+  description String?
+  createdBy   String                  @db.Uuid
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  history     SystemSettingsHistory[]
+
+  @@index([key])
+  @@index([group])
+}
+
+model SystemSettingsHistory {
+  id        String         @id @default(uuid()) @db.Uuid
+  settingId String         @db.Uuid
+  setting   SystemSettings @relation(fields: [settingId], references: [id])
+  oldValue  String
+  newValue  String
+  updatedBy String         @db.Uuid
+  reason    String
+  createdAt DateTime       @default(now())
+
+  @@index([settingId])
+}
+
+// Enums with proper formatting
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  RESIGNED
+  TERMINATED
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum TransactionType {
+  // Basic types
+  CREDIT
+  DEBIT
+
+  // Savings related
+  SAVINGS_DEPOSIT
+  SAVINGS_WITHDRAWAL
+  SAVINGS_INTEREST
+
+  // Shares related
+  SHARES_PURCHASE
+  SHARES_LIQUIDATION
+  SHARES_DIVIDEND
+
+  // Loan related
+  LOAN_DISBURSEMENT
+  LOAN_REPAYMENT
+  LOAN_INTEREST
+  LOAN_PENALTY
+
+  // System transactions
+  FEE
+  REVERSAL
+  ADJUSTMENT
+
+  // Personal Savings
+  PERSONAL_SAVINGS_DEPOSIT
+  PERSONAL_SAVINGS_WITHDRAWAL
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REVERSED
+  CANCELLED
+}
+
+enum TransactionModule {
+  SAVINGS
+  SHARES
+  LOAN
+  SYSTEM
+  ADMIN
+}
+
+enum RequestType {
+  // Member requests
+  LOAN_APPLICATION
+  SAVINGS_WITHDRAWAL
+  ACCOUNT_CLOSURE
+  BIODATA_UPDATE
+  ACCOUNT_CREATION
+  ACCOUNT_UPDATE
+  ACCOUNT_VERIFICATION
+  PERSONAL_SAVINGS_CREATION
+  PERSONAL_SAVINGS_WITHDRAWAL
+
+  // Admin requests
+  LOAN_DISBURSEMENT
+  BULK_UPLOAD
+  SYSTEM_ADJUSTMENT
+}
+
+enum RequestStatus {
+  PENDING
+  IN_REVIEW
+  REVIEWED
+  APPROVED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+enum RequestModule {
+  LOAN
+  SAVINGS
+  SHARES
+  ACCOUNT
+  SYSTEM
+}
+
+enum RequestPriority {
+  LOW
+  MEDIUM
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ApprovalStatus {
+  PENDING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  SKIPPED
+}
+
+enum LoanStatus {
+  PENDING
+  IN_REVIEW
+  REVIEWED
+  APPROVED
+  REJECTED
+  DISBURSED
+  ACTIVE
+  COMPLETED
+  DEFAULTED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+  LATE
+  OVERDUE
+  WAIVED
+}
+
+enum NotificationType {
+  TRANSACTION
+  REQUEST_UPDATE
+  APPROVAL_REQUIRED
+  SYSTEM_ALERT
+  ACCOUNT_UPDATE
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum UploadStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+  PARTIALLY_COMPLETED
+  CANCELLED
+}
+
+enum PersonalSavingsStatus {
+  ACTIVE
+  CLOSED
+  SUSPENDED
+  PENDING
+}

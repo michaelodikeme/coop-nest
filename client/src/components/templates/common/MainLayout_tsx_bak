@@ -1,0 +1,195 @@
+'use client';
+
+import React, { useEffect } from 'react';
+import { isAdminUser } from '@/lib/utils/roleUtils';
+import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
+import { 
+  ChartBarIcon, 
+  UsersIcon, 
+  BanknotesIcon,
+  ClipboardDocumentCheckIcon,
+  BellIcon,
+  Cog6ToothIcon 
+} from '@heroicons/react/24/outline';
+import { usePermissions } from '@/lib/hooks/auth/usePermissions';
+import { useAuth } from '@/lib/api/contexts/AuthContext';
+import PermissionGate from '@/components/atoms/PermissionGate';
+
+interface NavItem {
+  name: string;
+  href: string;
+  icon: typeof ChartBarIcon;
+  permission?: string;
+  approvalLevel?: number;
+}
+
+const navigation: NavItem[] = [
+  { name: 'Dashboard', href: '/admin/dashboard', icon: ChartBarIcon },
+  { 
+    name: 'User Management', 
+    href: '/admin/users', 
+    icon: UsersIcon, 
+    permission: 'MANAGE_USERS',
+    approvalLevel: 1 
+  },
+  { 
+    name: 'Member Management', 
+    href: '/admin/members', 
+    icon: UsersIcon, 
+    permission: 'MANAGE_MEMBERS' 
+  },
+  { 
+    name: 'Financial Services', 
+    href: '/admin/financial', 
+    icon: BanknotesIcon, 
+    permission: 'VIEW_FINANCIAL',
+    approvalLevel: 2 
+  },
+  { 
+    name: 'Approvals', 
+    href: '/admin/approvals', 
+    icon: ClipboardDocumentCheckIcon, 
+    permission: 'VIEW_APPROVALS',
+    approvalLevel: 1 
+  },
+];
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const { hasPermission } = usePermissions();
+  
+  // Protect admin routes
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && !isAdminUser(user)) {
+      console.log("User not authorized for admin section:", user);
+      router.replace('/member/dashboard');
+    } else if (!isLoading && !isAuthenticated) {
+      router.replace('/auth/login');
+    }
+  }, [isLoading, isAuthenticated, user, router]);
+  
+  // Don't render until auth check is complete or show loading
+  if (isLoading) {
+    return <div>Loading...</div>; // Or a proper loading component
+  }
+  
+  if (!isAuthenticated || !(user?.isAdmin || user?.role?.name === 'ADMIN' || (user?.approvalLevel ?? 0) > 0)) {
+    return null; // Don't render anything if not authorized
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* Desktop sidebar */}
+      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
+        <div className="flex flex-col flex-grow bg-white border-r border-gray-200">
+          <div className="flex items-center justify-center h-16 flex-shrink-0 px-4 bg-primary-600">
+            <img
+              className="h-8 w-auto"
+              src="/logo.svg"
+              alt="CoopNest"
+            />
+          </div>
+          <div className="flex flex-col flex-grow pt-5 pb-4 overflow-y-auto">
+            <nav className="mt-5 flex-1 px-2 space-y-1">
+              {navigation.map((item) => {
+                // Check if the current pathname matches or starts with the navigation item's href
+                const isActive = pathname === item.href || 
+                                (pathname?.startsWith(item.href) && item.href !== '/admin/dashboard');
+                
+                return (
+                  <PermissionGate
+                    key={item.name}
+                    permissions={item.permission}
+                    approvalLevel={item.approvalLevel}
+                  >
+                    <Link
+                      href={item.href}
+                      className={`
+                        group flex items-center px-2 py-2 text-sm font-medium rounded-md
+                        ${isActive
+                          ? 'bg-gray-100 text-primary-600'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        }
+                      `}
+                    >
+                      <item.icon
+                        className={`
+                          mr-3 h-6 w-6 flex-shrink-0
+                          ${isActive
+                            ? 'text-primary-600'
+                            : 'text-gray-400 group-hover:text-gray-500'
+                          }
+                        `}
+                        aria-hidden="true"
+                      />
+                      {item.name}
+                    </Link>
+                  </PermissionGate>
+                );
+              })}
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div className="lg:pl-64 flex flex-col flex-1">
+        <div className="sticky top-0 z-10 flex-shrink-0 flex h-16 bg-white shadow">
+          {/* Header content */}
+          <div className="flex-1 px-4 flex justify-between">
+            <div className="flex-1 flex">
+              {/* Add search or other header content */}
+            </div>
+            <div className="ml-4 flex items-center md:ml-6">
+              {/* Notification dropdown */}
+              <button
+                type="button"
+                className="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none"
+              >
+                <BellIcon className="h-6 w-6" aria-hidden="true" />
+              </button>
+
+              {/* Profile dropdown */}
+              <div className="ml-3 relative">
+                <div className="flex items-center">
+                  <span className="hidden md:block mr-3">
+                    <span className="text-sm font-medium text-gray-700">
+                      {user?.username}
+                    </span>
+                    <span className="text-xs text-gray-500 block">
+                      {user?.role?.name}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="max-w-xs rounded-full flex items-center text-sm focus:outline-none"
+                  >
+                    <span className="sr-only">Open user menu</span>
+                    <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                      <span className="text-sm font-medium text-gray-600">
+                        {user?.username?.[0]?.toUpperCase()}
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <main className="flex-1">
+          <div className="py-6">
+            {children}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
