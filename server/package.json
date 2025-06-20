@@ -11,12 +11,12 @@
     "seed": "ts-node prisma/seed.ts",
     "backup:db": "pg_dump --clean --if-exists --no-owner --username=postgres --host=postgres --port=5432 --dbname=postgres --schema=coop-nest_db > backups/db/coop-nest_db_backup.sql",
     "reset:db": "npm run backup:db && npx prisma db reset",
-    "restore:db": "psql --username=postgres --password=rootuser --host=postgres --port=5432 --dbname=postgres < backups/db/coop-nest_db_backup.sql",
+    "restore:db": "psql --username=postgres --host=postgres --port=5432 --dbname=postgres < backups/db/coop-nest_db_backup.sql",
     "migrate:db": "npx prisma migrate dev"
   },
   "dependencies": {
     "@faker-js/faker": "^9.6.0",
-    "@prisma/client": "^6.9.0",
+    "@prisma/client": "^6.10.1",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/multer": "^1.4.12",
     "@types/pdfkit": "^0.13.9",
@@ -68,7 +68,7 @@
     "@types/validator": "^13.15.0",
     "jest": "^27.0.0",
     "nodemon": "^3.1.9",
-    "prisma": "^6.9.0",
+    "prisma": "^6.10.1",
     "supertest": "^7.1.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
