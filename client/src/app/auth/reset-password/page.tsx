@@ -12,7 +12,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { authApi } from '@/services/api/endpoints/authApi';
+import { apiService as authApi } from '@/lib/api/apiService';
 
 export default function ResetPasswordPage() {
   const [formData, setFormData] = useState({

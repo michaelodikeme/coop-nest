@@ -3,7 +3,7 @@
 import { Box, Container, Paper, Typography, TextField, Button, Alert } from '@mui/material';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { authApi } from '@/services/api/endpoints/authApi';
+import { apiService as authApi } from '@/lib/api/apiService';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
