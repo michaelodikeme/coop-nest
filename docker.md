@@ -41,9 +41,20 @@
     -p 5000:5000 \
     -p 3000:3000 \
     michaelodikeme/coop-nest:coop-nest-app
+
+    docker run \
+    --name coop-nest-container \
+    --network host \
+    -e DATABASE_URL=postgresql://postgres:rootuser@localhost:5432/postgres?schema=coop-nest_db \
+    -e REDIS_URL=redis://localhost:6379 \
+    -p 5000:5000 \
+    -p 3000:3000 \
+    michaelodikeme/coop-nest:coop-nest-app
 ```
 
 #### Stop and remove container
+> `docker stop coop-nest-container docker-postgres-server docker-redis-server`
+> `docker rm coop-nest-container docker-postgres-server docker-redis-server`
 > `docker stop coop-nest-container && docker rm coop-nest-container`
 
 

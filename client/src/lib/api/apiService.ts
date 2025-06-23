@@ -13,7 +13,7 @@ import {
 import type { ApiErrorResponse } from '@/types/types';
 import type { HealthStatus } from '@/types/auth.types';
 
-export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://168.231.116.82:5000/api' || 'http://localhost:5000/api';
 
 interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean; // Add the custom property
