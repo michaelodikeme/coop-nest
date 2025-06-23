@@ -25,7 +25,6 @@ const permissionSync = new PermissionSyncService(prisma);
 // Middleware setup
 app.use(cors({
     origin: process.env.CORS_ORIGINS?.split(',') || [
-        'http://168.231.116.82:3000',
         'http://localhost:3000' 
     ],
     credentials: true,
