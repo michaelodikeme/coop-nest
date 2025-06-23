@@ -26,6 +26,7 @@ const permissionSync = new PermissionSyncService(prisma);
 app.use(cors({
     origin: process.env.CORS_ORIGINS?.split(',') || [
         'http://localhost:3000', 
+        'http://168.231.116.82:3000',
         'http://172.16.0.2:3000', 
         'http://192.168.158.126:3000'
     ],

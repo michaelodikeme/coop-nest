@@ -40,9 +40,19 @@
     -v coop-nest-data:/app/server/backups/db \
     -p 5000:5000 \
     -p 3000:3000 \
-    -p 5555:5555 \
-    coop-nest-app
+    michaelodikeme/coop-nest:coop-nest-app
 ```
 
 #### Stop and remove container
 > `docker stop coop-nest-container && docker rm coop-nest-container`
+
+
+---
+
+### Docker commands
+
+"deploy:stop-container": "docker stop coop-nest-container || true",
+"deploy:remove-container": "docker rm coop-nest-container || true",
+"deploy:docker-build": "docker buildx build -t coop-nest-app .",
+"deploy:start-container": "docker run --name coop-nest-container --network coop-nest-network -v coop-nest-data:/app/server/backups/db -p 5000:5000 -p 3000:3000 -p 5555:5555 michaelodikeme/coop-nest:coop-nest-app",
+"deploy": "npm run deploy:docker-build && npm run deploy:stop-container && npm run deploy:remove-container && npm run deploy:start-container"
