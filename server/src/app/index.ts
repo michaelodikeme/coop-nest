@@ -25,7 +25,9 @@ const permissionSync = new PermissionSyncService(prisma);
 // Middleware setup
 app.use(cors({
     origin: process.env.CORS_ORIGINS?.split(',') || [
-        'http://localhost:3000' 
+        'http://localhost:3000',
+        'http://fuosmcsl.online', // Add your domain here
+        'http://168.231.116.82:3000',
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],

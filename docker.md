@@ -59,7 +59,17 @@
     -p 3000:3000 \
     michaelodikeme/coop-nest:coop-nest-app
 ```
-
+    docker run \
+    --name coop-nest-container \
+    --network host \
+    -e DATABASE_URL=postgresql://postgres:rootuser@localhost:5432/postgres?schema=coop-nest_db \
+    -e REDIS_URL=redis://localhost:6379 \
+    -e CORS_ORIGINS=http://fuosmcsl.online,http://168.231.116.82:3000 \
+    -e APPLICATION_URL=http://fuosmcsl.online \
+    -e NEXT_PUBLIC_API_URL=http://fuosmcsl.online/api \
+    -p 5000:5000 \
+    -p 3000:3000 \
+    michaelodikeme/coop-nest:coop-nest-app
 ---
 
 ### Docker commands
