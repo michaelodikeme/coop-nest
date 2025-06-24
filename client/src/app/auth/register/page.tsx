@@ -20,7 +20,7 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (!erpId) {
-      router.replace('/verify');
+      router.replace('/auth/verify');
     }
   }, [erpId, router]);
 
