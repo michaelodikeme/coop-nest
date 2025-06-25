@@ -1,8 +1,18 @@
 "use client"
 
-import { Input } from "@/components/atoms/ui/input"
-import { Label } from "@/components/atoms/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/ui/select"
+import {
+  Box,
+  Typography,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Grid,
+  useTheme,
+  Alert,
+} from "@mui/material"
+import { Work as WorkIcon } from "@mui/icons-material"
 
 interface FormData {
   erpId: string
@@ -10,6 +20,7 @@ interface FormData {
   staffNo: string
   department: string
   dateOfEmployment: string
+  [key: string]: any
 }
 
 interface EmploymentInfoStepProps {
@@ -32,92 +43,142 @@ const departments = [
 ]
 
 export default function EmploymentInfoStep({ formData, updateFormData, errors }: EmploymentInfoStepProps) {
+  const theme = useTheme()
+
   return (
-    <div className="space-y-6">
-      <div className="text-center mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Employment Details</h3>
-        <p className="text-gray-600">Provide your work-related information</p>
-      </div>
+    <Box>
+      <Box sx={{ textAlign: "center", mb: 4 }}>
+        <Typography variant="h4" gutterBottom sx={{ fontWeight: 600 }}>
+          Employment Details
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Provide your work-related information
+        </Typography>
+      </Box>
 
       {/* Employee IDs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="erpId">ERP ID *</Label>
-          <Input
-            id="erpId"
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <TextField
+            fullWidth
+            label="ERP ID"
             value={formData.erpId}
             onChange={(e) => updateFormData({ erpId: e.target.value })}
+            error={!!errors.erpId}
+            helperText={errors.erpId}
+            required
             placeholder="Enter your ERP ID"
-            className={errors.erpId ? "border-red-500" : ""}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+              },
+            }}
           />
-          {errors.erpId && <p className="text-red-500 text-sm">{errors.erpId}</p>}
-        </div>
+        </Grid>
 
-        <div className="space-y-2">
-          <Label htmlFor="ippisId">IPPIS ID *</Label>
-          <Input
-            id="ippisId"
+        <Grid size={{ xs: 12, md: 4 }}>
+          <TextField
+            fullWidth
+            label="IPPIS ID"
             value={formData.ippisId}
             onChange={(e) => updateFormData({ ippisId: e.target.value })}
+            error={!!errors.ippisId}
+            helperText={errors.ippisId}
+            required
             placeholder="Enter your IPPIS ID"
-            className={errors.ippisId ? "border-red-500" : ""}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+              },
+            }}
           />
-          {errors.ippisId && <p className="text-red-500 text-sm">{errors.ippisId}</p>}
-        </div>
+        </Grid>
 
-        <div className="space-y-2">
-          <Label htmlFor="staffNo">Staff Number *</Label>
-          <Input
-            id="staffNo"
+        <Grid size={{ xs: 12, md: 4 }}>
+          <TextField
+            fullWidth
+            label="Staff Number"
             value={formData.staffNo}
             onChange={(e) => updateFormData({ staffNo: e.target.value })}
+            error={!!errors.staffNo}
+            helperText={errors.staffNo}
+            required
             placeholder="Enter your staff number"
-            className={errors.staffNo ? "border-red-500" : ""}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+              },
+            }}
           />
-          {errors.staffNo && <p className="text-red-500 text-sm">{errors.staffNo}</p>}
-        </div>
-      </div>
+        </Grid>
+      </Grid>
 
       {/* Department and Employment Date */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="department">Department *</Label>
-          <Select value={formData.department} onValueChange={(value: any) => updateFormData({ department: value })}>
-            <SelectTrigger className={errors.department ? "border-red-500" : ""}>
-              <SelectValue placeholder="Select your department" />
-            </SelectTrigger>
-            <SelectContent>
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <FormControl fullWidth error={!!errors.department}>
+            <InputLabel>Department *</InputLabel>
+            <Select
+              value={formData.department}
+              onChange={(e) => updateFormData({ department: e.target.value })}
+              label="Department *"
+              sx={{
+                borderRadius: 2,
+              }}
+            >
               {departments.map((dept) => (
-                <SelectItem key={dept} value={dept}>
+                <MenuItem key={dept} value={dept}>
                   {dept}
-                </SelectItem>
+                </MenuItem>
               ))}
-            </SelectContent>
-          </Select>
-          {errors.department && <p className="text-red-500 text-sm">{errors.department}</p>}
-        </div>
+            </Select>
+            {errors.department && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                {errors.department}
+              </Typography>
+            )}
+          </FormControl>
+        </Grid>
 
-        <div className="space-y-2">
-          <Label htmlFor="dateOfEmployment">Date of Employment *</Label>
-          <Input
-            id="dateOfEmployment"
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            fullWidth
+            label="Date of Employment"
             type="date"
             value={formData.dateOfEmployment}
             onChange={(e) => updateFormData({ dateOfEmployment: e.target.value })}
-            className={errors.dateOfEmployment ? "border-red-500" : ""}
+            error={!!errors.dateOfEmployment}
+            helperText={errors.dateOfEmployment}
+            required
+            InputLabelProps={{ shrink: true }}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+              },
+            }}
           />
-          {errors.dateOfEmployment && <p className="text-red-500 text-sm">{errors.dateOfEmployment}</p>}
-        </div>
-      </div>
+        </Grid>
+      </Grid>
 
       {/* Info Box */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-medium text-blue-900 mb-2">Employment Information</h4>
-        <p className="text-blue-700 text-sm">
+      <Alert
+        severity="info"
+        icon={<WorkIcon />}
+        sx={{
+          borderRadius: 2,
+          "& .MuiAlert-message": {
+            width: "100%",
+          },
+        }}
+      >
+        <Typography variant="subtitle2" gutterBottom>
+          Employment Information
+        </Typography>
+        <Typography variant="body2">
           Please ensure all employment details are accurate as they will be verified against official records. Your ERP
           ID and IPPIS ID are particularly important for membership processing.
-        </p>
-      </div>
-    </div>
+        </Typography>
+      </Alert>
+    </Box>
   )
 }

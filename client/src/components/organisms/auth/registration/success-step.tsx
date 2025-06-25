@@ -1,100 +1,255 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/ui/card"
-import { Button } from "@/components/atoms/ui/button"
-import { CheckCircle, Clock, Bell, Home } from "lucide-react"
+"use client"
+
+import type React from "react"
+
+import {
+  Box,
+  Container,
+  Typography,
+  Card,
+  CardContent,
+  CardHeader,
+  Button,
+  Stack,
+  Avatar,
+  useTheme,
+  Divider,
+  Paper,
+} from "@mui/material"
+import {
+  CheckCircle as CheckCircleIcon,
+  Schedule as ScheduleIcon,
+  Notifications as NotificationsIcon,
+  Home as HomeIcon,
+  Support as SupportIcon,
+} from "@mui/icons-material"
 import Link from "next/link"
 
 export default function SuccessStep() {
+  const theme = useTheme()
+
+  const TimelineStep = ({
+    icon,
+    title,
+    description,
+    isCompleted = false,
+    isActive = false,
+    isLast = false,
+  }: {
+    icon: React.ReactNode
+    title: string
+    description: string
+    isCompleted?: boolean
+    isActive?: boolean
+    isLast?: boolean
+  }) => (
+    <Box sx={{ display: "flex", alignItems: "flex-start", mb: isLast ? 0 : 3 }}>
+      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", mr: 3 }}>
+        <Avatar
+          sx={{
+            width: 40,
+            height: 40,
+            bgcolor: isCompleted
+              ? theme.palette.success.main
+              : isActive
+                ? theme.palette.warning.main
+                : theme.palette.grey[400],
+            color: "white",
+          }}
+        >
+          {icon}
+        </Avatar>
+        {!isLast && (
+          <Box
+            sx={{
+              width: 2,
+              height: 40,
+              bgcolor: theme.palette.grey[300],
+              mt: 1,
+            }}
+          />
+        )}
+      </Box>
+      <Box sx={{ flex: 1, pt: 1 }}>
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 600,
+            color: isCompleted || isActive ? "text.primary" : "text.secondary",
+          }}
+        >
+          {title}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          {description}
+        </Typography>
+      </Box>
+    </Box>
+  )
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        <Card className="shadow-lg">
-          <CardHeader className="text-center pb-6">
-            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="w-8 h-8 text-green-600" />
-            </div>
-            <CardTitle className="text-2xl text-green-800">Application Submitted Successfully!</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="text-center">
-              <p className="text-gray-600 mb-4">
+    <Box
+      sx={{
+        minHeight: "100vh",
+        background: `linear-gradient(135deg, ${theme.palette.success.main}15, ${theme.palette.success.light}15)`,
+        py: 4,
+      }}
+    >
+      <Container maxWidth="md">
+        <Card
+          sx={{
+            borderRadius: 4,
+            background: theme.palette.background.paper,
+            backdropFilter: "blur(10px)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
+          }}
+        >
+          <CardHeader
+            sx={{
+              textAlign: "center",
+              pb: 2,
+            }}
+            avatar={
+              <Avatar
+                sx={{
+                  width: 80,
+                  height: 80,
+                  bgcolor: theme.palette.success.main,
+                  mx: "auto",
+                  mb: 2,
+                }}
+              >
+                <CheckCircleIcon sx={{ fontSize: 40 }} />
+              </Avatar>
+            }
+            title={
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  color: theme.palette.success.main,
+                  mt: 2,
+                }}
+              >
+                Application Submitted Successfully!
+              </Typography>
+            }
+          />
+
+          <CardContent sx={{ p: 4 }}>
+            <Box sx={{ textAlign: "center", mb: 4 }}>
+              <Typography variant="body1" color="text.secondary">
                 Thank you for applying to join our cooperative. Your membership application has been received and is now
                 under review.
-              </p>
-            </div>
+              </Typography>
+            </Box>
 
             {/* Status Timeline */}
-            <div className="space-y-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Application Status</h3>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                mb: 4,
+                bgcolor: theme.palette.grey[50],
+                borderRadius: 2,
+              }}
+            >
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
+                Application Status
+              </Typography>
 
-              <div className="flex items-start space-x-3">
-                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <CheckCircle className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">Application Submitted</p>
-                  <p className="text-sm text-gray-600">Your application has been successfully submitted</p>
-                </div>
-              </div>
+              <TimelineStep
+                icon={<CheckCircleIcon sx={{ fontSize: 20 }} />}
+                title="Application Submitted"
+                description="Your application has been successfully submitted"
+                isCompleted={true}
+              />
 
-              <div className="flex items-start space-x-3">
-                <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Clock className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">Pending Review</p>
-                  <p className="text-sm text-gray-600">Awaiting approval from treasurer (Level 2 approver)</p>
-                </div>
-              </div>
+              <TimelineStep
+                icon={<ScheduleIcon sx={{ fontSize: 20 }} />}
+                title="Pending Review"
+                description="Awaiting approval from treasurer (Level 2 approver)"
+                isActive={true}
+              />
 
-              <div className="flex items-start space-x-3">
-                <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Bell className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-500">Approval Notification</p>
-                  <p className="text-sm text-gray-500">You'll be notified once your application is approved</p>
-                </div>
-              </div>
-            </div>
+              <TimelineStep
+                icon={<NotificationsIcon sx={{ fontSize: 20 }} />}
+                title="Approval Notification"
+                description="You'll be notified once your application is approved"
+                isLast={true}
+              />
+            </Paper>
 
             {/* Next Steps */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-900 mb-2">What's Next?</h4>
-              <ul className="space-y-1 text-blue-700 text-sm">
-                <li>• Check your email for confirmation and updates</li>
-                <li>• Your application will be reviewed within 3-5 business days</li>
-                <li>• You'll receive notifications about any status changes</li>
-                <li>• Once approved, you can access all member benefits</li>
-              </ul>
-            </div>
+            <Card
+              sx={{
+                mb: 4,
+                background: `linear-gradient(135deg, ${theme.palette.info.main}08, ${theme.palette.info.light}08)`,
+                border: `1px solid ${theme.palette.info.light}`,
+              }}
+            >
+              <CardContent>
+                <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: theme.palette.info.main }}>
+                  What's Next?
+                </Typography>
+                <Stack spacing={1}>
+                  <Typography variant="body2">• Check your email for confirmation and updates</Typography>
+                  <Typography variant="body2">• Your application will be reviewed within 3-5 business days</Typography>
+                  <Typography variant="body2">• You'll receive notifications about any status changes</Typography>
+                  <Typography variant="body2">• Once approved, you can access all member benefits</Typography>
+                </Stack>
+              </CardContent>
+            </Card>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <Button asChild className="flex-1">
-                <Link href="/" className="flex items-center justify-center gap-2">
-                  <Home className="w-4 h-4" />
-                  Return to Home
-                </Link>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 4 }}>
+              <Button
+                component={Link}
+                href="/"
+                variant="contained"
+                startIcon={<HomeIcon />}
+                fullWidth
+                sx={{
+                  py: 1.5,
+                  borderRadius: 2,
+                  textTransform: "none",
+                  background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                }}
+              >
+                Return to Home
               </Button>
-              <Button variant="outline" asChild className="flex-1">
-                <Link href="/contact" className="flex items-center justify-center gap-2">
-                  <Bell className="w-4 h-4" />
-                  Contact Support
-                </Link>
+              <Button
+                component={Link}
+                href="/contact"
+                variant="outlined"
+                startIcon={<SupportIcon />}
+                fullWidth
+                sx={{
+                  py: 1.5,
+                  borderRadius: 2,
+                  textTransform: "none",
+                }}
+              >
+                Contact Support
               </Button>
-            </div>
+            </Stack>
 
             {/* Reference Information */}
-            <div className="text-center pt-4 border-t">
-              <p className="text-sm text-gray-500">
+            <Divider sx={{ mb: 3 }} />
+            <Box sx={{ textAlign: "center" }}>
+              <Typography variant="body2" color="text.secondary">
                 Application Reference:{" "}
-                <span className="font-mono font-medium">APP-{Date.now().toString().slice(-8)}</span>
-              </p>
-              <p className="text-xs text-gray-400 mt-1">Keep this reference number for your records</p>
-            </div>
+                <Typography component="span" sx={{ fontFamily: "monospace", fontWeight: 600 }}>
+                  APP-{Date.now().toString().slice(-8)}
+                </Typography>
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                Keep this reference number for your records
+              </Typography>
+            </Box>
           </CardContent>
         </Card>
-      </div>
-    </div>
+      </Container>
+    </Box>
   )
 }

@@ -1,13 +1,13 @@
 "use client"
 
-import { Input } from "@/components/atoms/ui/input"
-import { Label } from "@/components/atoms/ui/label"
-import { Textarea } from "@/components/atoms/ui/textarea"
+import { Box, Typography, TextField, Grid, Alert, useTheme } from "@mui/material"
+import { Phone as PhoneIcon } from "@mui/icons-material"
 
 interface FormData {
   emailAddress: string
   phoneNumber: string
   residentialAddress: string
+  [key: string]: any
 }
 
 interface ContactInfoStepProps {
@@ -17,64 +17,100 @@ interface ContactInfoStepProps {
 }
 
 export default function ContactInfoStep({ formData, updateFormData, errors }: ContactInfoStepProps) {
+  const theme = useTheme()
+
   return (
-    <div className="space-y-6">
-      <div className="text-center mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Contact Information</h3>
-        <p className="text-gray-600">How can we reach you?</p>
-      </div>
+    <Box>
+      <Box sx={{ textAlign: "center", mb: 4 }}>
+        <Typography variant="h4" gutterBottom sx={{ fontWeight: 600 }}>
+          Contact Information
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          How can we reach you?
+        </Typography>
+      </Box>
 
       {/* Email and Phone */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="emailAddress">Email Address *</Label>
-          <Input
-            id="emailAddress"
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            fullWidth
+            label="Email Address"
             type="email"
             value={formData.emailAddress}
             onChange={(e) => updateFormData({ emailAddress: e.target.value })}
+            error={!!errors.emailAddress}
+            helperText={errors.emailAddress}
+            required
             placeholder="Enter your email address"
-            className={errors.emailAddress ? "border-red-500" : ""}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+              },
+            }}
           />
-          {errors.emailAddress && <p className="text-red-500 text-sm">{errors.emailAddress}</p>}
-        </div>
+        </Grid>
 
-        <div className="space-y-2">
-          <Label htmlFor="phoneNumber">Phone Number *</Label>
-          <Input
-            id="phoneNumber"
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            fullWidth
+            label="Phone Number"
             type="tel"
             value={formData.phoneNumber}
             onChange={(e) => updateFormData({ phoneNumber: e.target.value })}
+            error={!!errors.phoneNumber}
+            helperText={errors.phoneNumber}
+            required
             placeholder="Enter your phone number"
-            className={errors.phoneNumber ? "border-red-500" : ""}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+              },
+            }}
           />
-          {errors.phoneNumber && <p className="text-red-500 text-sm">{errors.phoneNumber}</p>}
-        </div>
-      </div>
+        </Grid>
+      </Grid>
 
       {/* Residential Address */}
-      <div className="space-y-2">
-        <Label htmlFor="residentialAddress">Residential Address *</Label>
-        <Textarea
-          id="residentialAddress"
+      <Box sx={{ mb: 4 }}>
+        <TextField
+          fullWidth
+          label="Residential Address"
+          multiline
+          rows={4}
           value={formData.residentialAddress}
           onChange={(e) => updateFormData({ residentialAddress: e.target.value })}
+          error={!!errors.residentialAddress}
+          helperText={errors.residentialAddress}
+          required
           placeholder="Enter your full residential address"
-          rows={4}
-          className={errors.residentialAddress ? "border-red-500" : ""}
+          sx={{
+            "& .MuiOutlinedInput-root": {
+              borderRadius: 2,
+            },
+          }}
         />
-        {errors.residentialAddress && <p className="text-red-500 text-sm">{errors.residentialAddress}</p>}
-      </div>
+      </Box>
 
       {/* Info Box */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <h4 className="font-medium text-green-900 mb-2">Contact Verification</h4>
-        <p className="text-green-700 text-sm">
+      <Alert
+        severity="success"
+        icon={<PhoneIcon />}
+        sx={{
+          borderRadius: 2,
+          "& .MuiAlert-message": {
+            width: "100%",
+          },
+        }}
+      >
+        <Typography variant="subtitle2" gutterBottom>
+          Contact Verification
+        </Typography>
+        <Typography variant="body2">
           We'll use this information to contact you about your membership application and important cooperative updates.
           Please ensure your contact details are current and accurate.
-        </p>
-      </div>
-    </div>
+        </Typography>
+      </Alert>
+    </Box>
   )
 }

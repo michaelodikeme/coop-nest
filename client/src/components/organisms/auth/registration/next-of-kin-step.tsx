@@ -1,14 +1,25 @@
 "use client"
 
-import { Input } from "@/components/atoms/ui/input"
-import { Label } from "@/components/atoms/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/ui/select"
+import {
+  Box,
+  Typography,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Grid,
+  Alert,
+  useTheme,
+} from "@mui/material"
+import { Group as GroupIcon } from "@mui/icons-material"
 
 interface FormData {
   nextOfKin: string
   relationshipOfNextOfKin: string
   nextOfKinPhoneNumber: string
   nextOfKinEmailAddress: string
+  [key: string]: any
 }
 
 interface NextOfKinStepProps {
@@ -32,85 +43,125 @@ const relationships = [
 ]
 
 export default function NextOfKinStep({ formData, updateFormData, errors }: NextOfKinStepProps) {
+  const theme = useTheme()
+
   return (
-    <div className="space-y-6">
-      <div className="text-center mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Next of Kin Information</h3>
-        <p className="text-gray-600">Emergency contact person details</p>
-      </div>
+    <Box>
+      <Box sx={{ textAlign: "center", mb: 4 }}>
+        <Typography variant="h4" gutterBottom sx={{ fontWeight: 600 }}>
+          Next of Kin Information
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Emergency contact person details
+        </Typography>
+      </Box>
 
       {/* Next of Kin Name and Relationship */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="nextOfKin">Next of Kin Full Name *</Label>
-          <Input
-            id="nextOfKin"
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            fullWidth
+            label="Next of Kin Full Name"
             value={formData.nextOfKin}
             onChange={(e) => updateFormData({ nextOfKin: e.target.value })}
+            error={!!errors.nextOfKin}
+            helperText={errors.nextOfKin}
+            required
             placeholder="Enter full name"
-            className={errors.nextOfKin ? "border-red-500" : ""}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+              },
+            }}
           />
-          {errors.nextOfKin && <p className="text-red-500 text-sm">{errors.nextOfKin}</p>}
-        </div>
+        </Grid>
 
-        <div className="space-y-2">
-          <Label htmlFor="relationshipOfNextOfKin">Relationship *</Label>
-          <Select
-            value={formData.relationshipOfNextOfKin}
-            onValueChange={(value: any) => updateFormData({ relationshipOfNextOfKin: value })}
-          >
-            <SelectTrigger className={errors.relationshipOfNextOfKin ? "border-red-500" : ""}>
-              <SelectValue placeholder="Select relationship" />
-            </SelectTrigger>
-            <SelectContent>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <FormControl fullWidth error={!!errors.relationshipOfNextOfKin}>
+            <InputLabel>Relationship *</InputLabel>
+            <Select
+              value={formData.relationshipOfNextOfKin}
+              onChange={(e) => updateFormData({ relationshipOfNextOfKin: e.target.value })}
+              label="Relationship *"
+              sx={{
+                borderRadius: 2,
+              }}
+            >
               {relationships.map((relationship) => (
-                <SelectItem key={relationship} value={relationship}>
+                <MenuItem key={relationship} value={relationship}>
                   {relationship}
-                </SelectItem>
+                </MenuItem>
               ))}
-            </SelectContent>
-          </Select>
-          {errors.relationshipOfNextOfKin && <p className="text-red-500 text-sm">{errors.relationshipOfNextOfKin}</p>}
-        </div>
-      </div>
+            </Select>
+            {errors.relationshipOfNextOfKin && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                {errors.relationshipOfNextOfKin}
+              </Typography>
+            )}
+          </FormControl>
+        </Grid>
+      </Grid>
 
       {/* Contact Information */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="nextOfKinPhoneNumber">Phone Number *</Label>
-          <Input
-            id="nextOfKinPhoneNumber"
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            fullWidth
+            label="Phone Number"
             type="tel"
             value={formData.nextOfKinPhoneNumber}
             onChange={(e) => updateFormData({ nextOfKinPhoneNumber: e.target.value })}
+            error={!!errors.nextOfKinPhoneNumber}
+            helperText={errors.nextOfKinPhoneNumber}
+            required
             placeholder="Enter phone number"
-            className={errors.nextOfKinPhoneNumber ? "border-red-500" : ""}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+              },
+            }}
           />
-          {errors.nextOfKinPhoneNumber && <p className="text-red-500 text-sm">{errors.nextOfKinPhoneNumber}</p>}
-        </div>
+        </Grid>
 
-        <div className="space-y-2">
-          <Label htmlFor="nextOfKinEmailAddress">Email Address *</Label>
-          <Input
-            id="nextOfKinEmailAddress"
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            fullWidth
+            label="Email Address"
             type="email"
             value={formData.nextOfKinEmailAddress}
             onChange={(e) => updateFormData({ nextOfKinEmailAddress: e.target.value })}
+            error={!!errors.nextOfKinEmailAddress}
+            helperText={errors.nextOfKinEmailAddress}
+            required
             placeholder="Enter email address"
-            className={errors.nextOfKinEmailAddress ? "border-red-500" : ""}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+              },
+            }}
           />
-          {errors.nextOfKinEmailAddress && <p className="text-red-500 text-sm">{errors.nextOfKinEmailAddress}</p>}
-        </div>
-      </div>
+        </Grid>
+      </Grid>
 
       {/* Info Box */}
-      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-        <h4 className="font-medium text-orange-900 mb-2">Next of Kin Information</h4>
-        <p className="text-orange-700 text-sm">
+      <Alert
+        severity="warning"
+        icon={<GroupIcon />}
+        sx={{
+          borderRadius: 2,
+          "& .MuiAlert-message": {
+            width: "100%",
+          },
+        }}
+      >
+        <Typography variant="subtitle2" gutterBottom>
+          Next of Kin Information
+        </Typography>
+        <Typography variant="body2">
           Your next of kin will be contacted in case of emergencies or if we're unable to reach you directly. Please
           ensure they are aware of your cooperative membership application.
-        </p>
-      </div>
-    </div>
+        </Typography>
+      </Alert>
+    </Box>
   )
 }

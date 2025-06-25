@@ -1,6 +1,15 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/ui/card"
-import { Badge } from "@/components/atoms/ui/badge"
-import { User, Briefcase, Phone, Users } from "lucide-react"
+"use client"
+
+import type React from "react"
+
+import { Box, Typography, Card, CardContent, CardHeader, Grid, Chip, Alert, useTheme, Stack } from "@mui/material"
+import {
+  Person as PersonIcon,
+  Work as WorkIcon,
+  Phone as PhoneIcon,
+  Group as GroupIcon,
+  Info as InfoIcon,
+} from "@mui/icons-material"
 
 interface FormData {
   firstName: string
@@ -29,151 +38,171 @@ interface ReviewStepProps {
 }
 
 export default function ReviewStep({ formData, errors }: ReviewStepProps) {
+  const theme = useTheme()
   const fullName =
     `${formData.firstName} ${formData.middleName ? formData.middleName + " " : ""}${formData.lastName}`.trim()
 
+  const InfoCard = ({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) => (
+    <Card
+      sx={{
+        borderRadius: 3,
+        background: theme.palette.background.paper,
+        boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+        border: `1px solid ${theme.palette.divider}`,
+      }}
+    >
+      <CardHeader
+        avatar={
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              bgcolor: theme.palette.primary.main,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+            }}
+          >
+            {icon}
+          </Box>
+        }
+        title={
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            {title}
+          </Typography>
+        }
+        sx={{ pb: 1 }}
+      />
+      <CardContent sx={{ pt: 0 }}>{children}</CardContent>
+    </Card>
+  )
+
+  const InfoRow = ({ label, value }: { label: string; value: string }) => (
+    <Box sx={{ mb: 2 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, textTransform: "uppercase" }}>
+        {label}
+      </Typography>
+      <Typography variant="body1" sx={{ mt: 0.5 }}>
+        {value || "Not provided"}
+      </Typography>
+    </Box>
+  )
+
   return (
-    <div className="space-y-6">
-      <div className="text-center mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Review Your Application</h3>
-        <p className="text-gray-600">Please review all information before submitting</p>
-      </div>
+    <Box>
+      <Box sx={{ textAlign: "center", mb: 4 }}>
+        <Typography variant="h4" gutterBottom sx={{ fontWeight: 600 }}>
+          Review Your Application
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Please review all information before submitting
+        </Typography>
+      </Box>
 
-      {/* Personal Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <User className="w-5 h-5" />
-            Personal Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Full Name</p>
-              <p className="text-gray-900">{fullName}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Date of Birth</p>
-              <p className="text-gray-900">{formData.dateOfBirth || "Not provided"}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Marital Status</p>
-              <p className="text-gray-900">{formData.maritalStatus || "Not provided"}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Profile Photo</p>
-              <p className="text-gray-900">{formData.profilePhoto ? "Uploaded" : "Not uploaded"}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <Stack spacing={3}>
+        {/* Personal Information */}
+        <InfoCard title="Personal Information" icon={<PersonIcon />}>
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="Full Name" value={fullName} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="Date of Birth" value={formData.dateOfBirth} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="Marital Status" value={formData.maritalStatus} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="Profile Photo" value={formData.profilePhoto ? "Uploaded" : "Not uploaded"} />
+            </Grid>
+          </Grid>
+        </InfoCard>
 
-      {/* Employment Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Briefcase className="w-5 h-5" />
-            Employment Details
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">ERP ID</p>
-              <p className="text-gray-900">{formData.erpId}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">IPPIS ID</p>
-              <p className="text-gray-900">{formData.ippisId}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Staff Number</p>
-              <p className="text-gray-900">{formData.staffNo}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Department</p>
-              <p className="text-gray-900">{formData.department}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Date of Employment</p>
-              <p className="text-gray-900">{formData.dateOfEmployment}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Employment Information */}
+        <InfoCard title="Employment Details" icon={<WorkIcon />}>
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="ERP ID" value={formData.erpId} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="IPPIS ID" value={formData.ippisId} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="Staff Number" value={formData.staffNo} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="Department" value={formData.department} />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <InfoRow label="Date of Employment" value={formData.dateOfEmployment} />
+            </Grid>
+          </Grid>
+        </InfoCard>
 
-      {/* Contact Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Phone className="w-5 h-5" />
-            Contact Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Email Address</p>
-              <p className="text-gray-900">{formData.emailAddress}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Phone Number</p>
-              <p className="text-gray-900">{formData.phoneNumber}</p>
-            </div>
-            <div className="md:col-span-2">
-              <p className="text-sm font-medium text-gray-500">Residential Address</p>
-              <p className="text-gray-900">{formData.residentialAddress}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Contact Information */}
+        <InfoCard title="Contact Information" icon={<PhoneIcon />}>
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="Email Address" value={formData.emailAddress} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="Phone Number" value={formData.phoneNumber} />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <InfoRow label="Residential Address" value={formData.residentialAddress} />
+            </Grid>
+          </Grid>
+        </InfoCard>
 
-      {/* Next of Kin Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Users className="w-5 h-5" />
-            Next of Kin Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Full Name</p>
-              <p className="text-gray-900">{formData.nextOfKin}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Relationship</p>
-              <p className="text-gray-900">{formData.relationshipOfNextOfKin}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Phone Number</p>
-              <p className="text-gray-900">{formData.nextOfKinPhoneNumber}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Email Address</p>
-              <p className="text-gray-900">{formData.nextOfKinEmailAddress}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Next of Kin Information */}
+        <InfoCard title="Next of Kin Information" icon={<GroupIcon />}>
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="Full Name" value={formData.nextOfKin} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="Relationship" value={formData.relationshipOfNextOfKin} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="Phone Number" value={formData.nextOfKinPhoneNumber} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <InfoRow label="Email Address" value={formData.nextOfKinEmailAddress} />
+            </Grid>
+          </Grid>
+        </InfoCard>
 
-      {/* Application Status Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-medium text-blue-900 mb-2">What happens next?</h4>
-        <div className="space-y-2 text-blue-700 text-sm">
-          <p>
-            • Your application will be submitted with a <Badge variant="secondary">PENDING</Badge> status
-          </p>
-          <p>• A treasurer (Level 2 approver) will review your application</p>
-          <p>• You'll receive notifications about your application status</p>
-          <p>
-            • Once approved, your membership status will become{" "}
-            <Badge className="bg-green-100 text-green-800">ACTIVE</Badge>
-          </p>
-        </div>
-      </div>
-    </div>
+        {/* Application Status Info */}
+        <Alert
+          severity="info"
+          icon={<InfoIcon />}
+          sx={{
+            borderRadius: 2,
+            "& .MuiAlert-message": {
+              width: "100%",
+            },
+          }}
+        >
+          <Typography variant="subtitle2" gutterBottom>
+            What happens next?
+          </Typography>
+          <Stack spacing={1}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography variant="body2">• Your application will be submitted with a</Typography>
+              <Chip label="PENDING" size="small" color="warning" />
+              <Typography variant="body2">status</Typography>
+            </Box>
+            <Typography variant="body2">• A treasurer (Level 2 approver) will review your application</Typography>
+            <Typography variant="body2">• You'll receive notifications about your application status</Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography variant="body2">• Once approved, your membership status will become</Typography>
+              <Chip label="ACTIVE" size="small" color="success" />
+            </Box>
+          </Stack>
+        </Alert>
+      </Stack>
+    </Box>
   )
 }

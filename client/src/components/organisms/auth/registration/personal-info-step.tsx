@@ -1,13 +1,23 @@
 "use client"
 
 import type React from "react"
-
-import { Input } from "@/components/atoms/ui/input"
-import { Label } from "@/components/atoms/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/ui/select"
-import { Button } from "@/components/atoms/ui/button"
-import { Upload, X } from "lucide-react"
 import { useState, useRef } from "react"
+import {
+  Box,
+  Typography,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Button,
+  Avatar,
+  Stack,
+  Grid,
+  Card,
+  useTheme,
+} from "@mui/material"
+import { CloudUpload as CloudUploadIcon, Delete as DeleteIcon, Person as PersonIcon } from "@mui/icons-material"
 
 interface FormData {
   firstName: string
@@ -16,6 +26,7 @@ interface FormData {
   dateOfBirth: string
   maritalStatus: string
   profilePhoto: File | null
+  [key: string]: any
 }
 
 interface PersonalInfoStepProps {
@@ -25,6 +36,7 @@ interface PersonalInfoStepProps {
 }
 
 export default function PersonalInfoStep({ formData, updateFormData, errors }: PersonalInfoStepProps) {
+  const theme = useTheme()
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -49,111 +61,167 @@ export default function PersonalInfoStep({ formData, updateFormData, errors }: P
   }
 
   return (
-    <div className="space-y-6">
-      <div className="text-center mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Personal Information</h3>
-        <p className="text-gray-600">Let's start with your basic personal details</p>
-      </div>
+    <Box>
+      <Box sx={{ textAlign: "center", mb: 4 }}>
+        <Typography variant="h4" gutterBottom sx={{ fontWeight: 600 }}>
+          Personal Information
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Let's start with your basic personal details
+        </Typography>
+      </Box>
 
       {/* Profile Photo Upload */}
-      <div className="flex flex-col items-center space-y-4">
-        <div className="relative">
-          {photoPreview ? (
-            <div className="relative">
-              <img
-                src={photoPreview || "/placeholder.svg"}
-                alt="Profile preview"
-                className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
-              />
-              <button
-                type="button"
+      <Card
+        sx={{
+          p: 3,
+          mb: 4,
+          textAlign: "center",
+          background: `linear-gradient(135deg, ${theme.palette.primary.main}08, ${theme.palette.secondary.main}08)`,
+          border: `1px solid ${theme.palette.divider}`,
+        }}
+      >
+        <Stack spacing={2} alignItems="center">
+          <Avatar
+            src={photoPreview || undefined}
+            sx={{
+              width: 100,
+              height: 100,
+              bgcolor: theme.palette.primary.main,
+              fontSize: "2rem",
+            }}
+          >
+            {!photoPreview && <PersonIcon fontSize="large" />}
+          </Avatar>
+
+          <Stack direction="row" spacing={2}>
+            <Button
+              variant="outlined"
+              startIcon={<CloudUploadIcon />}
+              onClick={() => fileInputRef.current?.click()}
+              sx={{ textTransform: "none" }}
+            >
+              {photoPreview ? "Change Photo" : "Upload Photo"}
+            </Button>
+
+            {photoPreview && (
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteIcon />}
                 onClick={removePhoto}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                sx={{ textTransform: "none" }}
               >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center border-4 border-white shadow-lg">
-              <Upload className="w-8 h-8 text-gray-400" />
-            </div>
-          )}
-        </div>
-        <div className="text-center">
-          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="mb-2">
-            {photoPreview ? "Change Photo" : "Upload Photo"}
-          </Button>
-          <p className="text-xs text-gray-500">Optional - JPG, PNG up to 5MB</p>
-        </div>
-        <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
-      </div>
+                Remove
+              </Button>
+            )}
+          </Stack>
+
+          <Typography variant="caption" color="text.secondary">
+            Optional - JPG, PNG up to 5MB
+          </Typography>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handlePhotoUpload}
+            style={{ display: "none" }}
+          />
+        </Stack>
+      </Card>
 
       {/* Name Fields */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="firstName">First Name *</Label>
-          <Input
-            id="firstName"
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <TextField
+            fullWidth
+            label="First Name"
             value={formData.firstName}
             onChange={(e) => updateFormData({ firstName: e.target.value })}
-            placeholder="Enter your first name"
-            className={errors.firstName ? "border-red-500" : ""}
+            error={!!errors.firstName}
+            helperText={errors.firstName}
+            required
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+              },
+            }}
           />
-          {errors.firstName && <p className="text-red-500 text-sm">{errors.firstName}</p>}
-        </div>
+        </Grid>
 
-        <div className="space-y-2">
-          <Label htmlFor="middleName">Middle Name</Label>
-          <Input
-            id="middleName"
+        <Grid size={{ xs: 12, md: 4 }}>
+          <TextField
+            fullWidth
+            label="Middle Name"
             value={formData.middleName}
             onChange={(e) => updateFormData({ middleName: e.target.value })}
-            placeholder="Enter your middle name"
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+              },
+            }}
           />
-        </div>
+        </Grid>
 
-        <div className="space-y-2">
-          <Label htmlFor="lastName">Last Name *</Label>
-          <Input
-            id="lastName"
+        <Grid size={{ xs: 12, md: 4 }}>
+          <TextField
+            fullWidth
+            label="Last Name"
             value={formData.lastName}
             onChange={(e) => updateFormData({ lastName: e.target.value })}
-            placeholder="Enter your last name"
-            className={errors.lastName ? "border-red-500" : ""}
+            error={!!errors.lastName}
+            helperText={errors.lastName}
+            required
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+              },
+            }}
           />
-          {errors.lastName && <p className="text-red-500 text-sm">{errors.lastName}</p>}
-        </div>
-      </div>
+        </Grid>
+      </Grid>
 
       {/* Date of Birth and Marital Status */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="dateOfBirth">Date of Birth *</Label>
-          <Input
-            id="dateOfBirth"
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            fullWidth
+            label="Date of Birth"
             type="date"
             value={formData.dateOfBirth}
             onChange={(e) => updateFormData({ dateOfBirth: e.target.value })}
-            className={errors.dateOfBirth ? "border-red-500" : ""}
+            error={!!errors.dateOfBirth}
+            helperText={errors.dateOfBirth}
+            required
+            InputLabelProps={{ shrink: true }}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: 2,
+              },
+            }}
           />
-          {errors.dateOfBirth && <p className="text-red-500 text-sm">{errors.dateOfBirth}</p>}
-        </div>
+        </Grid>
 
-        <div className="space-y-2">
-          <Label htmlFor="maritalStatus">Marital Status</Label>
-          <Select value={formData.maritalStatus} onValueChange={(value: any) => updateFormData({ maritalStatus: value })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select marital status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="single">Single</SelectItem>
-              <SelectItem value="married">Married</SelectItem>
-              <SelectItem value="divorced">Divorced</SelectItem>
-              <SelectItem value="widowed">Widowed</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-    </div>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <FormControl fullWidth>
+            <InputLabel>Marital Status</InputLabel>
+            <Select
+              value={formData.maritalStatus}
+              onChange={(e) => updateFormData({ maritalStatus: e.target.value })}
+              label="Marital Status"
+              sx={{
+                borderRadius: 2,
+              }}
+            >
+              <MenuItem value="single">Single</MenuItem>
+              <MenuItem value="married">Married</MenuItem>
+              <MenuItem value="divorced">Divorced</MenuItem>
+              <MenuItem value="widowed">Widowed</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+      </Grid>
+    </Box>
   )
 }
