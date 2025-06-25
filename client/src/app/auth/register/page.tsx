@@ -14,6 +14,12 @@ import {
   useTheme,
   LinearProgress,
   Fade,
+  Alert,
+  AlertTitle,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
 } from "@mui/material"
 import {
   Person as PersonIcon,
@@ -23,6 +29,8 @@ import {
   CheckCircle as CheckCircleIcon,
   ArrowBack as ArrowBackIcon,
   ArrowForward as ArrowForwardIcon,
+  Error as ErrorIcon,
+  Warning as WarningIcon,
 } from "@mui/icons-material"
 import PersonalInfoStep from "@/components/organisms/auth/registration/personal-info-step"
 import EmploymentInfoStep from "@/components/organisms/auth/registration/employment-info-step"
@@ -33,6 +41,7 @@ import SuccessStep from "@/components/organisms/auth/registration/success-step"
 
 // Add these imports at the top
 import { useMemberRegistration, type MemberRegistrationData } from "@/lib/hooks/member/useMemberRegistration"
+import { getFieldDisplayName } from "@/lib/utils/errorUtils"
 
 interface FormData {
   // Personal Information
@@ -95,9 +104,10 @@ export default function RegisterPage() {
   const theme = useTheme()
   const [currentStep, setCurrentStep] = useState(0)
   const [formData, setFormData] = useState<FormData>(initialFormData)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [submitError, setSubmitError] = useState<string>("")
+  const [serverFieldErrors, setServerFieldErrors] = useState<Record<string, string>>({})
 
   const updateFormData = (data: Partial<FormData>) => {
     setFormData((prev) => ({ ...prev, ...data }))
@@ -108,6 +118,16 @@ export default function RegisterPage() {
       updatedFields.forEach((field) => delete newErrors[field])
       return newErrors
     })
+    // Clear server field errors for updated fields
+    setServerFieldErrors((prev) => {
+      const newErrors = { ...prev }
+      updatedFields.forEach((field) => delete newErrors[field])
+      return newErrors
+    })
+    // Clear submit error when user makes changes
+    if (submitError) {
+      setSubmitError("")
+    }
   }
 
   const validateStep = (step: number): boolean => {
@@ -165,19 +185,62 @@ export default function RegisterPage() {
     setCurrentStep((prev) => Math.max(prev - 1, 0))
   }
 
-  // Replace the handleSubmit function with this:
+  // Updated registration hook with enhanced error handling
   const memberRegistration = useMemberRegistration({
-    onSuccess: (data: any) => {
+    onSuccess: (data) => {
       console.log("Registration successful:", data)
+      setSubmitError("") // Clear any previous errors
+      setServerFieldErrors({}) // Clear field errors
       setIsSubmitted(true)
     },
-    onError: (error: any) => {
+    onError: (error, formattedError) => {
       console.error("Registration failed:", error)
-      // Error handling is done in the hook via toast
+      console.log("Formatted error received:", formattedError)
+
+      // Set the main error message
+      setSubmitError(formattedError.message)
+
+      // Set field-specific errors from server validation
+      if (formattedError.hasFieldErrors) {
+        setServerFieldErrors(formattedError.fieldErrors)
+
+        // Navigate to the first step that has errors
+        const fieldToStepMap: Record<string, number> = {
+          firstName: 0,
+          middleName: 0,
+          lastName: 0,
+          dateOfBirth: 0,
+          maritalStatus: 0,
+          erpId: 1,
+          ippisId: 1,
+          staffNo: 1,
+          department: 1,
+          dateOfEmployment: 1,
+          emailAddress: 2,
+          phoneNumber: 2,
+          residentialAddress: 2,
+          nextOfKin: 3,
+          relationshipOfNextOfKin: 3,
+          nextOfKinPhoneNumber: 3,
+          nextOfKinEmailAddress: 3,
+        }
+
+        const errorFields = Object.keys(formattedError.fieldErrors)
+        const stepsWithErrors = errorFields.map((field) => fieldToStepMap[field]).filter((step) => step !== undefined)
+
+        if (stepsWithErrors.length > 0) {
+          const firstErrorStep = Math.min(...stepsWithErrors)
+          setCurrentStep(firstErrorStep)
+        }
+      }
     },
   })
 
   const handleSubmit = async () => {
+    // Clear previous errors
+    setSubmitError("")
+    setServerFieldErrors({})
+
     // Validate all steps before submission
     if (!validateAllSteps()) {
       // Find first step with errors and navigate to it
@@ -224,6 +287,9 @@ export default function RegisterPage() {
     // Use the mutation instead of direct fetch
     memberRegistration.mutate(submissionData)
   }
+
+  // Combine client-side and server-side errors for display
+  const combinedErrors = { ...errors, ...serverFieldErrors }
 
   const progress = ((currentStep + 1) / steps.length) * 100
 
@@ -350,20 +416,60 @@ export default function RegisterPage() {
           <CardContent sx={{ p: 6 }}>
             <Fade in={true} timeout={500}>
               <Box>
+                {/* Error Alert - Show at the top of the form */}
+                {submitError && (
+                  <Alert
+                    severity="error"
+                    icon={<ErrorIcon />}
+                    sx={{
+                      mb: 4,
+                      borderRadius: 2,
+                      "& .MuiAlert-message": {
+                        width: "100%",
+                      },
+                    }}
+                  >
+                    <AlertTitle>Registration Error</AlertTitle>
+                    {submitError}
+
+                    {/* Show field-specific errors if they exist */}
+                    {Object.keys(serverFieldErrors).length > 0 && (
+                      <Box sx={{ mt: 2 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                          Please fix the following issues:
+                        </Typography>
+                        <List dense sx={{ py: 0 }}>
+                          {Object.entries(serverFieldErrors).map(([field, message]) => (
+                            <ListItem key={field} sx={{ py: 0.5, px: 0 }}>
+                              <ListItemIcon sx={{ minWidth: 32 }}>
+                                <WarningIcon color="error" fontSize="small" />
+                              </ListItemIcon>
+                              <ListItemText
+                                primary={`${getFieldDisplayName(field)}: ${message}`}
+                                primaryTypographyProps={{ variant: "body2" }}
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Box>
+                    )}
+                  </Alert>
+                )}
+
                 {/* Step Content */}
                 {currentStep === 0 && (
-                  <PersonalInfoStep formData={formData} updateFormData={updateFormData} errors={errors} />
+                  <PersonalInfoStep formData={formData} updateFormData={updateFormData} errors={combinedErrors} />
                 )}
                 {currentStep === 1 && (
-                  <EmploymentInfoStep formData={formData} updateFormData={updateFormData} errors={errors} />
+                  <EmploymentInfoStep formData={formData} updateFormData={updateFormData} errors={combinedErrors} />
                 )}
                 {currentStep === 2 && (
-                  <ContactInfoStep formData={formData} updateFormData={updateFormData} errors={errors} />
+                  <ContactInfoStep formData={formData} updateFormData={updateFormData} errors={combinedErrors} />
                 )}
                 {currentStep === 3 && (
-                  <NextOfKinStep formData={formData} updateFormData={updateFormData} errors={errors} />
+                  <NextOfKinStep formData={formData} updateFormData={updateFormData} errors={combinedErrors} />
                 )}
-                {currentStep === 4 && <ReviewStep formData={formData} errors={errors} />}
+                {currentStep === 4 && <ReviewStep formData={formData} errors={combinedErrors} />}
 
                 {/* Navigation Buttons */}
                 <Box
@@ -435,21 +541,6 @@ export default function RegisterPage() {
                     </Button>
                   )}
                 </Box>
-
-                {errors.submit && (
-                  <Box
-                    sx={{
-                      mt: 2,
-                      p: 2,
-                      bgcolor: theme.palette.error.light + "20",
-                      border: `1px solid ${theme.palette.error.light}`,
-                      borderRadius: 2,
-                      color: theme.palette.error.main,
-                    }}
-                  >
-                    <Typography variant="body2">{errors.submit}</Typography>
-                  </Box>
-                )}
               </Box>
             </Fade>
           </CardContent>
