@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   //   'http://localhost:3000',
   //   'http://192.168.158.126:3000',
   // ]
+  server: {
+    CLIENT_PORT: 3000
+  }
 };
 
 export default nextConfig;
