@@ -568,6 +568,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
             'GENERATE_REPORTS',
             'VERIFY_WITHDRAWAL',
             'PROCESS_WITHDRAWAL',
+            'PROCESS_PERSONAL_SAVINGS_WITHDRAWAL',
             'VIEW_WITHDRAWAL_REQUESTS',
             'VIEW_SAVINGS_STATS',
             'VIEW_REQUESTS'

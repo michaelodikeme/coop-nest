@@ -255,7 +255,7 @@ const mainNavItems: NavItem[] = [
         icon: <ReceiptIcon />,
         permissions: ['VIEW_REQUESTS'],
         module: Module.LOAN,
-        // approvalLevel: 1,
+        approvalLevel: 1,
       },
       {
         title: 'Member Approvals',
@@ -263,7 +263,7 @@ const mainNavItems: NavItem[] = [
         icon: <GroupAddIcon />,
         permissions: ['VIEW_REQUESTS'],
         module: Module.ACCOUNT,
-        // approvalLevel: 2,
+        approvalLevel: 1,
       },
       {
         title: 'Withdrawal Approvals',
