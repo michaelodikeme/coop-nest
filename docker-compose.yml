@@ -2,8 +2,10 @@ services:
   postgres:
     image: postgres:17
     restart: always
-    env_file:
-      - ./server/.env
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: rootuser
+      POSTGRES_DB: postgres
     volumes:
       - postgres_17_data:/var/lib/postgresql/data
     ports:
@@ -42,7 +44,23 @@ services:
     networks:
       - coop-nest-network
     environment:
-      - NODE_ENV=development
+      # Use the same DATABASE_URL format but host is 'postgres' (the service name)
+      DATABASE_URL: postgresql://postgres:rootuser@postgres:5432/postgres?schema=coop-nest_db
+      PORT: 5000
+      NODE_ENV: development
+      APPLICATION_URL: http://localhost
+      JWT_SECRET: 7af19f5e38a50342c505a1677a5fb8a608d5f869a81e504d78533afeef40692e769fb583d929755b80a87b709bbded0bc284a41b246e83401fa1b58c9bede822
+      JWT_REFRESH_SECRET: 05d1ebb915b8f5f1257546c7ed67fcf925875f3811b68a83830d750cfbd89fd15011327f3ebe91e67d9e29f7b1c56fceb377d2bea4606dbcb1a7024cffa499d2
+      JWT_ACCESS_EXPIRY: 1h
+      JWT_REFRESH_EXPIRY: 7d
+      REDIS_URL: redis://redis:6379"
+      TWILIO_PHONE_NUMBER: +2347061539439
+      TWILIO_ACCOUNT_SID: AC336255bba9e9087577584becb434536c
+      TWILIO_AUTH_TOKEN: 5fa22c0735717fa6e0464ce188b4762d
+      TWILIO_VERIFICATION_SERVICE_SID: VA97a07c1bbd059bf9deea7914610b3873
+      OTP_EXPIRY_TIME: 600000
+      BANK_VERIFICATION_API_URL: https://nubapi.com/api/verify
+      BANK_VERIFICATION_TOKEN: UG52wNFSq3UEMtWP1rrMy79JQQsz8ShiKrs7RZzXeb7b84f7
 
   client:
     build:

@@ -20,7 +20,7 @@ RUN npm install
 RUN cd server && npm install
 
 # Install client dependencies
-RUN cd client && npm install
+RUN cd client && npm install next react react-dom --save
 
 # Copy all source files
 COPY . .

@@ -6,7 +6,7 @@ config({ path: path.resolve(__dirname, '../../.env') }); // Load environment var
 const env = {
   // Environment Variables
   NODE_ENV: process.env.NODE_ENV || 'development',
-  PORT: process.env.PORT || 5001,
+  PORT: process.env.SERVER_PORT || 5001,
   APPLICATION_URL: process.env.APPLICATION_URL,
   DATABASE_URL: process.env.DATABASE_URL,
 

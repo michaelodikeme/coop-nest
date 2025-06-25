@@ -33,12 +33,22 @@
     -e POSTGRES_DB=postgres \
     -p 5432:5432 \
     -d postgres
+
+    docker run \
+    --name postgres \
+    --network coop-nest-network \
+    -e POSTGRES_USER=postgres \
+    -e POSTGRES_PASSWORD=rootuser \
+    -e POSTGRES_DB=postgres \
+    -p 5432:5432 \
+    -d postgres
 ```
 
 #### Run redis server with created network (optional, if already created)
 ```
     docker run \
-    --name docker-redis-server \
+    --name redis \
+    --network coop-nest-network \
     -p 6379:6379 \
     -d redis:alpine
 ```
@@ -47,17 +57,10 @@
 ```
     docker run \
     --name coop-nest-container \
-    --network host \
-    -e DATABASE_URL=postgresql://postgres:rootuser@localhost:5432/postgres?schema=coop-nest_db \
-    -e REDIS_URL=redis://localhost:6379 \
-    -e CORS_ORIGINS=http://168.231.116.82:3000 \
-    -e APPLICATION_URL=http://fuosmcsl.online \
-    -e NEXT_PUBLIC_API_URL=http://fuosmcsl.online/api \
-    <!-- -e APPLICATION_URL=http://168.231.116.82:5000 \ -->
-    <!-- -e NEXT_PUBLIC_API_URL=http://168.231.116.82:5000/api \ -->
+    --network coop-nest-network \
     -p 5000:5000 \
     -p 3000:3000 \
-    michaelodikeme/coop-nest:coop-nest-app
+    coop-nest-app
 ```
     docker run \
     --name coop-nest-container \
