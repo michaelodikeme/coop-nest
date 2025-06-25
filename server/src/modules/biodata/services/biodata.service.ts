@@ -21,8 +21,12 @@ import { ApiError } from '../../../utils/apiError';
 import * as fs from 'fs';
 import * as path from 'path';
 import logger from '../../../utils/logger';
+import { SystemSettingsService } from "../../system/services/systemSettings.service"
 
 const prisma = new PrismaClient();
+
+// Get the actual system user ID from the SystemSettingsService
+const systemSettingsService = SystemSettingsService.getInstance()
 
 // Update TransactionClient type to match Prisma's transaction type
 type TransactionClient = Omit<
@@ -125,17 +129,15 @@ export class BiodataService {
     return biodata;
   }
   
+  
+  /**
+   * Create new member registration (public)
+   */
   async createNewMember(input: ICreateBiodataInput, creatorId: string, approvalLevel: number) {
-    
-    const { 
-      firstName, 
-      middleName, 
-      lastName, 
-      ...rest 
-    } = input;
-    
-    const fullName = `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}`.trim();
-    
+    const { firstName, middleName, lastName, ...rest } = input
+
+    const fullName = `${firstName} ${middleName ? middleName + " " : ""}${lastName}`.trim()
+
     // Check for existing member
     const existingMember = await prisma.biodata.findFirst({
       where: {
@@ -148,13 +150,13 @@ export class BiodataService {
           { fullName },
         ],
       },
-    });
-    
+    })
+
     if (existingMember) {
-      throw new ApiError('Member already exists with provided details', 400);
+      throw new ApiError("Member already exists with provided details", 400)
     }
-    
-    // Create biodata with approval request
+
+    // Create biodata with approval request (no approval level check for public registration)
     const biodata = await prisma.$transaction(async (tx: TransactionClient) => {
       // Create biodata
       const newBiodata = await tx.biodata.create({
@@ -165,18 +167,21 @@ export class BiodataService {
           lastName,
           fullName,
           membershipStatus: MembershipStatus.PENDING,
+          isApproved: false,
+          isVerified: false,
         },
-      });
-      
+      })
+
       // Create approval request
       const request = await tx.request.create({
         data: {
           type: RequestType.ACCOUNT_CREATION,
           module: RequestModule.ACCOUNT,
           status: RequestStatus.PENDING,
-          content: { 
-            type: RequestType.ACCOUNT_CREATION, 
-            biodataId: newBiodata.id 
+          content: {
+            type: RequestType.ACCOUNT_CREATION,
+            biodataId: newBiodata.id,
+            source: "PUBLIC_REGISTRATION",
           },
           metadata: {
             biodata: {
@@ -185,34 +190,38 @@ export class BiodataService {
               membershipStatus: MembershipStatus.PENDING,
             },
             initiatorId: creatorId,
-            priority: 'NORMAL',
-            nextApprovalLevel: 2,  // Requires treasurer (level 2) for approval
+            priority: "NORMAL",
+            nextApprovalLevel: 2, // Requires treasurer (level 2) for approval
+            source: "PUBLIC_REGISTRATION",
           },
           biodataId: newBiodata.id,
           initiatorId: creatorId,
-          priority: 'NORMAL',
-          nextApprovalLevel: 2,  // Requires treasurer (level 2) for approval
+          priority: "NORMAL",
+          nextApprovalLevel: 2, // Requires treasurer (level 2) for approval
         },
-      });
-      
-      // Create notification
-      await tx.notification.create({
-        data: {
-          type: NotificationType.SYSTEM_ALERT,
-          title: 'Biodata Created',
-          message: `Biodata created for ${newBiodata.fullName}`,
-          priority: 'NORMAL',
-          userId: creatorId, // System notification
-        },
-      });
-      
+      })
+
+      const systemUserId = await systemSettingsService.ensureSystemUser()
+      // Don't create notification for public registration since there's no user to notify
+      if (creatorId !== systemUserId) {
+        await tx.notification.create({
+          data: {
+            type: NotificationType.SYSTEM_ALERT,
+            title: "Biodata Created",
+            message: `Biodata created for ${newBiodata.fullName}`,
+            priority: "NORMAL",
+            userId: creatorId,
+          },
+        })
+      }
+
       return {
         biodata: newBiodata,
-        requestId: request.id
-      };
-    });
-    
-    return biodata;
+        requestId: request.id,
+      }
+    })
+
+    return biodata
   }
   
   async updateBiodata(biodataId: string, input: IUpdateBiodataInput, initiatorId: string) {

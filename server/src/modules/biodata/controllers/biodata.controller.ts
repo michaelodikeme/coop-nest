@@ -13,6 +13,7 @@ import { ApiResponse } from '../../../utils/apiResponse';
 import { ApiError } from '../../../utils/apiError';
 import { ZodError } from 'zod';
 import { MembershipStatus } from '@prisma/client';
+import { SystemSettingsService } from "../../system/services/systemSettings.service"
 
 // Update AuthenticatedRequest interface to match auth middleware
 interface AuthenticatedRequest extends Request {
@@ -52,17 +53,29 @@ export class BiodataController {
     }
   }
 
+  // FIX: Update this method to handle public registration
   async createNewMember(req: Request, res: Response, next: NextFunction) {
     try {
-        const validatedData = createBiodataSchema.parse(req.body);
-        const biodata = await this.biodataService.createNewMember(
-            validatedData,
-            req.user.id,
-            req.user.approvalLevel || 0
-        );
-        res.status(201).json(biodata);
+      const validatedData = createBiodataSchema.parse(req.body)
+
+      // For public registration, use the actual system user
+      const systemSettingsService = SystemSettingsService.getInstance()
+      const systemUserId = await systemSettingsService.ensureSystemUser()
+
+      // For public registration, use a system identifier instead of user ID
+      const systemApprovalLevel = 0 // Public registrations start at level 0
+
+      const biodata = await this.biodataService.createNewMember(validatedData, systemUserId, systemApprovalLevel)
+
+      // Return success response with proper structure
+      return ApiResponse.success(res, "Registration submitted successfully", {
+        biodataId: biodata.biodata.id,
+        requestId: biodata.requestId,
+        status: "PENDING",
+        message: "Your application has been submitted and is pending approval.",
+      })
     } catch (error) {
-        next(error);
+      next(error)
     }
   }
 
