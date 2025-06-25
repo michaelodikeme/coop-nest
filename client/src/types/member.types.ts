@@ -7,6 +7,45 @@ import { Notification } from "./notification.types";
 //   accountNumber: string;
 //   isVerified?: boolean;
 // }
+export interface MemberRegistrationData {
+  // Personal Information
+  firstName: string
+  middleName?: string
+  lastName: string
+  dateOfBirth?: string
+  maritalStatus?: string
+
+  // Employment Information
+  erpId: string
+  ippisId: string
+  staffNo: string
+  department: string
+  dateOfEmployment: string
+
+  // Contact Information
+  emailAddress: string
+  phoneNumber: string
+  residentialAddress: string
+
+  // Next of Kin Information
+  nextOfKin: string
+  relationshipOfNextOfKin: string
+  nextOfKinPhoneNumber: string
+  nextOfKinEmailAddress: string
+
+  // Optional profile photo
+  profilePhoto?: string
+}
+
+export interface MemberRegistrationResponse {
+  success: boolean
+  message: string
+  data: {
+    biodataId: string
+    requestId: string
+    status: "PENDING" | "APPROVED" | "REJECTED"
+  }
+}
 
 export interface MemberFilterParams {
   department?: string;

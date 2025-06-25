@@ -31,6 +31,9 @@ import NextOfKinStep from "@/components/organisms/auth/registration/next-of-kin-
 import ReviewStep from "@/components/organisms/auth/registration/review-step"
 import SuccessStep from "@/components/organisms/auth/registration/success-step"
 
+// Add these imports at the top
+import { useMemberRegistration, type MemberRegistrationData } from "@/lib/hooks/member/useMemberRegistration"
+
 interface FormData {
   // Personal Information
   firstName: string
@@ -162,6 +165,18 @@ export default function RegisterPage() {
     setCurrentStep((prev) => Math.max(prev - 1, 0))
   }
 
+  // Replace the handleSubmit function with this:
+  const memberRegistration = useMemberRegistration({
+    onSuccess: (data: any) => {
+      console.log("Registration successful:", data)
+      setIsSubmitted(true)
+    },
+    onError: (error: any) => {
+      console.error("Registration failed:", error)
+      // Error handling is done in the hook via toast
+    },
+  })
+
   const handleSubmit = async () => {
     // Validate all steps before submission
     if (!validateAllSteps()) {
@@ -175,63 +190,39 @@ export default function RegisterPage() {
       return
     }
 
-    setIsSubmitting(true)
-    try {
-      // Prepare complete form data for submission
-      const submissionData = {
-        // Personal Information
-        firstName: formData.firstName,
-        middleName: formData.middleName || undefined,
-        lastName: formData.lastName,
-        // dateOfBirth: formData.dateOfBirth,
-        // maritalStatus: formData.maritalStatus || undefined,
+    // Prepare complete form data for submission using the proper interface
+    const submissionData: MemberRegistrationData = {
+      // Personal Information
+      firstName: formData.firstName,
+      middleName: formData.middleName || undefined,
+      lastName: formData.lastName,
+      // dateOfBirth: formData.dateOfBirth,
+      // maritalStatus: formData.maritalStatus || undefined,
 
-        // Employment Information
-        dateOfEmployment: new Date(formData.dateOfEmployment),
-        erpId: formData.erpId,
-        ippisId: formData.ippisId,
-        staffNo: formData.staffNo,
-        department: formData.department,
+      // Employment Information
+      dateOfEmployment: formData.dateOfEmployment, // Keep as string, backend will parse
+      erpId: formData.erpId,
+      ippisId: formData.ippisId,
+      staffNo: formData.staffNo,
+      department: formData.department,
 
-        // Contact Information
-        residentialAddress: formData.residentialAddress,
-        emailAddress: formData.emailAddress,
-        phoneNumber: formData.phoneNumber,
+      // Contact Information
+      residentialAddress: formData.residentialAddress,
+      emailAddress: formData.emailAddress,
+      phoneNumber: formData.phoneNumber,
 
-        // Next of Kin Information
-        nextOfKin: formData.nextOfKin,
-        relationshipOfNextOfKin: formData.relationshipOfNextOfKin,
-        nextOfKinPhoneNumber: formData.nextOfKinPhoneNumber,
-        nextOfKinEmailAddress: formData.nextOfKinEmailAddress,
+      // Next of Kin Information
+      nextOfKin: formData.nextOfKin,
+      relationshipOfNextOfKin: formData.relationshipOfNextOfKin,
+      nextOfKinPhoneNumber: formData.nextOfKinPhoneNumber,
+      nextOfKinEmailAddress: formData.nextOfKinEmailAddress,
 
-        // Profile Photo (if implemented)
-        profilePhoto: formData.profilePhoto ? "uploaded-photo-path" : undefined,
-      }
-
-      const response = await fetch("/api/members/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(submissionData),
-      })
-
-      if (response.ok) {
-        setIsSubmitted(true)
-      } else {
-        const errorData = await response.json()
-        setErrors({ submit: errorData.message || "Registration failed. Please try again." })
-      }
-    } catch (error) {
-      console.error("Registration error:", error)
-      if (error instanceof TypeError && error.message.includes("fetch")) {
-        setErrors({ submit: "Network error. Please check your connection and try again." })
-      } else {
-        setErrors({ submit: "An unexpected error occurred. Please try again." })
-      }
-    } finally {
-      setIsSubmitting(false)
+      // Profile Photo (if implemented)
+      profilePhoto: formData.profilePhoto ? "uploaded-photo-path" : undefined,
     }
+
+    // Use the mutation instead of direct fetch
+    memberRegistration.mutate(submissionData)
   }
 
   const progress = ((currentStep + 1) / steps.length) * 100
@@ -424,7 +415,7 @@ export default function RegisterPage() {
                     <Button
                       variant="contained"
                       onClick={handleSubmit}
-                      disabled={isSubmitting}
+                      disabled={memberRegistration.isPending}
                       endIcon={<CheckCircleIcon />}
                       sx={{
                         px: 4,
@@ -440,7 +431,7 @@ export default function RegisterPage() {
                         transition: "all 0.2s ease",
                       }}
                     >
-                      {isSubmitting ? "Submitting..." : "Submit Application"}
+                      {memberRegistration.isPending ? "Submitting..." : "Submit Application"}
                     </Button>
                   )}
                 </Box>

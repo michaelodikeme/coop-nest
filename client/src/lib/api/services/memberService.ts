@@ -1,12 +1,21 @@
 import { apiService } from '@/lib/api/apiService';
 import type { PaginatedResponse } from '@/types/types';
-import type { Biodata, Member, MemberFormData, MemberFilterParams } from '@/types/member.types';
+import type { Biodata, Member, MemberFormData, MemberFilterParams, MemberRegistrationData, MemberRegistrationResponse } from '@/types/member.types';
 import type { LoanRecord } from '@/types/loan.types';
 
 /**
  * Service for managing cooperative members biodata
  */
 class MemberService {
+  /**
+   * Register new member (public endpoint)
+   * POST /biodata/register
+   */
+  async registerMember(data: MemberRegistrationData): Promise<MemberRegistrationResponse> {
+    console.log("Registering new member:", data)
+    return apiService.post<MemberRegistrationResponse>("/biodata/register", data)
+  }
+
   /**
    * Verify biodata phone number (initiates OTP)
    * POST /biodata/verify
