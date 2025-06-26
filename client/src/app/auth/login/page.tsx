@@ -72,13 +72,13 @@ export default function LoginPage() {
                 alignItems: 'center' 
               }}
             >
-              {/* <Image
-                src="/next.svg" // Replace with your actual logo path
+              <Image
+                src="/coop-nest-logo-ico.svg" // Replace with your actual logo path
                 alt="CoopNest"
                 width={180}
                 height={48}
                 style={{ height: 'auto' }}
-              /> */}
+              />
               <Typography 
                 variant="h4" 
                 component="h1" 

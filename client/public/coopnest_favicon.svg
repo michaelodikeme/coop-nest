@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CoopNest favicon-only icon | FIXED for browser compatibility -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 480 480" role="img" aria-labelledby="iconTitle iconDesc" fill="none">
+  <title id="iconTitle">CoopNest Icon</title>
+  <desc id="iconDesc">Stand-alone nest and upward arrow symbol for CoopNest favicon</desc>
+
+  <g transform="translate(240 120)" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Financial core circle -->
+    <circle cx="0" cy="0" r="110" stroke="#1A237E" stroke-width="24" />
+
+    <!-- Upward arrow for growth -->
+    <path d="M -30 20 L 0 -60 L 30 20" stroke="#00796B" stroke-width="20" />
+    <line x1="0" y1="20" x2="0" y2="90" stroke="#00796B" stroke-width="20" />
+
+    <!-- Coral accent -->
+    <circle cx="0" cy="-70" r="10" fill="#FF5252" />
+
+    <!-- Nest twigs -->
+    <path d="M -170 120 C -90 200, 90 200, 170 120" stroke="#1A237E" stroke-width="20" />
+    <path d="M -190 150 C -95 240, 95 240, 190 150" stroke="#00796B" stroke-width="16" />
+    <path d="M -210 180 C -100 280, 100 280, 210 180" stroke="#1A237E" stroke-width="12" />
+  </g>
+</svg>
+

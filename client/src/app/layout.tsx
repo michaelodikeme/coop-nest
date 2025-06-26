@@ -17,6 +17,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* Favicon links */}
+        <link rel="icon" href="/coopnest_favicon.svg" type="image/svg+xml" />
+        {/* <link rel="alternate icon" href="/favicon.ico" type="image/x-icon" /> */}
+      </head>
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
       >
