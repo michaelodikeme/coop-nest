@@ -73,23 +73,23 @@ jobs:
           # Create backup before deployment
           echo "💾 Creating database backup..."
           mkdir -p ~/backups
-          docker compose --env-file .env.production exec -T postgres pg_dump -U postgres postgres > ~/backups/backup_$(date +%Y%m%d_%H%M%S).sql
+          docker compose --env-file .env.docker exec -T postgres pg_dump -U postgres postgres > ~/backups/backup_$(date +%Y%m%d_%H%M%S).sql
           
           # Deploy with zero downtime
           echo "🚀 Deploying new version..."
-          docker compose --env-file .env.production up -d --no-deps app
+          docker compose --env-file .env.docker up -d --no-deps app
           
           # Wait for health check
           echo "🏥 Waiting for health check..."
           sleep 30
           
           # Verify deployment
-          if docker compose --env-file .env.production ps | grep -q "Up.*healthy"; then
+          if docker compose --env-file .env.docker ps | grep -q "Up.*healthy"; then
             echo "✅ Deployment successful!"
-            docker compose --env-file .env.production ps
+            docker compose --env-file .env.docker ps
           else
             echo "❌ Deployment failed! Rolling back..."
-            docker compose --env-file .env.production logs app
+            docker compose --env-file .env.docker logs app
             exit 1
           fi
           
