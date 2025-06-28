@@ -71,7 +71,7 @@ web_modules/
 
 # dotenv environment variables file
 .env
-# .env.test
+.env.test
 .env.production
 
 # parcel-bundler cache (https://parceljs.org/)
@@ -116,5 +116,8 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Documentations 
+docs
 
 # End of https://mrkandreev.name/snippets/gitignore-generator/#Node
