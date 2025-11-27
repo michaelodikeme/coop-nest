@@ -54,10 +54,14 @@ export default function BiodataVerificationForm({ onStepComplete }: BiodataVerif
     setError('');
 
     try {
-      await authApi.validateOTP(formData.verificationCode);
-      onStepComplete();
-    //   router.push('/register?erpId=' + formData.erpId);
+      console.log('Validating OTP...');
+      const result = await authApi.validateOTP(formData.verificationCode);
+      console.log('OTP validation successful:', result);
+      console.log('Redirecting to /auth/create-account...');
+      router.push('/auth/create-account');
+      console.log('Router.push called');
     } catch (err: any) {
+      console.error('OTP validation failed:', err);
       setError(err.response?.data?.message || 'Invalid verification code.');
     } finally {
       setLoading(false);

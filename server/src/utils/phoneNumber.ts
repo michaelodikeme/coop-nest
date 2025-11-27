@@ -76,16 +76,29 @@ export class PhoneNumberService {
   /**
    * Validates if a phone number is in correct Nigerian format
    */
-  static isValidNigerianNumber(phoneNumber: string): boolean {
-    try {
-      // Clean the number first
-      const cleaned = phoneNumber.replace(/\s+/g, '');
-      
-      // Match both formats: 0703... or +234703... or 234703...
-      const nigerianPattern = /^(?:(?:\+?234)|0)([789][01])\d{8}$/;
-      return nigerianPattern.test(cleaned);
-    } catch {
-      return false;
+  // static isValidNigerianNumber(phoneNumber: string): boolean {
+  //   try {
+  //     // Clean the number first
+  //     const cleaned = phoneNumber.replace(/\s+/g, '');
+  //
+  //     // Match both formats: 0703... or +234703... or 234703...
+  //     const nigerianPattern = /^(?:(?:\+?234)|0)([789][01])\d{8}$/;
+  //     return nigerianPattern.test(cleaned);
+  //   } catch {
+  //     return false;
+  //   }
+  // }
+
+    static isValidNigerianNumber(phoneNumber: string): boolean {
+        try {
+            const cleaned = phoneNumber.replace(/\s+/g, '');
+
+            // Format: 07012345678 or +2347012345678 or 2347012345678
+            const nigerianPattern = /^(?:\+?234|0)[7-9]\d{9}$/;
+
+            return nigerianPattern.test(cleaned);
+        } catch {
+            return false;
+        }
     }
-  }
 }

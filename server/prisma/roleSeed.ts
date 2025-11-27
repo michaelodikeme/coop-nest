@@ -49,16 +49,18 @@ async function main() {
     const superAdminEmail = 'admin@system.local';
     const existingSuperAdmin = await prisma.user.findFirst({
       where: {
-        roleAssignments: {
-          some: {
-            role: {
-              name: 'SUPER_ADMIN'
-            }
+        roleAssignment: {
+          role: {
+            name: 'SUPER_ADMIN'
           }
         }
       },
       include: {
-        roleAssignments: true,
+        roleAssignment: {
+          include: {
+            role: true
+          }
+        },
         adminProfile: true
       }
     });
@@ -92,7 +94,7 @@ async function main() {
               isActive: true
             }
           },
-          roleAssignments: {
+          roleAssignment: {
             create: {
               roleId: superAdminRole.id,
               isActive: true,
@@ -101,7 +103,11 @@ async function main() {
           }
         },
         include: {
-          roleAssignments: true,
+          roleAssignment: {
+            include: {
+              role: true
+            }
+          },
           adminProfile: true
         }
       });
@@ -109,7 +115,7 @@ async function main() {
       console.log('Created super admin user:', {
         data: user,
         username: user.username,
-        roles: user.roleAssignments.map(ra => ra.roleId)
+        role: user.roleAssignment?.role?.name || 'No role'
       });
     } else {
       console.log('Super admin user already exists');

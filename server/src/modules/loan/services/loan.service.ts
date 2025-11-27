@@ -66,13 +66,17 @@ export class LoanService {
     
     async applyForLoan(data: LoanApplication): Promise<Loan> {
         // 1. Get loan type first to determine rules
+        console.log("got here seveenth")
         const loanType = await this.prisma.loanType.findUnique({
             where: { id: data.loanTypeId }
         });
+        console.log("got here eight")
         
         if (!loanType) {
             throw new ApiError('Invalid loan type', 404);
         }
+
+        console.log("got here", loanType)
         
         // 2. Get member profile with related data
         const biodata = await this.prisma.biodata.findUnique({

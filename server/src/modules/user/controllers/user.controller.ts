@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { UserService } from '../services/user.service';
-import { 
-  createUserSchema, 
-  updateUserSchema, 
-  userLoginSchema, 
+import { RoleService } from '../services/role.service';
+import {
+  createUserSchema,
+  updateUserSchema,
+  userLoginSchema,
   changePasswordSchema,
   assignRoleSchema,
   updateRoleSchema,
@@ -21,10 +22,10 @@ interface AuthRequest extends Request {
   user: {
     id: string;
     biodataId: string;
-    roles: Array<{
+    role: {
       name: string;
       isAdmin: boolean;
-    }>;
+    };
     permissions?: string[];
     approvalLevel: number;
   };
@@ -35,9 +36,11 @@ interface AuthRequest extends Request {
 
 export class UserController {
   private userService: UserService;
-  
+  private roleService: RoleService;
+
   constructor() {
     this.userService = new UserService();
+    this.roleService = new RoleService();
   }
   
   async createUser(req: Request, res: Response, next: NextFunction) {
@@ -101,10 +104,16 @@ export class UserController {
         ipAddress: global.ipAddress
       });
       const result = await this.userService.loginUser(validatedData);
+            console.log("login from user",{
+        status: 'success',
+        data: result.user.roleAssignment
+      })
       res.json({
         status: 'success',
         data: result
       });
+
+
     } catch (error: unknown) {
       next(error);
     }
@@ -166,18 +175,30 @@ export class UserController {
     }
   }
   
-  async assignRole(req: AuthRequest, res: Response, next: NextFunction) {
+async assignRole(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+
+      console.log("user request", assignRoleSchema.parse(req.body))
       const validatedData = assignRoleSchema.parse(req.body);
-      
-      // Get the role being assigned
-      const targetRole = DEFAULT_ROLES.find(role => role.name === validatedData.roleId);
-      
-      // Check if user has sufficient approval level to assign this role
-      if (targetRole && req.user.approvalLevel! < targetRole.approvalLevel) {
-        throw new ApiError('Insufficient permissions to assign this role', 403);
+
+
+      // Prevent users from changing their own role
+      if (validatedData.userId === req.user.id) {
+        throw new ApiError('You cannot change your own role', 403);
       }
-      
+
+      const roleAssigned = await this.roleService.findRoleById(validatedData.roleId);
+
+      console.log("roleAssigned", roleAssigned)
+
+      // Check if user has sufficient approval level to assign this role
+      if (roleAssigned && req.user.approvalLevel < roleAssigned.approvalLevel) {
+        console.log("here is where users are",req.user.approvalLevel, roleAssigned.approvalLevel  )
+        throw new ApiError(
+           'Insufficient permissions to assign this role', 403
+        );
+      }
+
       const userRole = await this.userService.assignRole(validatedData);
       res.json({
         status: 'success',
@@ -214,8 +235,31 @@ export class UserController {
       if (!req.user.permissions?.includes('MANAGE_ROLES')) {
         throw new ApiError('Unauthorized to deactivate users', 403);
       }
-      
+
+      // Prevent deactivating own account
+      if (userId === req.user.id) {
+        throw new ApiError('You cannot deactivate your own account', 403);
+      }
+
       const user = await this.userService.deactivateUser(userId);
+      res.json({
+        status: 'success',
+        data: user
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async reactivateUser(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const userId = req.params.id;
+      // Check if user has permission to reactivate users
+      if (!req.user.permissions?.includes('MANAGE_ROLES')) {
+        throw new ApiError('Unauthorized to reactivate users', 403);
+      }
+
+      const user = await this.userService.reactivateUser(userId);
       res.json({
         status: 'success',
         data: user
@@ -250,7 +294,7 @@ export class UserController {
       if (userId !== req.user.id && !req.user.permissions?.includes('VIEW_OWN_PROFILE')) {
         throw new ApiError('Unauthorized to view user details', 403);
       }
-      
+
       const user = await this.userService.getUserById(userId);
       res.json({
         status: 'success',
@@ -286,7 +330,7 @@ export class UserController {
       if (userId !== req.user.id && !req.user.permissions?.includes('VIEW_PERMISSIONS')) {
         throw new ApiError('Unauthorized to view module access', 403);
       }
-      
+
       const moduleAccess = await this.userService.getUserModuleAccess(userId);
       res.json({
         status: 'success',
@@ -322,7 +366,7 @@ export class UserController {
       if (!req.user.permissions?.includes('MANAGE_ROLES')) {
         throw new ApiError('Unauthorized to view roles', 403);
       }
-      
+
       const level = parseInt(req.params.level);
       if (isNaN(level)) {
         throw new ApiError('Invalid approval level', 400);

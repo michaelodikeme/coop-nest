@@ -3,7 +3,8 @@ import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import "./globals.css";
 import { Providers } from "./providers";
-import EmotionCacheProvider from '@/lib/emotion/EmotionCacheProvider';
+// import EmotionCacheProvider from '@/lib/emotion/EmotionCacheProvider';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
 
 export const metadata: Metadata = {
   title: "CoopNest - Cooperative Management System",
@@ -25,9 +26,11 @@ export default function RootLayout({
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
       >
-        <EmotionCacheProvider>
+        {/*<EmotionCacheProvider>*/}
+        <AppRouterCacheProvider options={{ key: 'mui' }}>
           <Providers>{children}</Providers>
-        </EmotionCacheProvider>
+        {/*</EmotionCacheProvider>*/}
+        </AppRouterCacheProvider>
       </body>
     </html>
   );

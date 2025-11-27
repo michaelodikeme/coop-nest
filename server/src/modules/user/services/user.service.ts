@@ -28,18 +28,21 @@ export class UserService {
   async createUser(input: ICreateUserInput) {
     const { biodataId, username, password, isMember, roleIds, expiryDates } = input;
     
-    // Check if biodata is verified and approved
+    // Check if biodata exists and is verified
     const biodata = await prisma.biodata.findUnique({
       where: { id: biodataId },
     });
-    
-    if (!biodata || !biodata.isVerified) {
-      throw new ApiError ('Biodata is not verified. Please verify again.', 400);
+
+    if (!biodata) {
+      throw new ApiError('Biodata not found', 404);
     }
-    
-    if (!biodata.isApproved) {
-      throw new ApiError ('Your membership registration is still pending approval. Please contact the admin.', 403)
+
+    if (!biodata.isVerified) {
+      throw new ApiError('Biodata is not verified. Please verify your phone number first.', 400);
     }
+
+    // For existing members: Allow account creation even if not approved yet
+    // The account creation process will approve them automatically
     
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
@@ -73,14 +76,23 @@ export class UserService {
       // Create user WITH biodataId
       const newUser = await tx.user.create({
         data: {
-          biodataId, // FIXED: Now including biodataId 
+          biodataId, // FIXED: Now including biodataId
           username,
           password: hashedPassword,
           isMember,
           isActive: true,
         },
       });
-      
+
+      // Update biodata: set isApproved
+      await tx.biodata.update({
+        where: { id: biodataId },
+        data: {
+          isApproved: true,
+          membershipStatus: 'ACTIVE',
+        },
+      });
+
       // Assign roles
       await Promise.all(rolesToAssign.map(roleId =>
         tx.userRole.create({
@@ -92,22 +104,22 @@ export class UserService {
           },
         })
       ));
-      
+
       // Create welcome notification
       await tx.notification.create({
         data: {
           userId: newUser.id,
           type: 'SYSTEM_ALERT',
           title: 'Welcome to the Cooperative System',
-          message: 'Your account has been created successfully. Please complete your profile.',
+          message: 'Your account has been created successfully. You can now login to access member services.',
           priority: 'NORMAL',
         },
       });
-      
+
       return tx.user.findUnique({
         where: { id: newUser.id },
         include: {
-          roleAssignments: {
+          roleAssignment: {
             include: {
               role: true,
             },
@@ -200,7 +212,7 @@ export class UserService {
         isActive: true,
       },
       include: {
-        roleAssignments: {
+        roleAssignment: {
           where: {
             isActive: true,
             OR: [
@@ -332,7 +344,7 @@ export class UserService {
     if (username) {
       // Get user's roles and permissions
       const userPermissions = await this.getUserPermissions(userId);
-      const userRoles = userPermissions.roles;
+      const userRoles = userPermissions.role;
       
       // Check if username is already taken
       const existingUser = await prisma.user.findFirst({
@@ -371,9 +383,12 @@ export class UserService {
       // }
       
       // Check if user is ADMIN or MEMBER - these roles require approval
-      const requiresApproval = userRoles.some(role => ['ADMIN', 'MEMBER'].includes(role)) ||
-      userPermissions.approvalLevel <= 1;
+      // const requiresApproval = userRoles?.some(role => ['ADMIN', 'MEMBER'].includes(role)) ||
+      // userPermissions.approvalLevel <= 1;
       
+
+      const requiresApproval = ['ADMIN', 'MEMBER'].includes(userRoles) ||
+      userPermissions.approvalLevel <= 1;
       if (requiresApproval) {
         // Create request using transaction to ensure data consistency
         const request = await prisma.$transaction(async (tx) => {
@@ -448,7 +463,7 @@ export class UserService {
           where: { id: userId },
           data: { username },
           include: {
-            roleAssignments: {
+            roleAssignment: {
               include: {
                 role: true,
               },
@@ -526,7 +541,7 @@ export class UserService {
     const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
-            roleAssignments: {
+            roleAssignment: {
                 where: {
                     isActive: true,
                     OR: [
@@ -545,28 +560,61 @@ export class UserService {
         throw new ApiError('User not found', 404);
     }
 
+    if (!user.roleAssignment?.role) {
+    throw new Error('User role not found');
+}
     // Ensure consistent role name format
-    const roles = user.roleAssignments.map(ua => ua.role.name.toUpperCase());
+    const role = user.roleAssignment?.role.name;
+
+
     
     const permissions = new Set<string>();
     const moduleAccess = new Set<string>();
     let maxApprovalLevel = 0;
     let canApprove = false;
 
-    user.roleAssignments.forEach(ua => {
-        // Get role's approval level
-        const roleApprovalLevel = ua.role.approvalLevel || 0;
+    // user.roleAssignment.forEach(ua => {
+    //     // Get role's approval level
+    //     const roleApprovalLevel = ua.role.approvalLevel || 0;
+    //     if (roleApprovalLevel > maxApprovalLevel) {
+    //         maxApprovalLevel = roleApprovalLevel;
+    //     }
+        
+    //     // Update can approve
+    //     if (ua.role.canApprove) {
+    //         canApprove = true;
+    //     }
+
+    //     // Add permissions based on approval level
+    //     ua.role.permissions.forEach(permissionName => {
+    //         const permission = PERMISSIONS.find(p => p.name === permissionName);
+    //         if (permission) {
+    //             // Only add if no approval level required or user meets the requirement
+    //             if (!permission.requiredApprovalLevel || 
+    //                 roleApprovalLevel >= permission.requiredApprovalLevel) {
+    //                 permissions.add(permissionName);
+    //             }
+    //         }
+    //     });
+
+    //     // Add module access
+    //     ua.role.moduleAccess.forEach(module => {
+    //         moduleAccess.add(module);
+    //     });
+    // });
+
+    const roleApprovalLevel = user.roleAssignment?.role.approvalLevel || 0;
         if (roleApprovalLevel > maxApprovalLevel) {
             maxApprovalLevel = roleApprovalLevel;
         }
         
         // Update can approve
-        if (ua.role.canApprove) {
+        if (user.roleAssignment?.role.canApprove) {
             canApprove = true;
         }
 
         // Add permissions based on approval level
-        ua.role.permissions.forEach(permissionName => {
+        user.roleAssignment?.role.permissions.forEach(permissionName => {
             const permission = PERMISSIONS.find(p => p.name === permissionName);
             if (permission) {
                 // Only add if no approval level required or user meets the requirement
@@ -578,13 +626,12 @@ export class UserService {
         });
 
         // Add module access
-        ua.role.moduleAccess.forEach(module => {
+        user.roleAssignment?.role.moduleAccess.forEach(module => {
             moduleAccess.add(module);
         });
-    });
 
     return {
-        roles,
+        role,
         permissions: Array.from(permissions),
         moduleAccess: Array.from(moduleAccess),
         approvalLevel: maxApprovalLevel,
@@ -599,60 +646,77 @@ export class UserService {
   
   async assignRole(input: IAssignRoleInput) {
     const { userId, roleId, expiresAt } = input;
-    
+
+    console.log("role hitting user")
+
     // First check if the role exists
     const role = await prisma.role.findUnique({
       where: { id: roleId },
     });
-    
+
     if (!role) {
       throw new ApiError('Role not found', 404);
     }
-    
+
     // Validate against DEFAULT_ROLES
-    const defaultRole = DEFAULT_ROLES.find((r: RoleDefinition) => r.name === role.name);
-    if (!defaultRole) {
-      throw new ApiError('Invalid role type', 400);
-    }
-    
+    // const defaultRole = DEFAULT_ROLES.find((r: RoleDefinition) => r.name === role.name);
+    //
+    // console.log("role hitting desfaultRole", defaultRole);
+    // if (!defaultRole) {
+    //   throw new ApiError('Invalid role type', 400);
+    // }
+
+    // console.log(defaultRole, defaultRole.isSystem, )
+
     // Check if this is a system role being modified
-    if (defaultRole.isSystem) {
-      const assignerPermissions = await this.getUserPermissions(userId);
-      if (assignerPermissions.approvalLevel < defaultRole.approvalLevel) {
-        throw new ApiError('Insufficient permissions to assign this role', 403);
-      }
-    }
-    
-    // Check if role assignment already exists
-    const existingAssignment = await prisma.userRole.findFirst({
-      where: {
-        userId,
-        roleId,
-        isActive: true,
-        OR: [
-          { expiresAt: null },
-          { expiresAt: { gt: new Date() } },
-        ],
-      },
-    });
-    
-    if (existingAssignment) {
-      throw new ApiError('User already has this role assigned', 400);
-    }
-    
+    // if (defaultRole.isSystem) {
+    //   const assignerPermissions = await this.getUserPermissions(userId);
+
+    //   console.log("assigned permission", assignerPermissions)
+    //   if (assignerPermissions.approvalLevel < defaultRole.approvalLevel) {
+
+    //     console.log("check permission", assignerPermissions.approvalLevel, defaultRole.approvalLevel, assignerPermissions.approvalLevel, defaultRole.approvalLevel)
+    //     throw new ApiError('Insufficient permissions to assign this role', 403);
+    //   }
+    // }
+
+    // ENFORCE SINGLE ROLE PER USER: Deactivate all existing active role assignments
     const userRole = await prisma.$transaction(async (tx: PrismaTransaction) => {
-      const assignment = await tx.userRole.create({
+      // // Deactivate ALL existing active roles for this user
+      // await tx.userRole.updateMany({
+      //   where: {
+      //     userId,
+      //     isActive: true,
+      //   },
+      //   data: {
+      //     isActive: false,
+      //   },
+      // });
+
+      // Create new role assignment
+      // const assignment = await tx.userRole.update({
+      //   where: {
+      //     userId_roleId
+      //   },
+      //   data: {
+      //     roleId
+      //   },
+      //   include: {
+      //     role: true,
+      //   },
+      // });
+
+      // Update using the PRIMARY KEY instead of composite key
+      const assignment = await tx.userRole.update({
+        where: { userId },
         data: {
-          userId,
-          roleId,
-          expiresAt,
-          isActive: true,
+          roleId
         },
         include: {
           role: true,
         },
       });
-      
+
       // Create notification for role assignment
       await tx.notification.create({
         data: {
@@ -663,10 +727,10 @@ export class UserService {
           priority: 'HIGH',
         },
       });
-      
+
       return assignment;
     });
-    
+
     return userRole;
   }
   
@@ -782,7 +846,53 @@ export class UserService {
         },
       },
     });
-    
+
+    // Create notification for deactivation
+    await prisma.notification.create({
+      data: {
+        userId,
+        type: 'ACCOUNT_UPDATE',
+        title: 'Account Deactivated',
+        message: 'Your account has been deactivated. Please contact the administrator for more information.',
+        priority: 'HIGH',
+      },
+    });
+
+    return user;
+  }
+
+  async reactivateUser(userId: string) {
+    // Check if user exists
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!existingUser) {
+      throw new ApiError('User not found', 404);
+    }
+
+    if (existingUser.isActive) {
+      throw new ApiError('User is already active', 400);
+    }
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        isActive: true,
+      },
+    });
+
+    // Create notification for reactivation
+    await prisma.notification.create({
+      data: {
+        userId,
+        type: 'ACCOUNT_UPDATE',
+        title: 'Account Reactivated',
+        message: 'Your account has been reactivated. You can now login to the system.',
+        priority: 'HIGH',
+      },
+    });
+
     return user;
   }
   
@@ -790,7 +900,7 @@ export class UserService {
     const users = await prisma.user.findMany({
       where: filters,
       include: {
-        roleAssignments: {
+        roleAssignment: {
           include: {
             role: true,
           },
@@ -807,7 +917,7 @@ export class UserService {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        roleAssignments: {
+        roleAssignment: {
           include: {
             role: true,
           },
@@ -847,19 +957,17 @@ export class UserService {
   async getUsersByRole(roleId: string) {
     return prisma.user.findMany({
       where: {
-        roleAssignments: {
-          some: {
+        roleAssignment: {
             roleId,
             isActive: true,
             OR: [
               { expiresAt: null },
               { expiresAt: { gt: new Date() } },
             ],
-          },
         },
       },
       include: {
-        roleAssignments: {
+        roleAssignment: {
           include: {
             role: true,
           },
@@ -875,20 +983,19 @@ export class UserService {
     
     return prisma.user.findMany({
       where: {
-        roleAssignments: {
-          some: {
-            roleId: { in: roleIds },
-            isActive: true,
-            OR: [
-              { expiresAt: null },
-              { expiresAt: { gt: new Date() } },
-            ],
-          },
+        roleAssignment: {
+          roleId: { in: roleIds },
+          isActive: true,
+          OR: [
+            { expiresAt: null },
+            { expiresAt: { gt: new Date() } },
+          ],
+    
         },
         isActive: true,
       },
       include: {
-        roleAssignments: {
+        roleAssignment: {
           include: {
             role: true,
           },
@@ -942,7 +1049,7 @@ export class UserService {
 
     // Get user permissions once
     const userPermissions = await this.getUserPermissions(userId);
-    const userRoles = userPermissions.roles;
+    const userRole = userPermissions.role;
     const userApprovalLevel = userPermissions.approvalLevel;
 
     // Map status strings to RequestStatus enum values
@@ -971,7 +1078,7 @@ export class UserService {
                     some: {
                       level: userApprovalLevel,
                       status: ApprovalStatus.PENDING,
-                      approverRole: { in: userRoles },
+                      approverRole: userRole,
                       approverId: null // Not yet approved by someone
                     }
                   }

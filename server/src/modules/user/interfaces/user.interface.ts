@@ -115,7 +115,7 @@ export interface IRoleAssignment {
 }
 
 export interface IUserWithRoles {
-  roleAssignments: IRoleAssignment[];
+  roleAssignment: IRoleAssignment;
 }
 
 
@@ -145,7 +145,7 @@ export interface IBiodata {
 }
 
 export interface IUserPermissions {
-  roles: string[];
+  role: string;
   permissions: string[];
   moduleAccess: string[];
   approvalLevel: number;

@@ -22,6 +22,9 @@ export interface EnhancedAuthTokens extends AuthTokens {
  * Stores authentication tokens in localStorage and sets a secure cookie for the access token
  */
 export function setStoredAuthTokens(tokens: EnhancedAuthTokens): void {
+  // SSR check - only run in browser
+  if (typeof window === 'undefined') return;
+
   // Store access token info in localStorage
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
     accessToken: tokens.accessToken,
@@ -77,14 +80,17 @@ export function getStoredAuthTokens(): EnhancedAuthTokens | null {
  * Removes authentication tokens from localStorage and cookies
  */
 export function clearAuthTokens(): void {
+  // SSR check - only run in browser
+  if (typeof window === 'undefined') return;
+
   localStorage.removeItem(AUTH_STORAGE_KEY);
   localStorage.removeItem('has_refresh_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('auth_session_id');
-  
+
   // Clear cookies
   Cookies.remove('auth_token');
-  
+
   // For HTTP-only cookies, we would need to call an API endpoint to clear them
   // This is a placeholder
   // authService.clearHttpOnlyCookies();
@@ -99,7 +105,7 @@ export function extractTokenData(token: string): {
   sessionId?: string;
   userId?: string;
   role?: any;
-  roleAssignments?: any[];
+  roleAssignment?: any;
 } {
   try {
     const payload = jwt.decode(token) as any;
@@ -111,7 +117,7 @@ export function extractTokenData(token: string): {
       sessionId: payload.sessionId,
       userId: payload.userId,
       role: payload.role,
-      roleAssignments: payload.roleAssignments,
+      roleAssignment: payload.roleAssignment,
     };
   } catch (error) {
     console.error('Failed to extract token data:', error);

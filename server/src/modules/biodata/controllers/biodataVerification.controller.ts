@@ -13,11 +13,14 @@ export class BiodataVerificationController {
   }
 
   async verifyBiodata(req: Request, res: Response, next: NextFunction) {
+    console.log('verifyBiodata', verifyBiodataSchema.parse(req.body));
     // Ensure the request is authenticated
     try {
       const validatedData = verifyBiodataSchema.parse(req.body);
       const result = await this.biodataVerificationService.verifyBiodata(validatedData);
-      
+
+
+      console.log('result from verifyData', result);
       if (result.status === 'pending') {
         res.clearCookie('biodataId');
         res.cookie('verificationPhone', validatedData.phoneNumber, {
@@ -25,6 +28,8 @@ export class BiodataVerificationController {
           secure: process.env.NODE_ENV === 'production',
           maxAge: 10 * 60 * 1000 // 10 minutes
         });
+
+        console.log('response', res)
       }
 
       return ApiResponse.success(res, result.message, { biodataId: result.biodataId });
@@ -41,6 +46,7 @@ export class BiodataVerificationController {
 
   async verifyPhoneOtp(req: Request, res: Response, next: NextFunction) {
     try {
+      console.log("request cookies",  req.cookies);
       const phoneNumber = req.cookies.verificationPhone;
       if (!phoneNumber) {
         return ApiResponse.badRequest(res, 'Phone verification session expired');
@@ -61,7 +67,9 @@ export class BiodataVerificationController {
         res.cookie('biodataId', result.biodataId, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
-          maxAge: 24 * 60 * 60 * 1000 // 24 hours
+          maxAge: 24 * 60 * 60 * 1000, // 24 hours
+          sameSite: "none",
+
         });
         return ApiResponse.success(res, result.message, { 
           biodataId: result.biodataId,

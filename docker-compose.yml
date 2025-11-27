@@ -31,7 +31,7 @@ services:
     env_file:
       - ./server/.env
     ports:
-      - "5000:5000"
+      - "5001:5001"
     command: >
       sh -c "
         npm install &&
@@ -45,8 +45,8 @@ services:
       - coop-nest-network
     environment:
       # Use the same DATABASE_URL format but host is 'postgres' (the service name)
-      DATABASE_URL: postgresql://postgres:rootuser@postgres:5432/postgres?schema=coop-nest_db
-      PORT: 5000
+      DATABASE_URL: postgresql://postgres:rootuser@127.0.0.1:5432/postgres?schema=coop-nest_db
+      PORT: 5001
       NODE_ENV: development
       APPLICATION_URL: http://localhost
       JWT_SECRET: 7af19f5e38a50342c505a1677a5fb8a608d5f869a81e504d78533afeef40692e769fb583d929755b80a87b709bbded0bc284a41b246e83401fa1b58c9bede822

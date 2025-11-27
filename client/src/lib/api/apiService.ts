@@ -62,9 +62,12 @@ class ApiService {
   private healthInterval: NodeJS.Timeout | null = null;
   public onHealthStatusChange: ((health: HealthStatus) => void) | null = null;
 
+
+
   private constructor() {
     this.api = axios.create({
       baseURL: BASE_URL,
+      withCredentials: true,
       headers: {
         'Content-Type': 'application/json',
       },

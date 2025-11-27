@@ -115,7 +115,7 @@ export class RequestController {
             
             // Check if user is authorized to view this request
             const isOwnRequest = req.user.id === result.initiatorId;
-            const isAdmin = req.user.roles.some(r => r.isAdmin);
+            const isAdmin = req.user.role.isAdmin;
             
             if (!isOwnRequest && !isAdmin) {
                 throw new ApiError('Unauthorized to view this request', 403);
@@ -197,7 +197,7 @@ export class RequestController {
         try {
             // Determine if we should filter by user or role
             const userId = req.user.isAdmin ? undefined : req.user.id;
-            const role = req.user.roles.length > 0 ? req.user.roles[0].name : undefined;
+            const role = req.user.role ? req.user.role.name : undefined;
             
             const count = await RequestService.getPendingRequestCount(userId, role);
             

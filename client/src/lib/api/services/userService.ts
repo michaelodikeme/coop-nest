@@ -16,11 +16,11 @@ class UserService {
   }
 
   /**
-   * Update current user profile
-   * PUT /users/me
+   * Update username (requires approval for non-admin users)
+   * POST /users/me/update-username
    */
-  async updateCurrentUser(userData: Partial<User>): Promise<User> {
-    return apiService.put<User>('/users/me', userData);
+  async updateUsername(username: string): Promise<{ message: string; requestId?: string } | User> {
+    return apiService.post('/users/me/update-username', { username });
   }
 
   /**
@@ -117,26 +117,31 @@ class UserService {
   async getRolesByLevel(level: number): Promise<{ id: string; name: string; description: string }[]> {
     return apiService.get<{ id: string; name: string; description: string }[]>(`/users/roles/by-level/${level}`);
   }
-    /**
+  /**
    * List all users with filtering
    * GET /users
    */
-  async getUsers(page = 1, limit = 10, filters: UserFilterParams = {}): Promise<PaginatedResponse<User>> {
-    // Create URLSearchParams object
+  async getUsers(filters: UserFilterParams = {}): Promise<User[]> {
     const queryParams = new URLSearchParams();
-    
-    // Add page and limit
-    queryParams.append('page', page.toString());
-    queryParams.append('limit', limit.toString());
-    
+
     // Add filters as string values
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
         queryParams.append(key, value.toString());
       }
     });
-    
-    return apiService.get<PaginatedResponse<User>>(`/users?${queryParams.toString()}`);
+
+    const response = await apiService.get<{ status: string; data: User[] }>(`/users?${queryParams.toString()}`);
+    return response.data;
+  }
+
+  /**
+   * Get all available roles
+   * GET /roles
+   */
+  async getAllRoles(): Promise<{ id: string; name: string; description: string; approvalLevel: number }[]> {
+    const response = await apiService.get<{ status: string; data: any[] }>('/roles');
+    return response.data;
   }
 
   /**
@@ -164,11 +169,11 @@ class UserService {
   }
 
   /**
-   * Update user by ID
-   * PUT /users/:id
+   * Update user role
+   * Note: Users have one role, change by assigning new role
    */
-  async updateUser(id: string, data: Partial<User>): Promise<User> {
-    return apiService.put<User>(`/users/${id}`, data);
+  async changeUserRole(userId: string, newRoleId: string): Promise<{ message: string }> {
+    return this.assignRole(userId, newRoleId);
   }
 
   /**

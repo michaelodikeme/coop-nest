@@ -76,13 +76,17 @@ export class LoanController {
     // Apply for loan
     async applyForLoan(req: AuthenticatedRequest, res: Response, next: NextFunction) {
         try {
+            console.log("got here first", req.user)
             // Get biodataId and erpId from logged in user
             const { biodataId, erpId } = req.user;
             
+            console.log("got here second")
             if (!biodataId || !erpId) {
                 throw new ApiError('User profile is incomplete', 400);
             }
 
+
+            console.log("got here thrid")
             const validatedData = await loanApplicationSchema.parseAsync({
                 ...req.body,
                 biodataId,  // Add from logged in user
@@ -90,11 +94,14 @@ export class LoanController {
                 userId: req.user.id
             });
 
+            console.log("got here fourth")
             // Fetch loan type details
             const loanType = await this.loanService.getLoanTypeById(validatedData.loanTypeId);
             if (!loanType) {
                 throw new ApiError('Loan type not found', 404);
             }
+
+            console.log("got here fifth")
 
             const loanApplicationData = {
                 ...validatedData,
@@ -102,6 +109,8 @@ export class LoanController {
                 loanTypeDescription: loanType.description,
                 loanTypeInterestRate: loanType.interestRate.toNumber()
             };
+
+            console.log("got here sixth")
 
             const loan = await this.loanService.applyForLoan(loanApplicationData);
             return ApiResponse.created(res, 'Loan application submitted successfully', loan);

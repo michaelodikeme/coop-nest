@@ -365,6 +365,41 @@ export class EligibilityService {
             savingsSummary
         );
 
+
+        console.log("eligibility", {
+            success: true,
+            data: {
+                isEligible: true,
+                maxAmount: maxAmount.toString(),
+                formattedMaxAmount: this.formatCurrency(maxAmount),
+                reason: maxAmountReason,
+                savingsSummary: {
+                    totalSavingsAmount: savingsSummary.totalSavingsAmount.toString(),
+                    formattedTotalSavings: this.formatCurrency(savingsSummary.totalSavingsAmount),
+                    totalGrossAmount: savingsSummary.totalGrossAmount.toString(),
+                    formattedGrossAmount: this.formatCurrency(savingsSummary.totalGrossAmount),
+                    currentBalance: savingsSummary.balance.toString(),
+                    formattedBalance: this.formatCurrency(savingsSummary.balance),
+                    monthlyTarget: savingsSummary.monthlyTarget.toString(),
+                    formattedMonthlyTarget: this.formatCurrency(savingsSummary.monthlyTarget)
+                },
+                loanTypeDetails: {
+                    name: loanType.name,
+                    interestRate: Number(loanType.interestRate),
+                    duration: {
+                        min: loanType.minDuration,
+                        max: loanType.maxDuration
+                    },
+                    savingsMultiplier: Number(loanType.savingsMultiplier)
+                },
+                activeLoans: {
+                    hasSoftLoan: crossLoanCheck.loanTypeInfo.hasActiveSoftLoan,
+                    hasRegularLoan: crossLoanCheck.loanTypeInfo.hasActiveRegularLoan,
+                    hasOneYearPlusLoan: crossLoanCheck.loanTypeInfo.hasActiveOneYearPlusLoan
+                }
+            }
+        })
+
         // Enhanced response format
         const response = {
             success: true,

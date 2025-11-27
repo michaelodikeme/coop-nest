@@ -20,7 +20,7 @@ declare global {
       session?: any;
       userPermissions?: {
         permissions: string[];
-        roles: string[];
+        role: string;
         approvalLevel: number;
         canApprove: boolean;
         moduleAccess?: string[];
@@ -61,7 +61,7 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId },
         include: {
-          roleAssignments: {
+          roleAssignment: {
             where: {
               isActive: true,
               OR: [
@@ -104,16 +104,20 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
         data: { lastActive: new Date() }
       });
 
+
+      if (!user.roleAssignment?.role) {
+          throw new ApiError('User role not found', 400);
+      }
       const userPerms = await userService.getUserPermissions(user.id);
       
       // Create authenticated user object
       const authenticatedUser: AuthenticatedUser = {
           id: user.id,
           biodataId: user.biodataId ?? '',
-          roles: user.roleAssignments.map(ra => ({
-              name: ra.role.name,
+          role: {
+              name: user.roleAssignment?.role.name,
               isAdmin: !!user.adminProfile
-          })),
+          },
           permissions: userPerms.permissions || [],
           approvalLevel: userPerms.approvalLevel || 0,
           isAdmin: !!user.adminProfile,
@@ -155,23 +159,23 @@ export const authorizeRoles = (roles: string[]) => {
       }
       
       // Check roles directly from user object first - More reliable
-      const userRoleNames = req.user.roles.map(r => r.name);
-      
+      const userRoleName = req.user.role.name;
+
       // Debug output
       console.log("Required roles:", roles);
-      console.log("User role names from req.user:", userRoleNames);
-      console.log("User role names from req.userPermissions:", req.userPermissions.roles);
-      
-      // Check both sources of role information
-      const hasRoleFromUser = userRoleNames.some(role => roles.includes(role));
-      const hasRoleFromPermissions = req.userPermissions.roles.some(role => roles.includes(role));
-      
+      console.log("User role name from req.user:", userRoleName);
+      console.log("User role name from req.userPermissions:", req.userPermissions.role);
+
+      // Check if user's role matches any of the required roles
+      const hasRoleFromUser = roles.includes(userRoleName);
+      const hasRoleFromPermissions = roles.includes(req.userPermissions.role);
+
       if (hasRoleFromUser || hasRoleFromPermissions) {
         return next();
       }
-      
+
       // Super admin bypass - Always allow super admin access
-      if (userRoleNames.includes('SUPER_ADMIN')) {
+      if (userRoleName === 'SUPER_ADMIN' || req.userPermissions.role === 'SUPER_ADMIN') {
         console.log('Granting access via SUPER_ADMIN role');
         return next();
       }
@@ -233,7 +237,7 @@ export const checkModuleAccess = (module: string) => {
       // Module access check logic - this will depend on how your user service returns module access
       // For this example, assuming there's a modules property in the userPermissions object
       // Check if any role has admin access or if module access is granted
-      const hasAccess = req.user.roles.some(role => role.isAdmin) || 
+      const hasAccess = req.user.role.isAdmin || 
                       req.userPermissions.moduleAccess?.includes(module);
       
       if (!hasAccess) {

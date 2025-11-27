@@ -16,9 +16,13 @@ export class CalculatorService {
         tenure: number,
         biodataId?: string // Make biodataId optional
     ): Promise<LoanCalculationResult> {
+
+
         const loanType = await this.prisma.loanType.findUnique({
             where: { id: loanTypeId }
         });
+
+
 
         if (!loanType) {
             throw new ApiError('Loan type not found', 404);
@@ -28,6 +32,8 @@ export class CalculatorService {
             throw new ApiError('Selected loan type is not currently active', 400);
         }
 
+        console.log("loan calculator", {loanTypeId, amount, tenure
+        }, loanType)
         const loanAmount = new Decimal(amount);
 
         // Validate tenure
@@ -57,14 +63,15 @@ export class CalculatorService {
         const isSoftLoan = loanType.maxDuration <= 6;
 
         // Calculate monthly interest rate based on loan type
-        let monthlyInterestRate: Decimal;
-        if (isSoftLoan) {
-            // Soft loans: 10% monthly interest (as per business rules)
-            monthlyInterestRate = interestRate;
-        } else {
-            // Regular loans: annual rate divided by 12
-            monthlyInterestRate = interestRate.div(12);
-        }
+        // let monthlyInterestRate: Decimal = interestRate;
+        // if (isSoftLoan) {
+        //     // Soft loans: 10% monthly interest (as per business rules)
+        //     monthlyInterestRate = interestRate;
+        // } else {
+        //     // Regular loans: annual rate divided by 12
+        //     // monthlyInterestRate = interestRate.div(12);
+        //     monthlyInterestRate = interestRate.div(tenure);
+        // }
 
         let monthlyPayment: Decimal;
         let totalInterest: Decimal;
@@ -72,51 +79,65 @@ export class CalculatorService {
         if (isSoftLoan) {
             // For soft loans: simple interest calculation
             // Total interest = Principal × Monthly Rate × Tenure
-            totalInterest = loanAmount.mul(monthlyInterestRate).mul(tenure);
+            totalInterest = loanAmount.mul(interestRate).mul(tenure);
+
+            console.log("totalInterest", totalInterest);
             // Monthly payment = (Principal + Total Interest) / Tenure
             monthlyPayment = loanAmount.add(totalInterest).div(tenure);
+            console.log("monthlyPayment", monthlyPayment);
         } else {
             // For regular loans: compound interest using PMT
-            monthlyPayment = this.calculatePMT(loanAmount, monthlyInterestRate, tenure);
+            // monthlyPayment = this.calculatePMT(loanAmount, monthlyInterestRate, tenure);
+            totalInterest = loanAmount.mul(interestRate);
+            monthlyPayment = loanAmount.add(totalInterest).div(tenure);
+
             // Total interest is calculated later based on actual payments
         }
 
         // Generate amortization schedule
         const schedule: PaymentScheduleEntry[] = [];
         let remainingBalance = loanAmount;
-        totalInterest = new Decimal(0); // Reset totalInterest
+        // totalInterest = new Decimal(0); // Reset totalInterest
 
         for (let month = 1; month <= tenure; month++) {
-            let principalPayment: Decimal;
-            let interestPayment: Decimal;
-
-            if (isSoftLoan) {
-                // For soft loans: equal principal payments + monthly interest
-                principalPayment = loanAmount.div(tenure);
-                interestPayment = remainingBalance.mul(monthlyInterestRate);
-            } else {
-                // For regular loans: amortized payment schedule
-                interestPayment = remainingBalance.mul(monthlyInterestRate);
-                principalPayment = monthlyPayment.minus(interestPayment);
-            }
-
-            totalInterest = totalInterest.add(interestPayment);
-            remainingBalance = remainingBalance.minus(principalPayment);
+            // let principalPayment: Decimal;
+            // let interestPayment: Decimal;
+            //
+            // if (isSoftLoan) {
+            //     // For soft loans: equal principal payments + monthly interest
+            //     principalPayment = loanAmount.div(tenure);
+            //     interestPayment = remainingBalance.mul(monthlyInterestRate);
+            // } else {
+            //     // For regular loans: amortized payment schedule
+            //     interestPayment = remainingBalance.mul(monthlyInterestRate);
+            //     principalPayment = monthlyPayment.minus(interestPayment);
+            // }
+            //
+            // totalInterest = totalInterest.add(interestPayment);
+            // remainingBalance = remainingBalance.minus(principalPayment);
 
             // Adjust final payment for rounding
-            if (month === tenure) {
-                if (remainingBalance.gt(0)) {
-                    principalPayment = principalPayment.add(remainingBalance);
-                    remainingBalance = new Decimal(0);
-                }
-            }
+            // if (month === tenure) {
+            //     if (remainingBalance.gt(0)) {
+            //         principalPayment = principalPayment.add(remainingBalance);
+            //         remainingBalance = new Decimal(0);
+            //     }
+            // }
 
+            // schedule.push({
+            //     paymentNumber: month,
+            //     paymentDate: this.calculatePaymentDate(month),
+            //     principalAmount: principalPayment,
+            //     interestAmount: interestPayment,
+            //     totalPayment: principalPayment.add(interestPayment),
+            //     remainingBalance: remainingBalance.lt(0) ? new Decimal(0) : remainingBalance
+            // });
             schedule.push({
                 paymentNumber: month,
                 paymentDate: this.calculatePaymentDate(month),
-                principalAmount: principalPayment,
-                interestAmount: interestPayment,
-                totalPayment: principalPayment.add(interestPayment),
+                principalAmount: loanAmount,
+                interestAmount: totalInterest,
+                totalPayment: loanAmount.add(totalInterest),
                 remainingBalance: remainingBalance.lt(0) ? new Decimal(0) : remainingBalance
             });
         }
@@ -150,7 +171,7 @@ export class CalculatorService {
         const rateFactorPower = onePlusRate.pow(periods);
         const numerator = monthlyRate.mul(rateFactorPower);
         const denominator = rateFactorPower.minus(1);
-        
+
         return principal.mul(numerator.div(denominator));
     }
 

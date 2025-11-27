@@ -24,9 +24,8 @@ export class AdminController {
   async createAdminProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       // Only TREASURER and above can create admin profiles
-      if (!req.user.roles.some(role => 
-        ['CHAIRMAN', 'TREASURER', 'SUPER_ADMIN'].includes(role.name)
-      )) {
+      if (!['CHAIRMAN', 'TREASURER', 'SUPER_ADMIN'].includes(req.user.role.name)
+      ) {
         throw new ApiError('Unauthorized to create admin profiles', 403);
       }
       

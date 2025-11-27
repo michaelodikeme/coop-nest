@@ -77,7 +77,7 @@ export class AdminService {
                     password: hashedPassword,
                     isMember: false,
                     isActive: true,
-                    roleAssignments: {
+                    roleAssignment: {
                     create: {
                         roleId: adminRole.id,
                         isActive: true
@@ -125,7 +125,7 @@ export class AdminService {
             return tx.user.findUnique({
                 where: { id: user.id },
                 include: {
-                    roleAssignments: {
+                    roleAssignment: {
                         include: { role: true }
                     },
                     adminProfile: true
@@ -286,7 +286,7 @@ export class AdminService {
             });
         }
         
-        async getRolesByApprovalLevel(level: number) {
+    async getRolesByApprovalLevel(level: number) {
             const roles = await prisma.role.findMany({
                 where: {
                     approvalLevel: level,
@@ -308,20 +308,18 @@ export class AdminService {
             
             return prisma.user.findMany({
                 where: {
-                    roleAssignments: {
-                        some: {
-                            roleId: { in: roleIds },
-                            isActive: true,
-                            OR: [
-                                { expiresAt: null },
-                                { expiresAt: { gt: new Date() } },
-                            ],
-                        },
+                    roleAssignment: {
+                        roleId: { in: roleIds },
+                        isActive: true,
+                        OR: [
+                            { expiresAt: null },
+                            { expiresAt: { gt: new Date() } },
+                        ],
                     },
                     isActive: true,
                 },
                 include: {
-                    roleAssignments: {
+                    roleAssignment: {
                         include: {
                             role: true,
                         },
@@ -336,7 +334,7 @@ export class AdminService {
                 where: { id: userId },
                 include: {
                     adminProfile: true,
-                    roleAssignments: {
+                    roleAssignment: {
                         include: { role: true }
                     }
                 }
@@ -486,8 +484,8 @@ export class AdminService {
                                 }
                             }
                         },
-                        roleAssignments: {
-                            updateMany: {
+                        roleAssignment: {
+                            update: {
                                 where: { isActive: true },
                                 data: { isActive: false }
                             }

@@ -123,6 +123,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Default route based on user role - improved with clearer role determination
   const getDefaultRoute = (user: User | null): string => {
+
+    console.log("user from  get default", user)
     if (!user) return '/auth/login';
     
     // Check for admin role first
@@ -231,7 +233,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUserProfile = useCallback(async (): Promise<User> => {
     try {
       // console.log('Refreshing user profile');
-      const response = await authService.getCurrentUser();
+      const response: any = await authService.getCurrentUser();
       // console.log('Fetched user profile:', response);
       
       // Extract user data from the nested response structure
@@ -451,7 +453,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
             
             // Extra check: verify permissions are properly extracted
-            if (!validationResult.user.permissions || validationResult.user.permissions.length === 0) {
+            if (!validationResult.user.role.permissions || validationResult.user.role.permissions.length === 0) {
               console.warn('User has no permissions, this might cause issues with protected resources');
             }
             
@@ -552,7 +554,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!permission || (Array.isArray(permission) && permission.length === 0)) return true;
     
     // Extract all permissions from user object (already processed during formatUserData)
-    const userPermissions = user.permissions || [];
+    const userPermissions = user.role.permissions || [];
     
     // Check for permissions
     if (typeof permission === 'string') {
@@ -569,7 +571,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user || !isAuthenticated) return false;
     
     // Check if user has the module in their modules array
-    const userModules = user.modules || [];
+    const userModules = user.role.moduleAccess || [];
     return userModules.includes(moduleName);
   }, [user, isAuthenticated]);
 
@@ -579,7 +581,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user || !isAuthenticated) return false;
     
     // Check if user's approval level is high enough
-    const userApprovalLevel = user.approvalLevel || 0;
+    const userApprovalLevel = user.role.approvalLevel || 0;
     return userApprovalLevel >= requiredLevel;
   }, [user, isAuthenticated]);
 
@@ -845,53 +847,47 @@ export enum AuthErrorCode {
       return 'An error occurred during login.';
   }
   
-// Helper function to validate user object structure 
+// Helper function to validate user object structure
 function validateUserObject(user: User): string[] {
   const issues: string[] = [];
-  
+
   // Check required properties
   if (!user.id) issues.push('Missing user ID');
   if (!user.username) issues.push('Missing username');
-  
-  // Role assignment validation - be permissive
-  if (!Array.isArray(user.roleAssignments)) {
-    issues.push('roleAssignments is not an array');
-  } else if (user.roleAssignments.length === 0) {
-    // Log but don't necessarily consider it an error - just a warning
-    console.warn('User has no role assignments');
+
+  // Role assignment validation - check for single roleAssignment object
+  if (!user.roleAssignment) {
+    console.warn('User has no role assignment');
+  } else if (typeof user.roleAssignment !== 'object') {
+    issues.push('roleAssignment is not an object');
   } else {
-    // Validate that at least one role assignment exists (less strict check)
-    const hasAnyRole = user.roleAssignments.some(assignment => 
-      assignment && assignment.role // Just check if role exists, don't require active flag
-    );
-    
-    if (!hasAnyRole) {
-      issues.push('User has no valid roles');
+    // Validate that the role assignment has a valid role
+    if (!user.roleAssignment.role) {
+      issues.push('User has no valid role');
     }
   }
-  
+
   // Be permissive with permissions - not all roles need permissions
-  if (user.permissions && !Array.isArray(user.permissions)) {
+  if (user.role.permissions && !Array.isArray(user.role.permissions)) {
     issues.push('permissions is not an array');
   }
-  
+
   // Be permissive with modules - not all roles need module access
-  if (user.modules && !Array.isArray(user.modules)) {
+  if (user.role.moduleAccess && !Array.isArray(user.role.moduleAccess)) {
     issues.push('modules is not an array');
   }
-  
+
   // More permissive role checks - don't require perfect consistency
-  const hasMemberRoleAssignment = user.roleAssignments?.some(r => 
-    (r.role?.name === 'MEMBER' || r.role?.name?.includes('MEMBER'))
-  );
-  
+  const hasMemberRoleAssignment = user.roleAssignment?.role?.name === 'MEMBER' ||
+    user.roleAssignment?.role?.name?.includes('MEMBER');
+
   // Only check consistency if there are explicit contradictions
   if (user.isMember === false && hasMemberRoleAssignment) {
-    issues.push('isMember flag contradicts role assignments');
+    issues.push('isMember flag contradicts role assignment');
   }
-  
+
   // Don't enforce approval level for non-admin users
-  
+
   return issues;
 }
 

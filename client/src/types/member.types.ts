@@ -67,7 +67,7 @@ export interface Member extends Omit<Biodata, 'id' | 'createdAt' | 'updatedAt'> 
   isMember: boolean;
   createdAt: string;
   updatedAt: string;
-  roleAssignments: Array<{
+  roleAssignment: {
     id: string;
     userId: string;
     roleId: string;
@@ -85,7 +85,7 @@ export interface Member extends Omit<Biodata, 'id' | 'createdAt' | 'updatedAt'> 
       createdAt: string;
       updatedAt: string;
     };
-  }>;
+  };
   adminProfile: AdminProfile | null;
   notifications: Notification[];
 }
@@ -148,13 +148,13 @@ export interface UploadRequestDetails extends BiodataUploadRecord {
 }
 
 export enum MembershipStatus {
-  PENDING,
-  ACTIVE,
-  SUSPENDED,
-  RESIGNED,
-  TERMINATED,
-  APPROVED,
-  REJECTED
+    PENDING = "PENDING",
+    ACTIVE = "ACTIVE",
+    SUSPENDED = "SUSPENDED",
+    RESIGNED = "RESIGNED",
+    TERMINATED = "TERMINATED",
+    APPROVED = "APPROVED",
+    REJECTED = "REJECTED",
 }
 
 export interface MemberFormData {

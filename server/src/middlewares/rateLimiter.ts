@@ -9,7 +9,7 @@ import { AuthenticatedRequest } from '../types/express';
 const getRequestFingerprint = (req: Request): string => {
   const authReq = req as AuthenticatedRequest;
   // Skip rate limiting for admin operations with SUPER_ADMIN role
-  if (req.path.includes('/auth') && authReq.user?.roles[0]?.name === 'SUPER_ADMIN') {
+  if (req.path.includes('/auth') && authReq.user?.role.name === 'SUPER_ADMIN') {
     return `superadmin-${authReq.user.id}`;
   }
   return `${req.ip}-${req.headers['user-agent'] || ''}`;
@@ -30,7 +30,7 @@ const commonConfig: Partial<Options> = {
   skip: (req: Request) => {
     // Skip rate limiting for admin operations if user is SUPER_ADMIN
     const authReq = req as AuthenticatedRequest;
-    return req.path.includes('/auth') && authReq.user?.roles[0]?.name === 'SUPER_ADMIN';
+    return req.path.includes('/auth') && authReq.user?.role.name === 'SUPER_ADMIN';
   },
   handler: (req: Request, res: Response) => {
     logger.warn(`Rate limit exceeded for ${getRequestFingerprint(req as AuthenticatedRequest)}`);
@@ -57,7 +57,7 @@ export const verificationRateLimiter = rateLimit({
   max: (req: Request) => {
     // No limit for SUPER_ADMIN on admin routes
     const authReq = req as AuthenticatedRequest;
-    if (req.path.includes('/auth') && authReq.user?.roles[0]?.name === 'SUPER_ADMIN') {
+    if (req.path.includes('/auth') && authReq.user?.role.name === 'SUPER_ADMIN') {
       return 0; // Disable rate limiting
     }
     return req.headers.authorization ? 10 : 5; // Normal limits
@@ -79,7 +79,7 @@ export const loginRateLimiter = rateLimit({
     // Check if request is from an exempt role
     if (req.path.includes('/auth') && (
       exemptRoles.includes(req.body?.role) ||
-      exemptRoles.includes(authReq.user?.roles[0]?.name)
+      exemptRoles.includes(authReq.user?.role?.name)
     )) {
       return 0; // Disable rate limiting for exempt roles
     }
