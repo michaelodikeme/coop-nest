@@ -9,10 +9,10 @@ interface AuthenticatedRequest extends Request {
   user: {
     id: string;
     biodataId: string;
-    roles: Array<{
+    role: {
       name: string;
       isAdmin: boolean;
-    }>;
+    };
     permissions?: string[];
     approvalLevel: number;
   };

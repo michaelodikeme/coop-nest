@@ -5,12 +5,12 @@ export interface AuthRequest extends Request {
   user: {
     id: string;
     biodataId: string;
-    roles: Array<{
+    role: {
       name: string;
       isAdmin: boolean;
-    }>;
+    };
     permissions?: string[];
-    approvalLevel?: number;
+    approvalLevel: number;
   };
   session?: {
     id: string;

@@ -17,7 +17,7 @@ model User {
   isMember        Boolean           @default(true)
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
-  roleAssignments UserRole[]
+  roleAssignment  UserRole?   
   biodata         Biodata?          @relation(fields: [biodataId], references: [id])
   adminProfile    AdminUserProfile?
   notifications   Notification[]
@@ -62,15 +62,14 @@ model Role {
 // Flexible User-Role Assignment
 model UserRole {
   id         String    @id @default(uuid()) @db.Uuid
-  userId     String    @db.Uuid
+  userId     String    @db.Uuid @unique 
   roleId     String    @db.Uuid
   assignedAt DateTime  @default(now())
   expiresAt  DateTime?
   isActive   Boolean   @default(true)
-  user       User      @relation(fields: [userId], references: [id])
+  user       User      @relation(fields: [userId], references: [id]) 
   role       Role      @relation(fields: [roleId], references: [id])
 
-  @@unique([userId, roleId])
   @@map("user_roles")
 }
 

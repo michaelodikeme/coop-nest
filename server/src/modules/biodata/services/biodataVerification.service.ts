@@ -1,8 +1,9 @@
 import { ApiError } from '../../../utils/apiError';
-import { sendVerificationCode, checkVerificationCode } from '../../../utils/SMSUtil';
+import { sendVerificationCode, checkVerificationCode, verifyOTPFromRedis, storeOTPInRedis, generateOTP } from '../../../utils/SMSUtil';
 import { PhoneNumberService } from '../../../utils/phoneNumber';
 import { IVerifyBiodataInput, IVerifyBiodataResponse, IOtpVerificationResponse } from '../interfaces/biodata.interface';
 import { NotificationType, PrismaClient } from '@prisma/client';
+
 
 const prisma = new PrismaClient();
 
@@ -13,13 +14,16 @@ PrismaClient,
 >;
 
 export class BiodataVerificationService {
+
+
   async verifyBiodata(input: IVerifyBiodataInput): Promise<IVerifyBiodataResponse> {
     const { phoneNumber } = input;
     
     try {
       // Format phone number
       const formattedNumber = PhoneNumberService.formatToInternational(phoneNumber);
-      
+
+      console.log('formattedNumber', formattedNumber);
       // Find biodata by phone number
       const biodata = await prisma.biodata.findUnique({
         where: { phoneNumber: formattedNumber }
@@ -52,9 +56,16 @@ export class BiodataVerificationService {
         });
       }
       
-      // Send verification code
-      await sendVerificationCode(formattedNumber);
-      
+      // Generate OTP
+      const otp = generateOTP();
+
+      // Store OTP in Redis with expiration
+      await storeOTPInRedis(formattedNumber, otp);
+
+      // Send verification code via SMS
+      console.log("Generated OTP for", formattedNumber, ":", otp);
+      await sendVerificationCode(formattedNumber, otp);
+
       return {
         status: 'pending',
         message: 'Verification code sent successfully',
@@ -67,6 +78,7 @@ export class BiodataVerificationService {
   
   async verifyPhoneOtp(phoneNumber: string, otp: string): Promise<IOtpVerificationResponse> {
     try {
+      console.log('request coming verifyPhoneOtp', phoneNumber);
       const formattedNumber = PhoneNumberService.formatToInternational(phoneNumber);
       
       // Find biodata by phone number
@@ -81,10 +93,10 @@ export class BiodataVerificationService {
         throw new ApiError('Phone number not found in our records', 404);
       }
       
-      // Verify OTP
-      const verificationResult = await checkVerificationCode(formattedNumber, otp);
-      
-      if (verificationResult.status !== 'approved') {
+      // Verify OTP from Redis
+      const isValid = await verifyOTPFromRedis(formattedNumber, otp);
+
+      if (!isValid) {
         throw new ApiError('Invalid verification code', 400);
       }
       

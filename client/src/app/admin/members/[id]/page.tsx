@@ -71,7 +71,7 @@ export default function MemberDetailPage({ params }: { params: { id: string } })
   } = useQuery({
     queryKey: ['member-documents', params.id],
     queryFn: async () => {
-      const response = await apiService.get(`/documents/member/${params.id}`);
+      const response:any = await apiService.get(`/documents/member/${params.id}`);
       return response.data.data;
     },
     enabled: activeTab === 'documents'

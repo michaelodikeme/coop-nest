@@ -10,6 +10,7 @@ export enum Module {
     TRANSACTION = 'TRANSACTION',
     REQUEST = 'REQUEST',
     MEMBERS = 'MEMBERS',
+    ROLES = 'ROLES',
 }
 
 export enum Action {
@@ -543,7 +544,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
             'APPROVE_WITHDRAWAL',
             'VIEW_WITHDRAWAL_REQUESTS',
             'VIEW_SAVINGS_STATS',
-            'VIEW_REQUESTS'
+            'VIEW_REQUESTS',
         ],
         approvalLevel: 3,
         canApprove: true,

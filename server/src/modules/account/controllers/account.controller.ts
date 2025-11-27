@@ -14,10 +14,10 @@ declare module 'express-serve-static-core' {
       approvalLevel: number;
       id: string;
       biodataId: string;
-      roles: Array<{
+      role: {
         name: string;
         isAdmin: boolean;
-      }>;
+      };
     };
   }
 }
@@ -60,7 +60,7 @@ export class AccountController {
 
       // Check if user has access to this account
       if (account.biodataId !== req.user.biodataId && 
-          !req.user.roles.some((role: { isAdmin: boolean }) => role.isAdmin)) {
+          !req.user.role.isAdmin) {
         return ApiResponse.forbidden(res, 'You do not have permission to view this account');
       }
 
@@ -73,7 +73,7 @@ export class AccountController {
 
   getAccounts = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const filters: IAccountQueryFilters = req.user.roles.some((role: { isAdmin: boolean }) => role.isAdmin)
+      const filters: IAccountQueryFilters = req.user.role.isAdmin
         ? req.query as IAccountQueryFilters
         : { ...req.query, biodataId: req.user.biodataId };
 
@@ -135,7 +135,7 @@ export class AccountController {
 
       const currentStep = request.approvalSteps.find((step: { status: string; approverRole: string }) => 
         step.status === 'PENDING' && 
-        req.user.roles.some((role: { name: string }) => role.name === step.approverRole)
+        req.user.role.name === step.approverRole
       );
 
       if (!currentStep) {

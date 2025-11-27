@@ -9,12 +9,12 @@ export interface TokenPayload {
         name: string;
         permissions: string[];
     };
-    roleAssignments?: Array<{
+    roleAssignment?: {
         role: {
             name: string;
             permissions: string[];
         }
-    }>;
+    };
 }
 
 export interface TokenPair {

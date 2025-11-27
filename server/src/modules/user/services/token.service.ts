@@ -1,5 +1,5 @@
 import { redisClient } from '../../../config/redis';
-import { PrismaClient, User } from '@prisma/client';
+import { Biodata, PrismaClient, Role, User, UserRole } from '@prisma/client';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import env from '../../../config/env';
 import logger from '../../../utils/logger';
@@ -58,12 +58,14 @@ class TokenService {
         if (!user?.id) {
             throw new Error('Invalid user object: missing id');
         }
-        if (!user.roleAssignments?.[0]?.role) {
+
+        console.log("user from validate user", user)
+        if (!user.roleAssignment) {
             throw new Error('User has no active roles');
         }
     }
 
-    async generateTokenPair(user: User & { roleAssignments?: Array<{ role: any }>; biodata?: any }): Promise<TokenPair> {
+    async generateTokenPair(user: any): Promise<TokenPair> {
         try {
             this.validateUser(user);
 
@@ -71,10 +73,10 @@ class TokenService {
             const accessTokenJti = this.generateTokenId();
             const refreshTokenJti = this.generateTokenId();
 
-            if (!user.roleAssignments) {
+            if (!user.roleAssignment) {
                 throw new Error('User role assignments are undefined');
             }
-            const activeRole = user.roleAssignments[0].role;
+            const activeRole = user.roleAssignment.role;
 
             const payload: TokenPayload = {
                 userId: user.id,
@@ -87,12 +89,12 @@ class TokenService {
                 erpId: user.biodata?.erpId || null,
                 sessionId,
                 jti: accessTokenJti,
-                roleAssignments: user.roleAssignments.map(ra => ({
+                roleAssignment: {
                     role: {
-                        name: ra.role.name,
-                        permissions: ra.role.permissions || []
+                        name: user.roleAssignment.role.name,
+                        permissions: user.roleAssignment.role.permissions || []
                     }
-                }))
+                }
             };
 
             const accessToken = jwt.sign(
@@ -205,7 +207,7 @@ class TokenService {
                 where: { id: decoded.userId },
                 include: {
                     biodata: true,
-                    roleAssignments: {
+                    roleAssignment: {
                         include: {
                             role: {
                                 select: {
@@ -218,7 +220,7 @@ class TokenService {
                 }
             });
 
-            if (!user || !user.roleAssignments) {
+            if (!user || !user.roleAssignment) {
                 return null;
             }
 
@@ -234,8 +236,8 @@ class TokenService {
                     biodataId: user.biodataId,
                     erpId: user.biodata?.erpId || null,
                     role: {
-                        name: user.roleAssignments[0].role.name,
-                        permissions: user.roleAssignments[0].role.permissions
+                        name: user.roleAssignment.role.name,
+                        permissions: user.roleAssignment.role.permissions
                     },
                     sessionId: decoded.sessionId,
                     jti: newAccessTokenJti

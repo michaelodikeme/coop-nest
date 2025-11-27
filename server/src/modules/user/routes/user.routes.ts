@@ -46,7 +46,7 @@ router.get('/approvers/:level',
 );
 
 router.get('/roles/by-level/:level',
-  checkPermission('VIEW_ROLES'),
+  checkPermission('MANAGE_ROLES'),
   authorizeRoles(['SUPER_ADMIN']),
   userController.getRolesByApprovalLevel.bind(userController)
 );
@@ -83,10 +83,16 @@ router.get('/:id/module-access',
 // );
 
 // User status management
-router.post('/:id/deactivate', 
+router.post('/:id/deactivate',
   checkPermission('MANAGE_USERS'),
   authorizeRoles(['SUPER_ADMIN']),
   userController.deactivateUser.bind(userController)
+);
+
+router.post('/:id/reactivate',
+  checkPermission('MANAGE_USERS'),
+  authorizeRoles(['SUPER_ADMIN']),
+  userController.reactivateUser.bind(userController)
 );
 
 // Username update approval route

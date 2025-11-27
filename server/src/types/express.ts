@@ -3,10 +3,10 @@ import { Request } from 'express';
 export interface AuthenticatedUser {
     id: string;
     biodataId: string;
-    roles: Array<{
+    role: {
         name: string;
         isAdmin: boolean;
-    }>;
+    };
     permissions: string[];
     approvalLevel: number;
     isAdmin: boolean;

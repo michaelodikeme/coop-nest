@@ -26,29 +26,21 @@ export function isMemberUser(user: User | null): boolean {
  */
 export function getUserRoleDisplay(user: User | null): string {
   if (!user) return 'Guest';
-  
-  // Check for admin roles first in roleAssignments
-  const adminRoles = ['SUPER_ADMIN', 'ADMIN', 'CHAIRMAN', 'TREASURER'];
-  
-  if (user.roleAssignments && user.roleAssignments.length > 0) {
-    const adminAssignment = user.roleAssignments.find(
-      assignment => adminRoles.includes(assignment.role?.name)
-    );
-    
-    if (adminAssignment) {
-      return adminAssignment.role.name.replace(/_/g, ' ').toLowerCase();
-    }
+
+  // Check role assignment first
+  if (user.roleAssignment?.role?.name) {
+    return user.roleAssignment.role.name.replace(/_/g, ' ').toLowerCase();
   }
-  
+
   // Then check direct role
   if (user.role?.name) {
     return user.role.name.replace(/_/g, ' ').toLowerCase();
   }
-  
+
   // Fall back to flags
   if (isAdminUser(user)) return 'Admin';
   if (isMemberUser(user)) return 'Member';
-  
+
   return 'User';
 }
 
@@ -62,16 +54,12 @@ export function extractRoleFromToken(payload: any): string | null {
   if (payload?.role?.name) {
     return payload.role.name;
   }
-  
-  // Check roleAssignments
-  if (payload?.roleAssignments && Array.isArray(payload.roleAssignments) && payload.roleAssignments.length > 0) {
-    for (const assignment of payload.roleAssignments) {
-      if (assignment?.role?.name) {
-        return assignment.role.name;
-      }
-    }
+
+  // Check single roleAssignment
+  if (payload?.roleAssignment?.role?.name) {
+    return payload.roleAssignment.role.name;
   }
-  
+
   return null;
 }
 
@@ -84,19 +72,14 @@ export function extractRoleFromToken(payload: any): string | null {
 export function hasRole(user: User | null, roles: string[]): boolean {
   if (!user) return false;
 
-  // Check direct role
-  if (user.role?.name && roles.includes(user.role.name)) {
-    return true;
-  }
+  // Check single role assignment
+  if (user.roleAssignment?.role?.name) {
+    const isActive = user.roleAssignment.isActive;
+    const isNotExpired = !user.roleAssignment.expiresAt || new Date(user.roleAssignment.expiresAt) > new Date();
 
-  // Check role assignments
-  if (user.roleAssignments && user.roleAssignments.length > 0) {
-    return user.roleAssignments.some(assignment =>
-      assignment.isActive &&
-      assignment.role &&
-      roles.includes(assignment.role.name) &&
-      (!assignment.expiresAt || new Date(assignment.expiresAt) > new Date())
-    );
+    if (isActive && isNotExpired && roles.includes(user.roleAssignment.role.name)) {
+      return true;
+    }
   }
 
   return false;
@@ -116,39 +99,24 @@ export function formatUserData(rawUser: any): User {
   let approvalLevel = 0;
   let role: any = rawUser.role || null;
 
-  // Flatten from all active role assignments
-  if (Array.isArray(rawUser.roleAssignments) && rawUser.roleAssignments.length > 0) {
-    const activeAssignments = rawUser.roleAssignments.filter((ra: RoleAssignment) => ra.isActive !== false && ra.role);
+  // Handle single role assignment
+  if (rawUser.roleAssignment && rawUser.roleAssignment.role) {
+    const assignment = rawUser.roleAssignment;
+    role = assignment.role;
 
-    // Use first active as primary role, fallback to first assignment
-    const primaryAssignment = activeAssignments[0] || rawUser.roleAssignments[0];
-    role = primaryAssignment?.role || null;
+    // Extract permissions from the single role
+    permissions = Array.isArray(assignment.role.permissions)
+      ? assignment.role.permissions.map((p: any) => (typeof p === 'string' ? p : p?.name)).filter(Boolean)
+      : [];
 
-    // Flatten permissions and modules from all active assignments
-    permissions = [
-      ...new Set(
-        activeAssignments.flatMap((ra: RoleAssignment) =>
-          Array.isArray(ra.role.permissions)
-            ? ra.role.permissions.map((p: any) => (typeof p === 'string' ? p : p?.name)).filter(Boolean)
-            : []
-        ) as string[]
-      ),
-    ];
-    modules = [
-      ...new Set(
-        activeAssignments.flatMap((ra: RoleAssignment) =>
-          Array.isArray(ra.role.moduleAccess)
-            ? ra.role.moduleAccess.map((m: any) => (typeof m === 'string' ? m : m?.name)).filter(Boolean)
-            : []
-        ) as string[]
-      ),
-    ];
-    approvalLevel = Math.max(
-      0,
-      ...activeAssignments.map((ra: RoleAssignment) => ra.role.approvalLevel || 0)
-    );
+    // Extract modules from the single role
+    modules = Array.isArray(assignment.role.moduleAccess)
+      ? assignment.role.moduleAccess.map((m: any) => (typeof m === 'string' ? m : m?.name)).filter(Boolean)
+      : [];
+
+    approvalLevel = assignment.role.approvalLevel || 0;
   } else if (rawUser.role) {
-    // Fallback if only one role
+    // Fallback if role is directly on user object
     permissions = Array.isArray(rawUser.role.permissions)
       ? rawUser.role.permissions.map((p: any) => (typeof p === 'string' ? p : p?.name)).filter(Boolean)
       : [];
@@ -159,7 +127,7 @@ export function formatUserData(rawUser: any): User {
   }
 
   // Compose the formatted user object
-  const formattedUser: User = {
+  const formattedUser = {
     id: rawUser.id,
     username: rawUser.username || '',
     email: rawUser.email || '',
@@ -171,18 +139,14 @@ export function formatUserData(rawUser: any): User {
     biodata: rawUser.biodata || null,
     isMember:
       rawUser.isMember === true ||
-      (Array.isArray(rawUser.roleAssignments) &&
-        rawUser.roleAssignments.some(
-          (r: RoleAssignment) =>
-            r.isActive !== false &&
-            r.role &&
-            typeof r.role.name === 'string' &&
-            (r.role.name === 'MEMBER' ||
-              r.role.name.toUpperCase() === 'MEMBER' ||
-              r.role.name.includes('MEMBER'))
-        )),
+      (rawUser.roleAssignment &&
+        rawUser.roleAssignment.role &&
+        rawUser.roleAssignment.role.name &&
+        (rawUser.roleAssignment.role.name === 'MEMBER' ||
+          rawUser.roleAssignment.role.name.toUpperCase() === 'MEMBER' ||
+          rawUser.roleAssignment.role.name.includes('MEMBER'))),
     isActive: rawUser.isActive !== false,
-    roleAssignments: Array.isArray(rawUser.roleAssignments) ? rawUser.roleAssignments : [],
+    roleAssignment: rawUser.roleAssignment || null,
     session: rawUser.session || null,
     createdAt: rawUser.createdAt,
     updatedAt: rawUser.updatedAt,
@@ -200,7 +164,7 @@ export function formatUserData(rawUser: any): User {
       isMember: formattedUser.isMember,
       isActive: formattedUser.isActive,
       role: formattedUser.role?.name,
-      roleAssignments: formattedUser.roleAssignments?.length,
+      roleAssignment: formattedUser.roleAssignment?.role?.name,
     });
   }
 

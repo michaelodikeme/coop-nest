@@ -12,11 +12,11 @@ export function usePermissions() {
    * Check if user role has expired
    */
   const isRoleExpired = useCallback((roleId: string) => {
-    if (!user?.roleAssignments) return true;
-    
-    const assignment = user.roleAssignments.find(ra => ra.role.id === roleId);
-    if (!assignment) return true;
-    
+    if (!user?.roleAssignment) return true;
+
+    const assignment = user.roleAssignment;
+    if (assignment.role.id !== roleId) return true;
+
     return assignment.expiresAt ? new Date(assignment.expiresAt) < new Date() : false;
   }, [user]);
   
@@ -32,7 +32,7 @@ export function usePermissions() {
    * Check if the user has all the specified permissions
    */
   const hasPermission = useCallback((requiredPermissions: string | string[]) => {
-    if (!user || !user.permissions || !isRoleActive()) return false;
+    if (!user || !user.role.permissions || !isRoleActive()) return false;
 
     const permissionsToCheck = 
       typeof requiredPermissions === 'string' 
@@ -40,7 +40,7 @@ export function usePermissions() {
         : requiredPermissions;
 
     return permissionsToCheck.every(permission => 
-      user.permissions?.includes(permission)
+      user.role.permissions?.includes(permission)
     );
   }, [user, isRoleActive]);
 
@@ -48,17 +48,17 @@ export function usePermissions() {
    * Check if user has access to the specified module
    */
   const hasModuleAccess = useCallback((requiredModule: Module) => {
-    if (!user || !user.modules || !isRoleActive()) return false;
+    if (!user || !user.role.moduleAccess || !isRoleActive()) return false;
     
-    return user.modules.includes(requiredModule);
+    return user.role.moduleAccess .includes(requiredModule);
   }, [user, isRoleActive]);
 
   /**
    * Check if the user meets or exceeds the specified approval level
    */
   const checkApprovalLevel = useCallback((requiredLevel: number): boolean => {
-    if (!user || user.approvalLevel === undefined || !isRoleActive()) return false;
-    const userApprovalLevel = user.approvalLevel || 0;
+    if (!user || user.role.approvalLevel === undefined || !isRoleActive()) return false;
+    const userApprovalLevel = user.role.approvalLevel || 0;
     return userApprovalLevel >= requiredLevel;
   }, [user, isRoleActive]);
 
@@ -75,11 +75,11 @@ export function usePermissions() {
    * Get role expiry date if exists
    */
   const getRoleExpiryDate = useCallback((): Date | null => {
-    if (!user?.roleAssignments || user.roleAssignments.length === 0) {
+    if (!user?.roleAssignment) {
       return null;
     }
-    
-    const expiryDate = user.roleAssignments[0].expiresAt;
+
+    const expiryDate = user.roleAssignment.expiresAt;
     return expiryDate ? new Date(expiryDate) : null;
   }, [user]);
 
@@ -101,10 +101,10 @@ export function usePermissions() {
     hasRole,
     isRoleExpired,
     isRoleActive,
-    roleExpiresAt: user?.roleAssignments?.[0]?.expiresAt,
-    permissions: user?.permissions || [],
-    modules: user?.modules || [],
-    approvalLevel: user?.approvalLevel || 0,
+    roleExpiresAt: user?.roleAssignment?.expiresAt,
+    permissions: user?.role.permissions || [],
+    modules: user?.role.moduleAccess || [],
+    approvalLevel: user?.role.approvalLevel || 0,
     daysUntilRoleExpiry: daysUntilRoleExpiry(),
     getRoleExpiryDate
   };

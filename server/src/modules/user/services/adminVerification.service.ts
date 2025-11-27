@@ -2,7 +2,13 @@ import { PrismaClient } from '@prisma/client';
 import { ApiError } from '../../../utils/apiError';
 import { PhoneNumberService } from '../../../utils/phoneNumber';
 import { IVerifyAdminProfileInput, IVerifyAdminProfileResponse, IOtpVerificationResponse } from '../interfaces/admin.interface';
-import { sendVerificationCode, checkVerificationCode } from '../../../utils/SMSUtil';
+import {
+    sendVerificationCode,
+    checkVerificationCode,
+    generateOTP,
+    storeOTPInRedis,
+    verifyOTPFromRedis
+} from '../../../utils/SMSUtil';
 import { phoneNumberValidator } from '../validations/admin.validations';
 
 const prisma = new PrismaClient();
@@ -27,9 +33,15 @@ export class AdminVerificationService {
       if (!adminProfile.isActive) {
         throw new ApiError('Admin profile must be approved before verification', 400);
       }
-      
+
+    // Generate OTP
+    const otp = generateOTP();
+
+    // Store OTP in Redis with expiration
+    await storeOTPInRedis(formattedNumber, otp);
+
       // Send verification code
-      await sendVerificationCode(formattedNumber);
+      await sendVerificationCode(formattedNumber, otp);
       
       return {
         status: 'pending',
@@ -52,14 +64,12 @@ export class AdminVerificationService {
       if (!adminProfile) {
         throw new ApiError('Phone number not found in admin records', 404);
       }
-      
-      // Verify OTP
-      const verificationResult = await checkVerificationCode(formattedNumber, otp);
-      
-      if (verificationResult.status !== 'approved') {
+    // Verify OTP from Redis
+    const isValid = await verifyOTPFromRedis(formattedNumber, otp);
+
+    if (!isValid) {
         throw new ApiError('Invalid verification code', 400);
-      }
-      
+    }
       // Update admin profile verification status
       const verifiedProfile = await prisma.adminUserProfile.update({
         where: { id: adminProfile.id },

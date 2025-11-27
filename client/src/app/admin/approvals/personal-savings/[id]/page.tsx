@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Paper, 
-  Grid, 
-  Card, 
-  CardContent, 
-  Button, 
+import {
+  Box,
+  Typography,
+  Paper,
+  Grid,
+  Card,
+  CardContent,
+  Button,
   Chip,
   Divider,
   Stack,
@@ -23,40 +23,42 @@ import {
   TextField
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
-import { 
-  usePersonalSavingsRequestDetails, 
-  useAdminProcessPersonalSavingsRequest 
+import {
+  usePersonalSavingsRequestDetails,
+  useAdminProcessPersonalSavingsRequest
 } from '@/lib/hooks/admin/useAdminPersonalSavings';
 import { RequestStatus } from '@/types/personal-savings.types';
 import { formatCurrency } from '@/utils/formatting/format';
 import { useRouter } from 'next/navigation';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
-export default function PersonalSavingsPendingRequestDetailPage({ 
-  params 
-}: { 
-  params: { id: string } 
+
+type  paramsType = Promise<{ id: string }>
+export default async function PersonalSavingsPendingRequestDetailPage({
+  params
+}: {
+  params: paramsType
 }) {
   // Access params directly - no need for use()
-  const requestId = params.id;
-  
+  const {id: requestId} = await params;
+
   const router = useRouter();
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | 'review' | 'completed'>('approve');
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
-  
+
   // Fetch request details using the ID directly
   const { data: request, isLoading, error } = usePersonalSavingsRequestDetails(requestId);
-  
+
   // Process request mutation
   const processRequestMutation = useAdminProcessPersonalSavingsRequest();
-  
+
   // Form for approval/rejection notes
   const { control, handleSubmit, reset } = useForm<{ notes: string }>({
     defaultValues: {
       notes: ''
     }
   });
-  
+
   if (isLoading) {
     return (
       <Box sx={{ width: '100%', mt: 4 }}>
@@ -65,7 +67,7 @@ export default function PersonalSavingsPendingRequestDetailPage({
       </Box>
     );
   }
-  
+
   if (error || !request) {
     return (
       <Alert severity="error" sx={{ mt: 4 }}>
@@ -73,9 +75,9 @@ export default function PersonalSavingsPendingRequestDetailPage({
         <Typography>
           Failed to load request details. {error?.message || 'Unknown error'}
         </Typography>
-        <Button 
-          startIcon={<ArrowBackIcon />} 
-          variant="outlined" 
+        <Button
+          startIcon={<ArrowBackIcon />}
+          variant="outlined"
           sx={{ mt: 2 }}
           onClick={() => router.push('/admin/approvals/personal-savings')}
         >
@@ -92,7 +94,7 @@ export default function PersonalSavingsPendingRequestDetailPage({
   const status = request?.status;
   const currentApprovalLevel = request?.nextApprovalLevel || 1;
   const approvalSteps = request?.approvalSteps || [];
-  
+
   // Determine status display
   const getStatusDisplay = () => {
     switch (status) {
@@ -112,9 +114,9 @@ export default function PersonalSavingsPendingRequestDetailPage({
         return { color: 'text.secondary', label: status };
     }
   };
-  
+
   const statusDisplay = getStatusDisplay();
-  
+
   const handleOpenDialog = (action: 'approve' | 'reject' | 'review' | 'completed' ) => {
     setApprovalAction(action);
     setIsDialogOpen(true);
@@ -141,18 +143,18 @@ export default function PersonalSavingsPendingRequestDetailPage({
       }
     );
   };
-  
+
   return (
     <Box>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Button 
-          startIcon={<ArrowBackIcon />} 
-          variant="outlined" 
+        <Button
+          startIcon={<ArrowBackIcon />}
+          variant="outlined"
           onClick={() => router.back()}
         >
           Back
         </Button>
-        
+
         <Stack direction="row" spacing={2}>
           {status === RequestStatus.PENDING && (
             <Button
@@ -163,7 +165,7 @@ export default function PersonalSavingsPendingRequestDetailPage({
               Review Request
             </Button>
           )}
-          
+
           {status === RequestStatus.REVIEWED && (
             <Button
               variant="contained"
@@ -173,7 +175,7 @@ export default function PersonalSavingsPendingRequestDetailPage({
               Approve Request
             </Button>
           )}
-        
+
         {status === RequestStatus.APPROVED && (
             <Button
               variant="contained"
@@ -183,7 +185,7 @@ export default function PersonalSavingsPendingRequestDetailPage({
               Complete Request
             </Button>
           )}
-            
+
           {/* <Stack direction="row" spacing={2}> */}
           {status === RequestStatus.COMPLETED && (
             <Button
@@ -194,7 +196,7 @@ export default function PersonalSavingsPendingRequestDetailPage({
               Complete Request
             </Button>
           )}
-            
+
           {(status === RequestStatus.PENDING || status === RequestStatus.IN_REVIEW) && (
             <Button
               variant="outlined"
@@ -206,22 +208,22 @@ export default function PersonalSavingsPendingRequestDetailPage({
           )}
         </Stack>
       </Box>
-      
+
       <Typography variant="h4" component="h1" gutterBottom>
         Personal Savings Request
       </Typography>
-      
+
       <Paper elevation={0} sx={{ p: 3, mb: 4, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
           <Typography variant="h5">
             {planName}
           </Typography>
-          <Chip 
-            label={statusDisplay.label} 
+          <Chip
+            label={statusDisplay.label}
             sx={{ color: 'white', bgcolor: statusDisplay.color }}
           />
         </Box>
-        
+
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 6 }}>
             <Card variant="outlined" sx={{ mb: 3 }}>
@@ -242,7 +244,7 @@ export default function PersonalSavingsPendingRequestDetailPage({
                 )}
               </CardContent>
             </Card>
-            
+
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -254,7 +256,7 @@ export default function PersonalSavingsPendingRequestDetailPage({
               </CardContent>
             </Card>
           </Grid>
-          
+
           <Grid size={{ xs: 12, md: 6 }}>
             <Card variant="outlined" sx={{ mb: 3 }}>
               <CardContent>
@@ -266,7 +268,7 @@ export default function PersonalSavingsPendingRequestDetailPage({
                 </Typography>
               </CardContent>
             </Card>
-            
+
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -280,7 +282,7 @@ export default function PersonalSavingsPendingRequestDetailPage({
           </Grid>
         </Grid>
       </Paper>
-      
+
       <Card sx={{ mb: 4 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
@@ -294,7 +296,7 @@ export default function PersonalSavingsPendingRequestDetailPage({
               {statusDisplay.label}
             </Typography>
           </Box>
-          
+
           {approvalSteps.length > 0 && (
             <Box sx={{ mt: 3 }}>
               <Typography variant="body2" gutterBottom>
@@ -332,7 +334,7 @@ export default function PersonalSavingsPendingRequestDetailPage({
               </Typography>
             </Box>
           )}
-          
+
           {request.notes && (
             <Box sx={{ mt: 3 }}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -345,7 +347,7 @@ export default function PersonalSavingsPendingRequestDetailPage({
           )}
         </CardContent>
       </Card>
-      
+
       {data && Object.keys(data).length > 0 && (
         <Card>
           <CardContent>
@@ -377,14 +379,14 @@ export default function PersonalSavingsPendingRequestDetailPage({
       {/* Approval/Rejection Dialog */}
       <Dialog open={isDialogOpen} onClose={handleCloseDialog}>
         <DialogTitle>
-          {approvalAction === 'approve' ? 'Approve Request' : 
-           approvalAction === 'reject' ? 'Reject Request' : 
+          {approvalAction === 'approve' ? 'Approve Request' :
+           approvalAction === 'reject' ? 'Reject Request' :
            'Review Request'}
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
-            {approvalAction === 'approve' ? 'Approve this personal savings request?' : 
-             approvalAction === 'reject' ? 'Reject this personal savings request?' : 
+            {approvalAction === 'approve' ? 'Approve this personal savings request?' :
+             approvalAction === 'reject' ? 'Reject this personal savings request?' :
              'Move this request to review status?'}
           </DialogContentText>
           <form onSubmit={handleSubmit(handleProcessRequest)}>
@@ -407,15 +409,15 @@ export default function PersonalSavingsPendingRequestDetailPage({
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button 
+          <Button
             onClick={handleSubmit(handleProcessRequest)}
-            variant="contained" 
+            variant="contained"
             color={approvalAction === 'reject' ? 'error' : 'primary'}
             disabled={processRequestMutation.isPending}
           >
-            {processRequestMutation.isPending ? "Processing..." : 
-             approvalAction === 'approve' ? 'Approve' : 
-             approvalAction === 'reject' ? 'Reject' : 
+            {processRequestMutation.isPending ? "Processing..." :
+             approvalAction === 'approve' ? 'Approve' :
+             approvalAction === 'reject' ? 'Reject' :
              approvalAction === 'completed' ? 'Completed' :
              'Move to Review'}
           </Button>
@@ -424,3 +426,14 @@ export default function PersonalSavingsPendingRequestDetailPage({
     </Box>
   );
 }
+
+
+// import PersonalSavingsClient from './PersonalSavingsClient';
+//
+// type Props = {
+//     params: { id: string };
+// };
+//
+// export default function PersonalSavingsPendingRequestDetailPage({ params }: Props) {
+//     return <PersonalSavingsClient requestId={params.id} />;
+// }

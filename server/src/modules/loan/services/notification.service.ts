@@ -47,12 +47,10 @@ export class LoanNotificationService {
     // Get users with required approval level
     const eligibleApprovers = await prisma.user.findMany({
       where: {
-        roleAssignments: {
-          some: {
-            role: {
-              approvalLevel: requiredApprovalLevel,
-              canApprove: true
-            }
+        roleAssignment: {
+          role: {
+            approvalLevel: requiredApprovalLevel,
+            canApprove: true
           }
         }
       }

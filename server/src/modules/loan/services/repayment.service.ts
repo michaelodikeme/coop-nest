@@ -60,63 +60,68 @@ export class RepaymentService {
     async processLoanRepayment(repaymentData: LoanRepaymentData): Promise<RepaymentResult> {
         // Process in transaction
         return await this.prisma.$transaction(async (tx) => {
-            // 1. Find and validate loan
-            const loan = await this.findAndValidateLoan(tx, repaymentData);
-            
-            // 2. Find matching schedule if scheduleId provided
-            let targetSchedule = null;
-            if (repaymentData.scheduleId) {
-                targetSchedule = await this.findScheduleById(tx, repaymentData.scheduleId, loan.id);
-            } else {
-                // Find by month/year if no scheduleId
-                targetSchedule = await this.findScheduleByDate(
-                    tx, 
-                    loan.id, 
-                    repaymentData.repaymentMonth, 
-                    repaymentData.repaymentYear
-                );
+            return await this.processLoanRepaymentInTransaction(tx, repaymentData);
+        });
+    }
+
+    // FIX #6: Internal method that accepts transaction for bulk processing
+    private async processLoanRepaymentInTransaction(tx: any, repaymentData: LoanRepaymentData): Promise<RepaymentResult> {
+        // 1. Find and validate loan
+        const loan = await this.findAndValidateLoan(tx, repaymentData);
+
+        // 2. Find matching schedule if scheduleId provided
+        let targetSchedule = null;
+        if (repaymentData.scheduleId) {
+            targetSchedule = await this.findScheduleById(tx, repaymentData.scheduleId, loan.id);
+        } else {
+            // Find by month/year if no scheduleId
+            targetSchedule = await this.findScheduleByDate(
+                tx,
+                loan.id,
+                repaymentData.repaymentMonth,
+                repaymentData.repaymentYear
+            );
+        }
+
+        // 3. Create repayment record
+        const repayment = await tx.loanRepayment.create({
+            data: {
+                loanId: loan.id,
+                scheduleId: targetSchedule?.id,
+                amount: repaymentData.uploadedAmount,
+                repaymentDate: repaymentData.repaymentDate || new Date(),
+                uploadedDate: new Date(),
+                repaymentMonth: repaymentData.repaymentMonth,
+                repaymentYear: repaymentData.repaymentYear,
+                uploadedBy: repaymentData.uploadedBy,
+                uploadBatchId: repaymentData.uploadBatchId,
+                isReconciled: !!targetSchedule // Mark as reconciled if matched to schedule
             }
-            
-            // 3. Create repayment record
-            const repayment = await tx.loanRepayment.create({
-                data: {
-                    loanId: loan.id,
-                    scheduleId: targetSchedule?.id,
-                    amount: repaymentData.uploadedAmount,
-                    repaymentDate: repaymentData.repaymentDate || new Date(),
-                    uploadedDate: new Date(),
-                    repaymentMonth: repaymentData.repaymentMonth,
-                    repaymentYear: repaymentData.repaymentYear,
-                    uploadedBy: repaymentData.uploadedBy,
-                    uploadBatchId: repaymentData.uploadBatchId,
-                    isReconciled: !!targetSchedule // Mark as reconciled if matched to schedule
-                }
-            });
-            
-            // 4. Update payment schedules (can distribute across multiple schedules)
-            const schedules = loan.paymentSchedules.sort((a: { dueDate: Date }, b: { dueDate: Date }) => 
-                a.dueDate.getTime() - b.dueDate.getTime()
+        });
+
+        // 4. Update payment schedules (can distribute across multiple schedules)
+        const schedules = loan.paymentSchedules.sort((a: { dueDate: Date }, b: { dueDate: Date }) =>
+            a.dueDate.getTime() - b.dueDate.getTime()
         );
-        
+
         let remainingPayment = repaymentData.uploadedAmount;
         await this.updateSchedules(tx, schedules, remainingPayment);
-        
+
         // 5. Update loan status and balances
         const updatedLoan = await this.updateLoanStatus(tx, loan, repaymentData.uploadedAmount);
-        
+
         // 6. Create transaction record
         await this.createTransactionRecord(
-            tx, 
-            loan.id, 
-            repaymentData.uploadedAmount, 
+            tx,
+            loan.id,
+            repaymentData.uploadedAmount,
             updatedLoan.remainingBalance,
             repaymentData.uploadedBy
         );
-        
+
         // 7. Return success result
         return this.buildSuccessResult(repayment, updatedLoan);
-    });
-}
+    }
 
 // Helper methods for loan repayment processing
 private async findAndValidateLoan(tx: any, data: LoanRepaymentData) {
@@ -149,19 +154,22 @@ private async findAndValidateLoan(tx: any, data: LoanRepaymentData) {
     return loan;
 }
 
+// FIX #4: Enhanced overpayment handling with proper detection and warning
 private async updateSchedules(tx: any, schedules: any[], remainingPayment: Decimal) {
     for (const schedule of schedules) {
-        if (schedule.status === 'PAID' || remainingPayment.equals(0)) continue;
-        
+        if (schedule.status === 'PAID' || remainingPayment.lte(0)) continue;
+
         const scheduledAmount = schedule.expectedAmount;
         const previouslyPaid = schedule.paidAmount || new Decimal(0);
         const remaining = scheduledAmount.sub(previouslyPaid);
-        
+
         if (remaining.gt(0)) {
             const paymentForThisSchedule = Decimal.min(remaining, remainingPayment);
             const newPaidAmount = previouslyPaid.add(paymentForThisSchedule);
-            const isFullyPaid = newPaidAmount.greaterThanOrEqualTo(scheduledAmount);
-            
+            // FIX #8: Use tolerance for Decimal comparison
+            const tolerance = new Decimal('0.01');
+            const isFullyPaid = newPaidAmount.greaterThanOrEqualTo(scheduledAmount.sub(tolerance));
+
             // Update schedule
             await tx.loanSchedule.update({
                 where: { id: schedule.id },
@@ -171,11 +179,20 @@ private async updateSchedules(tx: any, schedules: any[], remainingPayment: Decim
                     actualPaymentDate: new Date()
                 }
             });
-            
+
             remainingPayment = remainingPayment.sub(paymentForThisSchedule);
         }
     }
-    
+
+    // FIX #4: Check for overpayment and throw error if detected
+    if (remainingPayment.gt(new Decimal('0.01'))) {
+        throw new ApiError(
+            `Overpayment detected: ₦${remainingPayment.toFixed(2)} exceeds all outstanding schedules. ` +
+            `Please adjust the payment amount or contact administrator.`,
+            400
+        );
+    }
+
     return remainingPayment;
 }
 
@@ -256,13 +273,14 @@ async getMemberRepaymentHistory(erpId: string) {
     return loans;
 }
 
+// FIX #6: Refactored bulk repayment to use single transaction
 async processBulkRepayments(file: Express.Multer.File, uploadedBy: string): Promise<any> {
     // Validate file
     if (!file || !file.buffer || file.buffer.length === 0) {
         throw new ApiError('Invalid or empty file uploaded', 400);
     }
 
-    // Create batch upload record
+    // Create batch upload record OUTSIDE transaction (to preserve even if transaction fails)
     const batchUpload = await this.prisma.bulkRepaymentUpload.create({
         data: {
             uploadedBy,
@@ -272,27 +290,27 @@ async processBulkRepayments(file: Express.Multer.File, uploadedBy: string): Prom
             status: 'PROCESSING'
         }
     });
-    
+
     let workbook;
     try {
         // Read Excel file
         workbook = XLSX.read(file.buffer, { type: 'buffer' });
     } catch (error) {
         console.error("Error reading Excel file:", error);
-        
+
         // Update batch status to failed
         await this.updateBatchStatus(
             batchUpload.id,
             'FAILED',
             `Failed to parse Excel file: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            undefined, 0, 0, 1, 
+            undefined, 0, 0, 1,
             [{ rowNumber: 0, erpId: 'N/A', loanId: 'N/A', error: 'Invalid Excel file format', sheet: 'N/A' }]
         );
-        
+
         throw new ApiError('Could not read the uploaded Excel file. Please ensure it is a valid Excel file.', 400);
     }
-    
-    // Process in transaction
+
+    // FIX #6: Process ALL repayments in a SINGLE transaction for data consistency
     return await this.prisma.$transaction(async (tx) => {
         const results = {
             successful: Array<{
@@ -363,10 +381,10 @@ async processBulkRepayments(file: Express.Multer.File, uploadedBy: string): Prom
                     if (repaymentData.uploadedAmount.gt(0)) {
                         // Validate data before processing
                         await this.validateRepaymentData(tx, repaymentData);
-                        
-                        // Process the individual repayment
-                        const result = await this.processLoanRepayment(repaymentData);
-                        
+
+                        // FIX #6: Use internal method to avoid nested transactions
+                        const result = await this.processLoanRepaymentInTransaction(tx, repaymentData);
+
                         // Track successful repayments
                         results.successful.push({
                             rowNumber,
@@ -375,13 +393,13 @@ async processBulkRepayments(file: Express.Multer.File, uploadedBy: string): Prom
                             amount: repaymentData.uploadedAmount.toString(),
                             sheet: sheetName
                         });
-                        
+
                         results.totalAmount = results.totalAmount.add(repaymentData.uploadedAmount);
                         results.totalProcessed++;
-                        
+
                         // Update loan type stats
                         results.byLoanType[sheetName].processed++;
-                        results.byLoanType[sheetName].amount = 
+                        results.byLoanType[sheetName].amount =
                             results.byLoanType[sheetName].amount.add(repaymentData.uploadedAmount);
                     }
                 } catch (error) {
@@ -741,27 +759,45 @@ private async validateRepaymentData(tx: any, data: LoanRepaymentData) {
     if (!data.erpId || !data.loanId || !data.uploadedAmount) {
         throw new ApiError('Missing required repayment data', 400);
     }
-    
+
     if (data.uploadedAmount.lte(0)) {
         throw new ApiError('Payment amount must be greater than zero', 400);
     }
-    
+
     // 2. Validate date information
     const currentDate = new Date();
-    
+
     if (data.repaymentDate && data.repaymentDate > currentDate) {
         throw new ApiError('Repayment date cannot be in the future', 400);
     }
-    
+
     if (!data.repaymentMonth || data.repaymentMonth < 1 || data.repaymentMonth > 12) {
         throw new ApiError('Invalid repayment month', 400);
     }
-    
+
     const currentYear = currentDate.getFullYear();
     if (!data.repaymentYear || data.repaymentYear < currentYear - 5 || data.repaymentYear > currentYear + 1) {
         throw new ApiError('Invalid repayment year', 400);
     }
-    
+
+    // FIX #7: Validate payment date is not before loan disbursement
+    const loan = await tx.loan.findUnique({
+        where: { id: data.loanId },
+        select: {
+            disbursedAt: true,
+            status: true
+        }
+    });
+
+    if (loan && loan.disbursedAt && data.repaymentDate) {
+        if (data.repaymentDate < loan.disbursedAt) {
+            throw new ApiError(
+                `Payment date (${data.repaymentDate.toISOString().split('T')[0]}) cannot be before loan disbursement date (${loan.disbursedAt.toISOString().split('T')[0]})`,
+                400
+            );
+        }
+    }
+
     return true;
 }
 

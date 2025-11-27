@@ -7,14 +7,9 @@ import {
 import type { Biodata } from './member.types';
 
 export interface User {
-  data: User;
   id: string;
   username: string;
   email?: string;
-  role: Role | null;
-  approvalLevel?: number;
-  permissions?: string[];
-  modules?: string[];
   biodataId?: string;
   biodata?: Biodata;
   isCreated?: boolean;
@@ -23,7 +18,9 @@ export interface User {
   createdAt?: string;
   updatedAt?: string;
   adminProfile?: AdminProfile;
-  roleAssignments: RoleAssignment[];
+  role: Role,
+  // Single role assignment per user
+  roleAssignment: RoleAssignment;
   session?: Session;
   tokens?: AuthTokens;
   notifications?: Notification[];

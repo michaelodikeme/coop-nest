@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRoutes from '../modules/user/routes/auth.routes';
 // import adminRoutes from '../modules/user/routes/admin.routes';
 import userRoutes from '../modules/user/routes';
+import roleRoutes from '../modules/user/routes/role.routes';
 import accountRoutes from '../modules/account/routes/account.routes';
 import biodataRoutes from '../modules/biodata/routes/biodata.routes';
 import savingsRoutes from '../modules/savings/routes';
@@ -27,9 +28,10 @@ router.use('/requests', routes);
 
 // Protected routes (require authentication)
 router.use(authenticate);
+router.use('/roles', roleRoutes);
 router.use('/accounts', accountRoutes);
 router.use('/savings', savingsRoutes);
-router.use('/loan', loanRoutes); 
+router.use('/loan', loanRoutes);
 router.use('/transactions', transactions);
 router.use('/personal-savings', personalSavingsRouter);
 

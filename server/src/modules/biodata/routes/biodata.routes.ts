@@ -24,7 +24,7 @@ const biodataBackupController = new BiodataBackupController();
 
 // Verification routes
 router.post('/verify', verificationController.verifyBiodata.bind(verificationController));
-router.post('/verify-otp', verificationController.verifyPhoneOtp.bind(verificationController));
+router.post('/verify/otp', verificationController.verifyPhoneOtp.bind(verificationController));
 router.post('/register', biodataController.createNewMember.bind(biodataController));
 
 // Protected routes - requires authentication

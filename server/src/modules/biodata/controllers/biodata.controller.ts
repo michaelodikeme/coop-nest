@@ -20,10 +20,10 @@ interface AuthenticatedRequest extends Request {
   user: {
     id: string;
     biodataId: string;
-    roles: Array<{
+    role: {
       name: string;
       isAdmin: boolean;
-    }>;
+    };
     permissions?: string[];
     approvalLevel: number;
   };
@@ -236,9 +236,9 @@ export class BiodataController {
       
       // Security check: Ensure the user is updating their own photo or is an admin
       const isOwnProfile = req.user.biodataId === biodataId;
-      const isAdmin = req.user.roles.some(role => 
-        ['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN'].includes(role.name)
-      );
+      const isAdmin = 
+        ['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN'].includes(req.user.role.name)
+      ;
       
       if (!isOwnProfile && !isAdmin) {
         return ApiResponse.forbidden(res, 'You can only update your own profile photo');

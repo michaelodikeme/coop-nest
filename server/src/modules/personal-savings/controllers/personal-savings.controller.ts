@@ -28,8 +28,8 @@ export class PersonalSavingsController {
             const queryParams = listPersonalSavingsQuerySchema.parse(req.query);
             
             // Get user ID and roles from authenticated user
-            const { id: userId, roles } = req.user;
-            const isAdmin = roles.some(role => ['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN'].includes(role.name));
+            const { id: userId, role } = req.user;
+            const isAdmin = ['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN'].includes(role.name);
             
             // Get plans with automatic filtering based on user role
             const result = await this.service.getAllPersonalSavings(queryParams, userId, isAdmin);
@@ -64,8 +64,8 @@ export class PersonalSavingsController {
             const { id } = getByIdSchema.parse(req.params);
             
             // Get user ID and roles from authenticated user
-            const { id: userId, roles } = req.user;
-            const isAdmin = roles.some(role => ['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN'].includes(role.name));
+            const { id: userId, role } = req.user;
+            const isAdmin =  ['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN'].includes(role.name);
             
             // Get plan with ownership validation
             const result = await this.service.getPersonalSavingsById(id, userId, isAdmin);
@@ -173,8 +173,8 @@ export class PersonalSavingsController {
             const queryParams = transactionHistorySchema.parse(req.query);
             
             // Get user ID and roles from authenticated user
-            const { id: userId, roles } = req.user;
-            const isAdmin = roles.some(role => ['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN'].includes(role.name));
+            const { id: userId, role } = req.user;
+            const isAdmin =  ['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN'].includes(role.name);
             
             // Get transaction history with ownership validation
             const result = await this.service.getTransactionHistory(id, queryParams, userId, isAdmin);
@@ -208,8 +208,8 @@ export class PersonalSavingsController {
             const { startDate, endDate } = req.query as { startDate?: string, endDate?: string };
             
             // Get user ID and roles from authenticated user
-            const { id: userId, roles } = req.user;
-            const isAdmin = roles.some(role => ['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN'].includes(role.name));
+            const { id: userId, role } = req.user;
+            const isAdmin = ['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN'].includes(role.name);
             
             // Get balance history with ownership validation
             const result = await this.service.getBalanceHistory(id, startDate, endDate, userId, isAdmin);
@@ -283,8 +283,8 @@ export class PersonalSavingsController {
             }
             
             // Get user ID and roles from authenticated user
-            const { id: userId, roles } = req.user;
-            const isAdmin = roles.some(role => ['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN'].includes(role.name));
+            const { id: userId, role } = req.user;
+            const isAdmin = ['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN'].includes(role.name);
             
             // Get member summary with ownership validation
             const result = await this.service.getMemberSummary(erpId, userId, isAdmin);

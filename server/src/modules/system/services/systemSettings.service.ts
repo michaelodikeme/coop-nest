@@ -45,7 +45,7 @@ export class SystemSettingsService {
                     isMember: false,
                     isActive: true,
                     password: null, // System user cannot login
-                    roleAssignments: {
+                    roleAssignment: {
                         create: {
                             role: {
                                 create: {
