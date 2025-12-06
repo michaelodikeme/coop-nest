@@ -79,6 +79,8 @@ export class SystemSettingsService {
                 where: { key: 'DEFAULT_SHARE_AMOUNT' }
             });
 
+            console.log('System settings initialized successfully', shareAmount);
+
             // If it doesn't exist, create it
             if (!shareAmount) {
                 await this.prisma.systemSettings.create({

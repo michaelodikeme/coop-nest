@@ -9,6 +9,7 @@
     "build": "tsc",
     "test": "jest",
     "seed": "ts-node prisma/seed.ts",
+    "seed:smart": "ts-node prisma/seed_m.ts",
     "backup:db": "pg_dump --clean --if-exists --no-owner --username=postgres --host=postgres --port=5432 --dbname=postgres --schema=coop-nest_db > backups/db/coop-nest_db_backup.sql",
     "reset:db": "npm run backup:db && npx prisma db reset",
     "restore:db": "psql --username=postgres --host=docker-postgres-server --port=5432 --dbname=postgres < backups/db/coop-nest_db_backup.sql",

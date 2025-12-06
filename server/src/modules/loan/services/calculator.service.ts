@@ -89,7 +89,8 @@ export class CalculatorService {
             // For regular loans: compound interest using PMT
             // monthlyPayment = this.calculatePMT(loanAmount, monthlyInterestRate, tenure);
             totalInterest = loanAmount.mul(interestRate);
-            monthlyPayment = loanAmount.add(totalInterest).div(tenure);
+            // monthlyPayment = loanAmount.add(totalInterest).div(tenure);
+            monthlyPayment = loanAmount.div(tenure);
 
             // Total interest is calculated later based on actual payments
         }
@@ -146,7 +147,7 @@ export class CalculatorService {
             loanAmount,
             interestRate,
             totalInterest,
-            totalRepayment: loanAmount.add(totalInterest),
+            totalRepayment: isSoftLoan ? loanAmount.add(totalInterest) : loanAmount,
             monthlyPayment,
             tenure,
             schedule,

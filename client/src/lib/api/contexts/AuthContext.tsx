@@ -14,6 +14,7 @@ import {
 import axios, { AxiosError } from 'axios';
 import { useDispatch } from 'react-redux';
 import { setCredentials, logout as logoutAction } from '@/lib/hooks/redux/store/slices/authSlice';
+import { addToast } from '@/lib/hooks/redux/store/slices/uiSlice';
 import { AuthTokens, Session } from '@/types/auth.types';
 import { isAdminUser, isMemberUser, formatUserData } from '../../utils/roleUtils';
 import type { User } from '@/types/user.types';
@@ -538,8 +539,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Login error details:', error);
       const errorMessage = handleLoginError(error);
-      setError(errorMessage); // Set the error message to state
-      handleLoginError(error);
+      setError(errorMessage);
+      dispatch(addToast({
+        message: errorMessage,
+        type: 'error',
+      }));
+      throw error;
     } finally {
       setIsLoading(false);
     }
