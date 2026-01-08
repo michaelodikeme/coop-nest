@@ -1,4 +1,3 @@
-import { PrismaClient } from '@prisma/client';
 import {
   ICreateRoleInput,
   IUpdateRoleInput,
@@ -7,7 +6,7 @@ import {
 import { ApiError } from '../../../utils/apiError';
 import { DEFAULT_ROLES, RoleDefinition } from '../../../types/permissions';
 
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 
 export class RoleService {
   /**

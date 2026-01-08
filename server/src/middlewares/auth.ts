@@ -1,15 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { ApiError } from '../utils/apiError';
 import { UserService } from '../modules/user/services/user.service';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../utils/prisma';
 import { PERMISSIONS, Action } from '../types/permissions';
 import { AuthenticatedUser } from '../types/express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { TokenPayload } from '../modules/user/interfaces/token.interface';
 import { tokenService } from '../modules/user/services/token.service';
 import { redisClient } from '../config/redis';
-
-const prisma = new PrismaClient();
 const userService = new UserService();
 
 // Extend Express Request type to include user and session

@@ -4,15 +4,13 @@ import { TransactionError, TransactionErrorCodes } from '../errors/transaction.e
 import logger from '../../../utils/logger';
 import { PaginationOptions } from '../../../interfaces/pagination.interface';
 import { TransactionWithDetails } from '../interfaces/transaction.interface';
-
+import { prisma } from '../../../utils/prisma';
 /**
  * Service for querying transactions
  */
 export class TransactionQueryService {
-  private prisma: PrismaClient;
   
   constructor() {
-    this.prisma = new PrismaClient();
   }
   
   /**
@@ -34,7 +32,7 @@ export class TransactionQueryService {
       const skip = (options.page - 1) * options.limit;
       
       const [transactions, totalCount] = await Promise.all([
-        this.prisma.transaction.findMany({
+        prisma.transaction.findMany({
           where: whereClause,
           include: {
             initiator: {
@@ -68,7 +66,7 @@ export class TransactionQueryService {
           skip,
           take: options.limit
         }),
-        this.prisma.transaction.count({ where: whereClause })
+        prisma.transaction.count({ where: whereClause })
       ]);
       
       // Format output for client consumption
@@ -108,7 +106,7 @@ export class TransactionQueryService {
   ): Promise<any> {
     try {
       // Get user's biodata to find related entities
-      const user = await this.prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
           biodata: {
@@ -212,7 +210,7 @@ export class TransactionQueryService {
       const skip = (options.page - 1) * options.limit;
       
       const [transactions, totalCount] = await Promise.all([
-        this.prisma.transaction.findMany({
+        prisma.transaction.findMany({
           where: whereClause,
           include: {
             initiator: {
@@ -244,7 +242,7 @@ export class TransactionQueryService {
           skip,
           take: options.limit
         }),
-        this.prisma.transaction.count({ where: whereClause })
+        prisma.transaction.count({ where: whereClause })
       ]);
       
       // Format the transactions for output
@@ -397,7 +395,7 @@ export class TransactionQueryService {
    */
   async getTransactionById(id: string): Promise<TransactionWithDetails | null> {
     try {
-      const transaction = await this.prisma.transaction.findUnique({
+      const transaction = await prisma.transaction.findUnique({
         where: { id },
         include: {
           initiator: {
@@ -450,7 +448,7 @@ export class TransactionQueryService {
    */
   async userHasAccessToEntity(userId: string, entityType: string, entityId: string): Promise<boolean> {
     try {
-      const user = await this.prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
           biodata: {
@@ -520,7 +518,7 @@ export class TransactionQueryService {
       const skip = (options.page - 1) * options.limit;
       
       const [transactions, totalCount] = await Promise.all([
-        this.prisma.transaction.findMany({
+        prisma.transaction.findMany({
           where: whereClause,
           include: {
             initiator: {
@@ -552,7 +550,7 @@ export class TransactionQueryService {
           skip,
           take: options.limit
         }),
-        this.prisma.transaction.count({ where: whereClause })
+        prisma.transaction.count({ where: whereClause })
       ]);
       
       // Format transactions for output
@@ -589,7 +587,7 @@ export class TransactionQueryService {
   ): Promise<any> {
     try {
       // Get user with related entities
-      const user = await this.prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
           biodata: true
@@ -624,7 +622,7 @@ export class TransactionQueryService {
       const skip = (options.page - 1) * options.limit;
       
       const [transactions, totalCount] = await Promise.all([
-        this.prisma.transaction.findMany({
+        prisma.transaction.findMany({
           where: whereClause,
           include: {
             initiator: {
@@ -656,7 +654,7 @@ export class TransactionQueryService {
           skip,
           take: options.limit
         }),
-        this.prisma.transaction.count({ where: whereClause })
+        prisma.transaction.count({ where: whereClause })
       ]);
       
       // Format transactions for output
@@ -697,25 +695,25 @@ export class TransactionQueryService {
       // Get counts for each status
       const [pendingCount, processingCount, completedCount, failedCount, cancelledCount, reversedCount, totalCount] = 
       await Promise.all([
-        this.prisma.transaction.count({ 
+        prisma.transaction.count({ 
           where: { ...baseWhereClause, status: TransactionStatus.PENDING } 
         }),
-        this.prisma.transaction.count({ 
+        prisma.transaction.count({ 
           where: { ...baseWhereClause, status: TransactionStatus.PROCESSING } 
         }),
-        this.prisma.transaction.count({ 
+        prisma.transaction.count({ 
           where: { ...baseWhereClause, status: TransactionStatus.COMPLETED } 
         }),
-        this.prisma.transaction.count({ 
+        prisma.transaction.count({ 
           where: { ...baseWhereClause, status: TransactionStatus.FAILED } 
         }),
-        this.prisma.transaction.count({ 
+        prisma.transaction.count({ 
           where: { ...baseWhereClause, status: TransactionStatus.CANCELLED } 
         }),
-        this.prisma.transaction.count({ 
+        prisma.transaction.count({ 
           where: { ...baseWhereClause, status: TransactionStatus.REVERSED } 
         }),
-        this.prisma.transaction.count({ 
+        prisma.transaction.count({ 
           where: baseWhereClause 
         })
       ]);
@@ -750,12 +748,12 @@ export class TransactionQueryService {
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
-      this.prisma.transaction.findMany({
+      prisma.transaction.findMany({
         orderBy: { [sortField]: sortOrder === 'desc' ? 'desc' : 'asc' },
         skip,
         take: limit,
       }),
-      this.prisma.transaction.count(),
+      prisma.transaction.count(),
     ]);
 
     return { data, total, page, limit };
@@ -763,14 +761,14 @@ export class TransactionQueryService {
 
   // Helper methods for user transactions
   private async getLoanIdsForUser(userId: string): Promise<string[]> {
-    const user = await this.prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { biodata: true }
     });
     
     if (!user?.biodata) return [];
     
-    const loans = await this.prisma.loan.findMany({
+    const loans = await prisma.loan.findMany({
       where: { memberId: user.biodata.id },
       select: { id: true }
     });
@@ -778,14 +776,14 @@ export class TransactionQueryService {
   }
 
   private async getSavingsIdsForUser(userId: string): Promise<string[]> {
-    const user = await this.prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { biodata: true }
     });
     
     if (!user?.biodata) return [];
     
-    const savings = await this.prisma.savings.findMany({
+    const savings = await prisma.savings.findMany({
       where: { memberId: user.biodata.id },
       select: { id: true }
     });
@@ -793,14 +791,14 @@ export class TransactionQueryService {
   }
 
   private async getSharesIdsForUser(userId: string): Promise<string[]> {
-    const user = await this.prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { biodata: true }
     });
     
     if (!user?.biodata) return [];
     
-    const shares = await this.prisma.shares.findMany({
+    const shares = await prisma.shares.findMany({
       where: { memberId: user.biodata.id },
       select: { id: true }
     });

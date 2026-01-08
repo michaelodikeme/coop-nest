@@ -4,15 +4,16 @@ import { CreateTransactionDto } from '../../dtos/create-transaction.dto';
 import { TransactionError, TransactionErrorCodes } from '../../errors/transaction.error';
 import { Decimal } from '@prisma/client/runtime/library';
 import logger from '../../../../utils/logger';
+import { prisma } from '../../../../utils/prisma';
 
 /**
  * Processor for shares-related transactions
  */
 export class SharesTransactionProcessor implements TransactionProcessor {
-  private prisma: PrismaClient;
+
   
   constructor() {
-    this.prisma = new PrismaClient();
+
   }
   
   /**
@@ -113,7 +114,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
     
     // Check if we have a valid shares record or member ID
     if (data.relatedEntityId && data.relatedEntityType === 'SHARES') {
-      const shares = await this.prisma.shares.findUnique({
+      const shares = await prisma.shares.findUnique({
         where: { id: data.relatedEntityId }
       });
       
@@ -150,7 +151,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
     }
     
     // Check if enough shares are available
-    const shares = await this.prisma.shares.findUnique({
+    const shares = await prisma.shares.findUnique({
       where: { id: data.relatedEntityId }
     });
     
@@ -177,7 +178,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
     }
     
     // Find the existing shares record
-    const shares = await this.prisma.shares.findUnique({
+    const shares = await prisma.shares.findUnique({
       where: { id: transaction.sharesId }
     });
     
@@ -198,7 +199,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
     const newTotalValue = new Decimal(newUnitsHeld * valuePerUnit.toNumber());
     
     // Update the shares record
-    await this.prisma.shares.update({
+    await prisma.shares.update({
       where: { id: shares.id },
       data: {
         unitsHeld: newUnitsHeld,
@@ -209,7 +210,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
     });
     
     // Update the transaction's balanceAfter field
-    await this.prisma.transaction.update({
+    await prisma.transaction.update({
       where: { id: transaction.id },
       data: {
         balanceAfter: newTotalValue
@@ -226,7 +227,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
     }
     
     // Get the shares record
-    const shares = await this.prisma.shares.findUnique({
+    const shares = await prisma.shares.findUnique({
       where: { id: transaction.sharesId }
     });
     
@@ -259,7 +260,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
     const newTotalValue = new Decimal(newUnitsHeld * valuePerUnit.toNumber());
     
     // Update the shares balance
-    await this.prisma.shares.update({
+    await prisma.shares.update({
       where: { id: shares.id },
       data: {
         unitsHeld: newUnitsHeld,
@@ -269,7 +270,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
     });
     
     // Update the transaction's balanceAfter field
-    await this.prisma.transaction.update({
+    await prisma.transaction.update({
       where: { id: transaction.id },
       data: {
         balanceAfter: newTotalValue
@@ -286,7 +287,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
     }
     
     // Find the shares record
-    const shares = await this.prisma.shares.findUnique({
+    const shares = await prisma.shares.findUnique({
       where: { id: transaction.sharesId }
     });
     
@@ -303,7 +304,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
     const newTotalValue = shares.totalValue.plus(transaction.amount);
     
     // Update the shares balance
-    await this.prisma.shares.update({
+    await prisma.shares.update({
       where: { id: shares.id },
       data: {
         totalValue: newTotalValue
@@ -311,7 +312,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
     });
     
     // Update the transaction's balanceAfter field
-    await this.prisma.transaction.update({
+    await prisma.transaction.update({
       where: { id: transaction.id },
       data: {
         balanceAfter: newTotalValue
@@ -328,7 +329,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
       return;
     }
     
-    const originalTx = await this.prisma.transaction.findUnique({
+    const originalTx = await prisma.transaction.findUnique({
       where: { id: transaction.parentTxnId }
     });
     
@@ -337,7 +338,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
     }
     
     // Find the shares record
-    const shares = await this.prisma.shares.findUnique({
+    const shares = await prisma.shares.findUnique({
       where: { id: originalTx.sharesId }
     });
     
@@ -357,7 +358,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
         const newTotalValue = new Decimal(newUnitsHeld * valuePerUnit.toNumber());
         
         // Update shares record
-        await this.prisma.shares.update({
+        await prisma.shares.update({
           where: { id: shares.id },
           data: {
             unitsHeld: newUnitsHeld,
@@ -367,7 +368,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
         });
         
         // Update transaction balanceAfter
-        await this.prisma.transaction.update({
+        await prisma.transaction.update({
           where: { id: transaction.id },
           data: {
             balanceAfter: newTotalValue
@@ -382,7 +383,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
         const newTotalValueAfterReversal = new Decimal(newUnitsAfterReversal * valuePerUnit.toNumber());
         
         // Update shares record
-        await this.prisma.shares.update({
+        await prisma.shares.update({
           where: { id: shares.id },
           data: {
             unitsHeld: newUnitsAfterReversal,
@@ -392,7 +393,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
         });
         
         // Update transaction balanceAfter
-        await this.prisma.transaction.update({
+        await prisma.transaction.update({
           where: { id: transaction.id },
           data: {
             balanceAfter: newTotalValueAfterReversal
@@ -405,7 +406,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
         const newTotalAfterDividendReversal = shares.totalValue.minus(originalTx.amount);
         
         // Update shares record
-        await this.prisma.shares.update({
+        await prisma.shares.update({
           where: { id: shares.id },
           data: {
             totalValue: newTotalAfterDividendReversal
@@ -413,7 +414,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
         });
         
         // Update transaction balanceAfter
-        await this.prisma.transaction.update({
+        await prisma.transaction.update({
           where: { id: transaction.id },
           data: {
             balanceAfter: newTotalAfterDividendReversal
@@ -431,7 +432,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
       if (!transaction.sharesId) return;
       
       // Get the shares record to find the member
-      const shares = await this.prisma.shares.findUnique({
+      const shares = await prisma.shares.findUnique({
         where: { id: transaction.sharesId },
         include: {
           member: true
@@ -441,7 +442,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
       if (!shares || !shares.member) return;
 
       // Get the member's user account
-      const user = await this.prisma.user.findFirst({
+      const user = await prisma.user.findFirst({
         where: { biodataId: shares.memberId }
       });
       
@@ -474,7 +475,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
       }
       
       // Create notification in the database
-      await this.prisma.notification.create({
+      await prisma.notification.create({
         data: {
           userId: user.id,
           type: 'TRANSACTION',
@@ -502,7 +503,7 @@ export class SharesTransactionProcessor implements TransactionProcessor {
    */
   private async getShareValuePerUnit(): Promise<Decimal> {
     try {
-      const setting = await this.prisma.systemSettings.findUnique({
+      const setting = await prisma.systemSettings.findUnique({
         where: { key: 'SHARE_VALUE_PER_UNIT' }
       });
       

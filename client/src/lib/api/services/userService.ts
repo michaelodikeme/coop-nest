@@ -191,6 +191,14 @@ class UserService {
   async deactivateUser(id: string): Promise<User> {
     return apiService.post<User>(`/users/${id}/deactivate`, {});
   }
+
+  /**
+   * Admin change user password
+   * POST /admin/users/:id/change-password
+   */
+  async adminChangeUserPassword(userId: string, newPassword: string): Promise<{ message: string }> {
+    return apiService.post<{ message: string }>(`/admin/users/${userId}/change-password`, { newPassword });
+  }
 }
 
 export const userService = new UserService();

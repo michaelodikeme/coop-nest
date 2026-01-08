@@ -1,12 +1,11 @@
-import { 
-    RequestType, 
-    PrismaClient, 
-    RequestStatus, 
-    RequestModule, 
-    ApprovalStatus, 
-    TransactionType, 
-    TransactionStatus, 
-    TransactionModule 
+import {
+    RequestType,
+    RequestStatus,
+    RequestModule,
+    ApprovalStatus,
+    TransactionType,
+    TransactionStatus,
+    TransactionModule
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { SavingsError, SavingsErrorCodes } from '../errors/savings.error';
@@ -15,14 +14,13 @@ import { ApiError } from '../../../utils/apiError';
 import { formatCurrency } from '../../../utils/formatters';
 import logger from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
-import { 
-    WithdrawalRequestInput, 
+import {
+    WithdrawalRequestInput,
     WithdrawalQueryParams,
     UpdateWithdrawalStatusInput
 } from '../interfaces/withdrawal.interface';
 import { SavingsTransactionProcessor } from '../../transaction/services/processors/savings-transaction.processor';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 
 class SavingsWithdrawalService {
     private transactionService: TransactionService;

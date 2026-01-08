@@ -1,14 +1,12 @@
 import xlsx from 'xlsx';
 import { parse } from 'csv-parse';
 import { Readable } from 'stream';
-import { PrismaClient } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ISavingsUploadRow, ISavingsUploadResult, ISavingsUploadSheetResult } from '../interfaces/savings.interface';
 import { processSavingsTransaction } from './transaction.service';
 import { SystemSettingsService } from '../../system/services/systemSettings.service';
 import logger from '../../../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 
 export class SavingsUploadService {
     private static async getShareAmount(): Promise<Decimal> {

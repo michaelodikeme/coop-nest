@@ -1,23 +1,21 @@
-import { 
-  PrismaClient, 
-  RequestType, 
-  RequestModule, 
-  RequestStatus, 
-  NotificationType, 
-  ApprovalStatus, 
+import {
+  RequestType,
+  RequestModule,
+  RequestStatus,
+  NotificationType,
+  ApprovalStatus,
   MembershipStatus,
-  Prisma 
+  Prisma
 } from '@prisma/client';
-import { 
-  IBiodataUploadRequest, 
-  IBiodataUploadResponse, 
-  UploadContent 
+import {
+  IBiodataUploadRequest,
+  IBiodataUploadResponse,
+  UploadContent
 } from '../interfaces/biodata.interface';
 import { ApiError } from '../../../utils/apiError';
 import { ExcelProcessor } from '../utils/excelProcessor';
 import * as XLSX from 'xlsx';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 
 export class BiodataUploadService {
   private excelProcessor: ExcelProcessor;

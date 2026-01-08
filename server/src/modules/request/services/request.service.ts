@@ -1,25 +1,23 @@
-import { 
-    PrismaClient, 
-    RequestType, 
-    RequestStatus, 
-    RequestModule, 
-    ApprovalStatus 
+import {
+    RequestType,
+    RequestStatus,
+    RequestModule,
+    ApprovalStatus
 } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { ApiError } from '../../../utils/apiError';
 import { RequestError, RequestErrorCodes } from '../errors/request.error';
-import { 
-    IRequestQueryParams, 
-    IPaginatedRequestResponse, 
-    ICreateRequestInput, 
-    IUpdateRequestStatusInput, 
+import {
+    IRequestQueryParams,
+    IPaginatedRequestResponse,
+    ICreateRequestInput,
+    IUpdateRequestStatusInput,
     IRequest,
     IRequestStatistics
 } from '../interfaces/request.interface';
 import logger from '../../../utils/logger';
 import { formatCurrency } from '../../../utils/formatters';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 
 class RequestService {
     /**

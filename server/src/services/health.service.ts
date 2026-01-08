@@ -1,8 +1,6 @@
 import { redisClient } from '../config/redis';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../utils/prisma';
 import logger from '../utils/logger';
-
-const prisma = new PrismaClient();
 
 interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -90,6 +88,14 @@ class HealthService {
   // Get the last recorded health status
   getLastStatus(): HealthStatus | null {
     return this.lastStatus;
+  }
+
+  // Stop periodic health checks (for graceful shutdown)
+  stop(): void {
+    if (this.checkInterval) {
+      clearInterval(this.checkInterval);
+      this.checkInterval = null;
+    }
   }
   
   // Check if Redis is available with fallback handling

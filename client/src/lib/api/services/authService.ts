@@ -1,14 +1,14 @@
 import { apiService } from '@/lib/api/apiService';
-import type { 
-  LoginResponse, 
-  AdminProfile, 
-  ChangePasswordData, 
-  BiodataVerificationResponse,
-  Role,
-  Session,
-  SessionsResponse,
-  PermissionResponse,
-  ModuleAccess
+import {
+    LoginResponse,
+    AdminProfile,
+    ChangePasswordData,
+    BiodataVerificationResponse,
+    Role,
+    Session,
+    SessionsResponse,
+    PermissionResponse,
+    ModuleAccess, ResetPasswordData
 } from '@/types/auth.types';
 import type {
   User 
@@ -75,6 +75,12 @@ export class AuthApiService {
   async changePassword(data: ChangePasswordData): Promise<{ message: string }> {
     return apiService.post('/users/me/change-password', data);
   }
+
+  async resetPassword(data:ResetPasswordData ): Promise<{ message: string }> {
+      return apiService.post('/users/me/reset-password', data);
+  }
+
+
 
   async getCurrentUserPermissions(): Promise<PermissionResponse> {
     return apiService.get('/users/me/permissions');

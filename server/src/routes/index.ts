@@ -12,6 +12,7 @@ import routes from '../modules/request/routes';
 import personalSavingsRouter from '../modules/personal-savings';
 
 import { authenticateUser as authenticate } from '../middlewares/auth';
+import adminRoutes from "../modules/user/routes/admin.routes";
 
 const router = Router();
 
@@ -34,5 +35,5 @@ router.use('/savings', savingsRoutes);
 router.use('/loan', loanRoutes);
 router.use('/transactions', transactions);
 router.use('/personal-savings', personalSavingsRouter);
-
+router.use('/admin', adminRoutes);
 export default router;

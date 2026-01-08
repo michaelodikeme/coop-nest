@@ -1,8 +1,7 @@
 import { NotificationType, NotificationPriority, TransactionModule, PrismaClient } from '@prisma/client';
 import { LoanStatus, PaymentStatus } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 
 export class LoanNotificationService {
   /**

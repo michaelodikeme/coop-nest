@@ -6,8 +6,7 @@ import * as Excel from 'exceljs';
 import { RepaymentEntryInput } from '../validations/repayment.validation';
 import * as fs from 'fs';
 import * as path from 'path';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 
 interface RepaymentError {
   row: number;

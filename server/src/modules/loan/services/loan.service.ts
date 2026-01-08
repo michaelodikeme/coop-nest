@@ -1,5 +1,5 @@
 import { 
-    PrismaClient, 
+    Prisma,
     Loan, 
     LoanStatus, 
     TransactionType, 
@@ -18,6 +18,7 @@ import { isUUID } from 'validator';
 import logger from '../../../utils/logger';
 import { LoanNotificationService } from './notification.service';
 import { TransactionService } from '../../transaction/services/transaction.service';
+import { prisma } from '../../../utils/prisma';
 // import { LoanSummary } from '../interfaces/loan.interface';
 
 
@@ -52,13 +53,11 @@ export interface LoanSummary {
 }
 
 export class LoanService {
-    private prisma: PrismaClient;
     private transactionService: TransactionService;
     private eligibilityService: EligibilityService;
     private calculatorService: CalculatorService;
     
     constructor() {
-        this.prisma = new PrismaClient();
         this.transactionService = new TransactionService();
         this.eligibilityService = new EligibilityService();
         this.calculatorService = new CalculatorService();
@@ -67,19 +66,17 @@ export class LoanService {
     async applyForLoan(data: LoanApplication): Promise<Loan> {
         // 1. Get loan type first to determine rules
         console.log("got here seveenth")
-        const loanType = await this.prisma.loanType.findUnique({
+        const loanType = await prisma.loanType.findUnique({
             where: { id: data.loanTypeId }
         });
-        console.log("got here eight")
         
         if (!loanType) {
             throw new ApiError('Invalid loan type', 404);
         }
 
-        console.log("got here", loanType)
         
         // 2. Get member profile with related data
-        const biodata = await this.prisma.biodata.findUnique({
+        const biodata = await prisma.biodata.findUnique({
             where: { id: data.biodataId },
             include: { 
                 loans: {
@@ -194,7 +191,7 @@ export class LoanService {
         );
         
         // Create loan application with payment schedule
-        const loan = await this.prisma.$transaction(async (tx) => {
+        const loan = await prisma.$transaction(async (tx) => {
             // Fetch latest savings record within transaction
             const latestSavings = await tx.savings.findFirst({
                 where: { 
@@ -372,7 +369,7 @@ async updateLoanStatus(
         throw new ApiError('Invalid loan ID format', 400);
     }
     
-    const loan = await this.prisma.loan.findUnique({
+    const loan = await prisma.loan.findUnique({
             where: { id: loanId },
             include: {
                 member: true,
@@ -443,7 +440,7 @@ async updateLoanStatus(
     // Calculate request status before transaction
     const requestStatus = this.mapLoanStatusToRequestStatus(status);
     
-    return await this.prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx) => {
         // 1. Update loan status
         const updatedLoan = await tx.loan.update({
             where: { id: loanId },
@@ -551,7 +548,7 @@ async getMemberLoans(biodataId: string): Promise<Loan[]> {
     
     try {
         // First check if the member exists
-        const member = await this.prisma.biodata.findUnique({
+        const member = await prisma.biodata.findUnique({
             where: { id: biodataId },
             select: { id: true }
         });
@@ -561,7 +558,7 @@ async getMemberLoans(biodataId: string): Promise<Loan[]> {
         }
         
         // Get all loans for the member with enhanced details
-        const loans = await this.prisma.loan.findMany({
+        const loans = await prisma.loan.findMany({
             where: { memberId: biodataId },
             include: {
                 loanType: true,
@@ -611,7 +608,7 @@ async getLoanDetails(loanId: string): Promise<Loan | null> {
         throw new ApiError('Invalid loan ID format', 400);
     }
     
-    return this.prisma.loan.findUnique({
+    return prisma.loan.findUnique({
         where: { id: loanId },
         include: {
             loanType: true,
@@ -650,13 +647,13 @@ async getLoanDetails(loanId: string): Promise<Loan | null> {
 }
 
 async getLoanTypeById(id: string) {
-    return this.prisma.loanType.findUnique({
+    return prisma.loanType.findUnique({
         where: { id }
     });
 }
 
 async getAllLoanTypes() {
-    return await this.prisma.loanType.findMany({
+    return await prisma.loanType.findMany({
         where: {
             isActive: true
         },
@@ -777,7 +774,7 @@ async getEnhancedLoansSummary(
             const yearEnd = new Date(currentYear, 11, 31, 23, 59, 59);
 
             // Get disbursement data by month using Prisma groupBy
-            const disbursementData = await this.prisma.loan.groupBy({
+            const disbursementData = await prisma.loan.groupBy({
                 by: ['disbursedAt'],
                 where: {
                     disbursedAt: {
@@ -798,7 +795,7 @@ async getEnhancedLoansSummary(
             });
 
             // Get repayment data by month using Prisma groupBy
-            const repaymentData = await this.prisma.loanRepayment.groupBy({
+            const repaymentData = await prisma.loanRepayment.groupBy({
                 by: ['repaymentDate'],
                 where: {
                     repaymentDate: {
@@ -913,7 +910,7 @@ private async calculateMonthlyTrends(trendType: 'disbursement' | 'repayment' | '
         
         switch (trendType) {
             case 'disbursement':
-            const disbursed = await this.prisma.loan.aggregate({
+            const disbursed = await prisma.loan.aggregate({
                 where: {
                     disbursedAt: {
                         gte: startOfMonth,
@@ -930,7 +927,7 @@ private async calculateMonthlyTrends(trendType: 'disbursement' | 'repayment' | '
             value = Number(disbursed._sum.principalAmount || 0);
             break;
             case 'repayment':
-            const repaid = await this.prisma.loanRepayment.aggregate({
+            const repaid = await prisma.loanRepayment.aggregate({
                 where: {
                     repaymentDate: {
                         gte: startOfMonth,
@@ -944,7 +941,7 @@ private async calculateMonthlyTrends(trendType: 'disbursement' | 'repayment' | '
             value = Number(repaid._sum.amount || 0);
             break;
             case 'application':
-            const applications = await this.prisma.loan.count({
+            const applications = await prisma.loan.count({
                 where: {
                     createdAt: {
                         gte: startOfMonth,
@@ -986,7 +983,7 @@ async getLoansSummary(startDate?: Date, endDate?: Date): Promise<LoanSummary> {
         }
         
         // 1. Total outstanding loan balance (all active loans)
-        const outstandingLoans = await this.prisma.loan.aggregate({
+        const outstandingLoans = await prisma.loan.aggregate({
             where: {
                 status: {
                     in: ['ACTIVE', 'DISBURSED', 'DEFAULTED']
@@ -999,7 +996,7 @@ async getLoansSummary(startDate?: Date, endDate?: Date): Promise<LoanSummary> {
         });
         
         // 2. Total disbursed amount
-        const disbursedLoans = await this.prisma.loan.aggregate({
+        const disbursedLoans = await prisma.loan.aggregate({
             where: {
                 status: {
                     in: ['ACTIVE', 'DISBURSED', 'COMPLETED', 'DEFAULTED']
@@ -1025,12 +1022,12 @@ async getLoansSummary(startDate?: Date, endDate?: Date): Promise<LoanSummary> {
             }
         };
         
-        const newLoansCount = await this.prisma.loan.count({
+        const newLoansCount = await prisma.loan.count({
             where: newLoansFilter
         });
         
         // 4. Count of pending loan applications
-        const pendingLoans = await this.prisma.loan.count({
+        const pendingLoans = await prisma.loan.count({
             where: {
                 status: {
                     in: ['PENDING', 'IN_REVIEW', 'REVIEWED', 'APPROVED']
@@ -1053,13 +1050,13 @@ async getLoansSummary(startDate?: Date, endDate?: Date): Promise<LoanSummary> {
             }
         };
         
-        const repaymentsCount = await this.prisma.loanRepayment.count({
+        const repaymentsCount = await prisma.loanRepayment.count({
             where: repaymentsFilter
         });
         
         // 6. Count of overdue loans with at least one overdue schedule
         const currentDate = new Date();
-        const overdueLoans = await this.prisma.loan.count({
+        const overdueLoans = await prisma.loan.count({
             where: {
                 status: 'ACTIVE',
                 paymentSchedules: {
@@ -1180,7 +1177,7 @@ async getAllLoans(filters: LoanQueryFilters = {}) {
         // Execute queries in parallel for better performance
         const [loans, totalCount] = await Promise.all([
             // Get paginated loans
-            this.prisma.loan.findMany({
+            prisma.loan.findMany({
                 where: whereConditions,
                 include: {
                     loanType: true,
@@ -1212,7 +1209,7 @@ async getAllLoans(filters: LoanQueryFilters = {}) {
                 take: Number(limit)
             }),
             // Get total count for pagination
-            this.prisma.loan.count({
+            prisma.loan.count({
                 where: whereConditions
             })
         ]);

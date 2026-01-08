@@ -1,9 +1,9 @@
-import { PrismaClient, Prisma, PersonalSavingsStatus, TransactionType, RequestType, RequestStatus, TransactionModule, TransactionStatus, RequestModule, MembershipStatus } from '@prisma/client';
+import { Prisma, PersonalSavingsStatus, TransactionType, RequestType, RequestStatus, TransactionModule, TransactionStatus, RequestModule, MembershipStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ApiError } from '../../../utils/apiError';
 import logger from '../../../utils/logger';
 import RequestService from '../../request/services/request.service';
-import { 
+import {
   IPersonalSavingsQueryParams,
   IPersonalSavingsInput,
   IPersonalSavingsResponse,
@@ -13,13 +13,10 @@ import {
   IPersonalSavingsBalanceHistory,
   IBalanceHistoryItem
 } from '../interfaces/personal-savings.interface';
+import { prisma } from '../../../utils/prisma';
 
 export class PersonalSavingsService {
-    private prisma: PrismaClient;
-
-    constructor() {
-        this.prisma = new PrismaClient();
-    }
+    constructor() {}
     
     /**
      * Request creation of a new personal savings plan through the approval workflow
@@ -35,7 +32,7 @@ export class PersonalSavingsService {
     }): Promise<any> {
         try {
             // Check if member exists
-            const member = await this.prisma.biodata.findUnique({
+            const member = await prisma.biodata.findUnique({
                 where: { erpId: data.erpId },
                 select: {
                     id: true,
@@ -55,7 +52,7 @@ export class PersonalSavingsService {
             }
             
             // Validate plan type
-            const planType = await this.prisma.personalSavingsPlan.findUnique({
+            const planType = await prisma.personalSavingsPlan.findUnique({
                 where: { id: data.planTypeId },
             });
             
@@ -125,7 +122,7 @@ export class PersonalSavingsService {
             // If not admin, restrict to user's own plans
             if (!isAdmin) {
                 // Get user's erpId from their biodata
-                const user = await this.prisma.user.findUnique({
+                const user = await prisma.user.findUnique({
                     where: { id: userId },
                     select: {
                         biodata: {
@@ -144,8 +141,8 @@ export class PersonalSavingsService {
 
             // Get existing personal savings plans
             const [total, plans] = await Promise.all([
-                this.prisma.personalSavings.count({ where }),
-                this.prisma.personalSavings.findMany({
+                prisma.personalSavings.count({ where }),
+                prisma.personalSavings.findMany({
                     where,
                     include: {
                         member: {
@@ -208,7 +205,7 @@ export class PersonalSavingsService {
             
             // For non-admins, restrict to their own requests
             if (!isAdmin) {
-                const user = await this.prisma.user.findUnique({
+                const user = await prisma.user.findUnique({
                     where: { id: userId },
                     select: {
                         biodata: {
@@ -222,7 +219,7 @@ export class PersonalSavingsService {
                 }
             } else if (erpId) {
                 // Admin filtering by specific erpId
-                const member = await this.prisma.biodata.findUnique({
+                const member = await prisma.biodata.findUnique({
                     where: { erpId },
                     select: { id: true }
                 });
@@ -232,7 +229,7 @@ export class PersonalSavingsService {
                 }
             }
             
-            pendingCreationRequests = await this.prisma.request.findMany({
+            pendingCreationRequests = await prisma.request.findMany({
                 where: pendingWhere,
                 include: {
                     biodata: {
@@ -374,7 +371,7 @@ export class PersonalSavingsService {
      */
     async getPersonalSavingsById(id: string, userId: string, isAdmin: boolean): Promise<IPersonalSavingsResponse> {
         try {
-            const plan = await this.prisma.personalSavings.findUnique({
+            const plan = await prisma.personalSavings.findUnique({
                 where: { id },
                 include: {
                     member: {
@@ -453,7 +450,7 @@ export class PersonalSavingsService {
     async processDeposit(id: string, amount: number, userId: string, description?: string): Promise<IPersonalSavingsResponse> {
         try {
             // Get the personal savings plan
-            const plan = await this.prisma.personalSavings.findUnique({
+            const plan = await prisma.personalSavings.findUnique({
                 where: { id },
                 include: {
                     member: {
@@ -478,7 +475,7 @@ export class PersonalSavingsService {
             }
 
             // Check if user exists
-            const user = await this.prisma.user.findUnique({
+            const user = await prisma.user.findUnique({
                 where: { id: userId },
             });
 
@@ -490,7 +487,7 @@ export class PersonalSavingsService {
             const newBalance = plan.currentBalance.add(new Decimal(amount));
 
             // Start transaction
-            return await this.prisma.$transaction(async (tx) => {
+            return await prisma.$transaction(async (tx) => {
                 // Create transaction record
                 const transaction = await tx.transaction.create({
                     data: {
@@ -556,7 +553,7 @@ export class PersonalSavingsService {
     async requestWithdrawal(id: string, amount: number, userId: string, reason?: string): Promise<any> {
         try {
             // Get the personal savings plan
-            const plan = await this.prisma.personalSavings.findUnique({
+            const plan = await prisma.personalSavings.findUnique({
                 where: { id },
                 include: {
                     member: true,
@@ -643,7 +640,7 @@ export class PersonalSavingsService {
 
             // First perform ownership validation
             if (!isAdmin) {
-                const userBiodata = await this.prisma.user.findUnique({
+                const userBiodata = await prisma.user.findUnique({
                     where: { id: userId },
                     select: {
                         biodata: {
@@ -659,7 +656,7 @@ export class PersonalSavingsService {
                 }
                 
                 // Verify this plan belongs to the user
-                const plan = await this.prisma.personalSavings.findUnique({
+                const plan = await prisma.personalSavings.findUnique({
                     where: { id: planId },
                     select: { erpId: true }
                 });
@@ -687,8 +684,8 @@ export class PersonalSavingsService {
             };
 
             const [total, transactions] = await Promise.all([
-                this.prisma.transaction.count({ where }),
-                this.prisma.transaction.findMany({
+                prisma.transaction.count({ where }),
+                prisma.transaction.findMany({
                     where,
                     orderBy: {
                         createdAt: 'desc',
@@ -734,7 +731,7 @@ export class PersonalSavingsService {
     async getBalanceHistory(planId: string, startDate?: string, endDate?: string, userId?: string, isAdmin?: boolean): Promise<IPersonalSavingsBalanceHistory> {
         try {
             // First, get the plan with member info
-            const plan = await this.prisma.personalSavings.findUnique({
+            const plan = await prisma.personalSavings.findUnique({
                 where: { id: planId },
                 select: {
                     planName: true,
@@ -755,7 +752,7 @@ export class PersonalSavingsService {
             // Perform ownership validation if userId and isAdmin are provided
             if (userId && isAdmin !== undefined && !isAdmin) {
                 // Get user's erpId from their biodata
-                const user = await this.prisma.user.findUnique({
+                const user = await prisma.user.findUnique({
                     where: { id: userId },
                     select: {
                         biodata: {
@@ -782,7 +779,7 @@ export class PersonalSavingsService {
             }
 
             // Get all transactions for the period
-            const transactions = await this.prisma.transaction.findMany({
+            const transactions = await prisma.transaction.findMany({
                 where: {
                     personalSavingsId: planId,
                     createdAt: {
@@ -857,7 +854,7 @@ export class PersonalSavingsService {
      */
     async closePlan(id: string, userId: string): Promise<IPersonalSavingsResponse> {
         try {
-            const plan = await this.prisma.personalSavings.findUnique({
+            const plan = await prisma.personalSavings.findUnique({
                 where: { id },
                 include: {
                     member: {
@@ -880,7 +877,7 @@ export class PersonalSavingsService {
             }
 
             // Update plan status
-            const updatedPlan = await this.prisma.personalSavings.update({
+            const updatedPlan = await prisma.personalSavings.update({
                 where: { id },
                 data: {
                     status: PersonalSavingsStatus.CLOSED,
@@ -934,7 +931,7 @@ export class PersonalSavingsService {
     }> {
         try {
             // Get member details
-            const member = await this.prisma.biodata.findUnique({
+            const member = await prisma.biodata.findUnique({
                 where: { erpId },
             });
 
@@ -945,7 +942,7 @@ export class PersonalSavingsService {
             // Perform ownership validation if userId and isAdmin are provided
             if (userId && isAdmin !== undefined && !isAdmin) {
                 // Get user's erpId from their biodata
-                const user = await this.prisma.user.findUnique({
+                const user = await prisma.user.findUnique({
                     where: { id: userId },
                     select: {
                         biodata: {
@@ -967,7 +964,7 @@ export class PersonalSavingsService {
             // Get active plans, total counts, current balance, total deposits, and total withdrawals
             const [plans, plansCount, currentBalance, totalSaved, totalWithdrawals] = await Promise.all([
                 // Active plans with details
-                this.prisma.personalSavings.findMany({
+                prisma.personalSavings.findMany({
                     where: {
                         erpId,
                         status: PersonalSavingsStatus.ACTIVE,
@@ -987,14 +984,14 @@ export class PersonalSavingsService {
                 }),
                 
                 // Total plans count (including closed/suspended)
-                this.prisma.personalSavings.count({
+                prisma.personalSavings.count({
                     where: {
                         erpId,
                     }
                 }),
                 
                 // Sum of current balances from personalSavings table (active plans only)
-                this.prisma.personalSavings.aggregate({
+                prisma.personalSavings.aggregate({
                     where: {
                         erpId,
                         status: PersonalSavingsStatus.ACTIVE,
@@ -1005,7 +1002,7 @@ export class PersonalSavingsService {
                 }),
                 
                 // Sum of all deposit transactions (CREDIT/PERSONAL_SAVINGS_DEPOSIT) for this member
-                this.prisma.transaction.aggregate({
+                prisma.transaction.aggregate({
                     where: {
                         personalSavings: {
                             erpId: erpId
@@ -1020,7 +1017,7 @@ export class PersonalSavingsService {
                 }),
                 
                 // Sum of all withdrawal transactions (DEBIT/PERSONAL_SAVINGS_WITHDRAWAL) for this member
-                this.prisma.transaction.aggregate({
+                prisma.transaction.aggregate({
                     where: {
                         personalSavings: {
                             erpId: erpId
@@ -1085,18 +1082,18 @@ export class PersonalSavingsService {
                 recentTransactions
             ] = await Promise.all([
                 // Count active plans
-                this.prisma.personalSavings.count({
+                prisma.personalSavings.count({
                     where: { status: PersonalSavingsStatus.ACTIVE }
                 }),
                 
                 // Sum of all current balances (active plans only)
-                this.prisma.personalSavings.aggregate({
+                prisma.personalSavings.aggregate({
                     where: { status: PersonalSavingsStatus.ACTIVE },
                     _sum: { currentBalance: true }
                 }),
                 
                 // Sum of all withdrawals across all personal savings plans
-                this.prisma.transaction.aggregate({
+                prisma.transaction.aggregate({
                     where: {
                         transactionType: TransactionType.PERSONAL_SAVINGS_WITHDRAWAL,
                         status: TransactionStatus.COMPLETED,
@@ -1108,7 +1105,7 @@ export class PersonalSavingsService {
                 }),
                 
                 // Count pending creation requests
-                this.prisma.request.count({
+                prisma.request.count({
                     where: {
                         type: RequestType.PERSONAL_SAVINGS_CREATION,
                         status: {
@@ -1118,7 +1115,7 @@ export class PersonalSavingsService {
                 }),
                 
                 // Count pending withdrawal requests
-                this.prisma.request.count({
+                prisma.request.count({
                     where: {
                         type: RequestType.PERSONAL_SAVINGS_WITHDRAWAL,
                         status: {
@@ -1128,7 +1125,7 @@ export class PersonalSavingsService {
                 }),
                 
                 // Get recent transactions
-                this.prisma.transaction.findMany({
+                prisma.transaction.findMany({
                     where: {
                         module: TransactionModule.SAVINGS,
                         transactionType: {
@@ -1210,7 +1207,7 @@ export class PersonalSavingsService {
     }[]> {
         try {
             // Fetch only active plan types
-            const planTypes = await this.prisma.personalSavingsPlan.findMany({
+            const planTypes = await prisma.personalSavingsPlan.findMany({
                 where: {
                     isActive: true
                 },

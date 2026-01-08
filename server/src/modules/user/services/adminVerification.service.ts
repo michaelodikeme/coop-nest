@@ -10,8 +10,7 @@ import {
     verifyOTPFromRedis
 } from '../../../utils/SMSUtil';
 import { phoneNumberValidator } from '../validations/admin.validations';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 
 export class AdminVerificationService {
   async verifyAdminProfile(input: IVerifyAdminProfileInput): Promise<IVerifyAdminProfileResponse> {

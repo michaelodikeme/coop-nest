@@ -1,32 +1,29 @@
-import { PrismaClient, Prisma, AccountStatus, Savings } from '@prisma/client';
+import { Prisma, AccountStatus, Savings } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ApiError } from '../../../utils/apiError';
 import logger from '../../../utils/logger';
-import { 
-    ISavingsQueryParams, 
-    ISavingsSummaryResponse, 
-    ITransactionHistoryParams, 
-    IMonthlySavingsInput, 
-    ISavingsStatementParams, 
-    ISavingsStatement, 
-    IPaginatedTransactionResponse, 
-    ISavingsStats, 
-    IPaginatedSavingsResponse, 
+import {
+    ISavingsQueryParams,
+    ISavingsSummaryResponse,
+    ITransactionHistoryParams,
+    IMonthlySavingsInput,
+    ISavingsStatementParams,
+    ISavingsStatement,
+    IPaginatedTransactionResponse,
+    ISavingsStats,
+    IPaginatedSavingsResponse,
     IProcessedSavings,
-    ISavingsConfiguration 
+    ISavingsConfiguration
 } from '../interfaces/savings.interface';
-import { 
-    MemberSavingsSummaryParams, 
-    MemberSavingsSummaryResponse 
+import {
+    MemberSavingsSummaryParams,
+    MemberSavingsSummaryResponse
 } from '../interfaces/members-summary.interface';
 import { processSavingsTransaction } from './transaction.service';
+import { prisma } from '../../../utils/prisma';
 
 export class SavingsService {
-    private prisma: PrismaClient;
-    
-    constructor() {
-        this.prisma = new PrismaClient();
-    }
+    constructor() {}
     
     async getAllSavings(queryParams: ISavingsQueryParams): Promise<IPaginatedSavingsResponse> {
         try {
@@ -40,8 +37,8 @@ export class SavingsService {
             };
             
             const [total, savings] = await Promise.all([
-                this.prisma.savings.count({ where }),
-                this.prisma.savings.findMany({
+                prisma.savings.count({ where }),
+                prisma.savings.findMany({
                     where,
                     include: {
                         member: {
@@ -138,7 +135,7 @@ export class SavingsService {
         
         try {
             // Get member details first
-            const member = await this.prisma.biodata.findFirst({
+            const member = await prisma.biodata.findFirst({
                 where: { erpId },
                 select: {
                     id: true,
@@ -157,7 +154,7 @@ export class SavingsService {
             }
             
             // Validate that the member hasn't already contributed for this month/year
-            const existingSavings = await this.prisma.savings.findUnique({
+            const existingSavings = await prisma.savings.findUnique({
                 where: {
                     erpId_month_year: {
                         erpId,
@@ -187,7 +184,7 @@ export class SavingsService {
             // const savingsAmount = grossAmount.minus(shareAmount);
             
             // Use transaction service to handle all transaction-related operations
-            const transactionResult = await this.prisma.$transaction(async (tx) => {
+            const transactionResult = await prisma.$transaction(async (tx) => {
                 return await processSavingsTransaction(tx, {
                     memberId: member.id,
                     erpId,
@@ -202,7 +199,7 @@ export class SavingsService {
             });
             
             // Get the complete savings record with related data
-            const savings = await this.prisma.savings.findUnique({
+            const savings = await prisma.savings.findUnique({
                 where: { id: transactionResult.id },
                 include: {
                     member: {
@@ -276,7 +273,7 @@ export class SavingsService {
     
     async getSavingsStatement({ erpId, year }: ISavingsStatementParams): Promise<ISavingsStatement> {
         try {
-            const member = await this.prisma.biodata.findFirst({
+            const member = await prisma.biodata.findFirst({
                 where: { erpId },
                 select: {
                     id: true,
@@ -304,7 +301,7 @@ export class SavingsService {
                 throw new ApiError('Member not found', 404);
             }
             
-            const savings = await this.prisma.savings.findFirst({
+            const savings = await prisma.savings.findFirst({
                 where: { 
                     erpId,
                     ...(year && { year })
@@ -384,8 +381,8 @@ export class SavingsService {
             };
             
             const [total, savings] = await Promise.all([
-                this.prisma.savings.count({ where }),
-                this.prisma.savings.findMany({
+                prisma.savings.count({ where }),
+                prisma.savings.findMany({
                     where,
                     include: {
                         member: {
@@ -479,7 +476,7 @@ export class SavingsService {
     async getSavingsSummary(biodataId: string): Promise<ISavingsSummaryResponse> {
         try {
             // Get latest savings record with totals
-            const savings = await this.prisma.savings.findFirst({
+            const savings = await prisma.savings.findFirst({
                 where: { memberId: biodataId },
                 orderBy: [
                     { year: 'desc' },
@@ -585,7 +582,7 @@ export class SavingsService {
             }
 
             // First, get unique member IDs from savings records
-            const memberIds = await this.prisma.savings.groupBy({
+            const memberIds = await prisma.savings.groupBy({
               by: ['memberId'],
               where,
             });
@@ -606,7 +603,7 @@ export class SavingsService {
             const memberSavings = await Promise.all(
               paginatedMemberIds.map(async (memberId) => {
                 // Get the latest savings record for this member
-                const latestSavings = await this.prisma.savings.findFirst({
+                const latestSavings = await prisma.savings.findFirst({
                   where: { memberId },
                   orderBy: { lastDeposit: 'desc' },
                   include: {
@@ -624,7 +621,7 @@ export class SavingsService {
                 if (!latestSavings) return null;
 
                 // Get the latest shares record for this member
-                const latestShares = await this.prisma.shares.findFirst({
+                const latestShares = await prisma.shares.findFirst({
                   where: { memberId },
                   orderBy: { lastPurchase: 'desc' },
                   select: {
@@ -738,8 +735,8 @@ export class SavingsService {
             };
             
             const [total, transactions] = await Promise.all([
-                this.prisma.transaction.count({ where }),
-                this.prisma.transaction.findMany({
+                prisma.transaction.count({ where }),
+                prisma.transaction.findMany({
                     where,
                     select: {
                         id: true,
@@ -778,7 +775,7 @@ export class SavingsService {
         try {
             // If biodataId is provided, return a single record (existing behavior for members)
             if (biodataId) {
-                const savings = await this.prisma.savings.findFirst({
+                const savings = await prisma.savings.findFirst({
                     where: {
                         year,
                         month,
@@ -824,10 +821,10 @@ export class SavingsService {
             const limit = 50; // Default limit, can be adjusted or made configurable
             
             const [total, allSavings] = await Promise.all([
-                this.prisma.savings.count({
+                prisma.savings.count({
                     where: { year, month }
                 }),
-                this.prisma.savings.findMany({
+                prisma.savings.findMany({
                     where: { year, month },
                     include: {
                         member: {
@@ -889,7 +886,7 @@ export class SavingsService {
     async getSavingsStats(year: number, biodataId?: string): Promise<ISavingsStats> {
         try {
             // First get all savings records for the specified year
-            const savings = await this.prisma.savings.findMany({
+            const savings = await prisma.savings.findMany({
                 where: {
                     year,
                     ...(biodataId && { memberId: biodataId }) // Fixed: using memberId instead of biodataId
@@ -1003,7 +1000,7 @@ export class SavingsService {
     async getShareAmount(erpId: string): Promise<Decimal> {
         try {
             // First try to get member-specific share amount
-            const memberShares = await this.prisma.shares.findFirst({
+            const memberShares = await prisma.shares.findFirst({
                 where: { erpId },
                 orderBy: { createdAt: 'desc' },
                 select: { monthlyTarget: true }
@@ -1014,7 +1011,7 @@ export class SavingsService {
             }
             
             // If no member-specific amount, get from system settings
-            const systemSettings = await this.prisma.systemSettings.findUnique({
+            const systemSettings = await prisma.systemSettings.findUnique({
                 where: { key: 'DEFAULT_SHARE_AMOUNT' }
             });
             

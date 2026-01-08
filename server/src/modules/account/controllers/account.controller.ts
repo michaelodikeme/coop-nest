@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { AccountService } from '../services/account.service';
 import { createAccountSchema, updateAccountSchema, verifyAccountSchema, processRequestSchema } from '../validations/account.validation';
 import { ApiResponse } from '../../../utils/apiResponse';
 import logger from '../../../utils/logger';
 import { IAccountQueryFilters, ICreateAccountInput, IUpdateAccountInput, IAccountVerificationInput } from '../interfaces/account.interface';
 import { ZodError } from 'zod';
+import { prisma } from '../../../utils/prisma';
 
 // Extend Express Request with custom properties
 declare module 'express-serve-static-core' {
@@ -21,8 +21,6 @@ declare module 'express-serve-static-core' {
     };
   }
 }
-
-const prisma = new PrismaClient();
 
 export class AccountController {
   private accountService: AccountService;

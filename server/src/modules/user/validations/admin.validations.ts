@@ -54,3 +54,7 @@ export const adminActionSchema = z.object({
     reason: z.string().min(1, 'Reason is required'),
     comment: z.string().optional()
 });
+
+export const changeUserPasswordSchema = z.object({
+    newPassword: z.string().min(8, 'Password must be at least 8 characters')
+});

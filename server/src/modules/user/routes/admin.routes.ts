@@ -55,4 +55,11 @@ router.delete('/users/:userId',
     adminController.softDeleteAdminUser.bind(adminController)
 );
 
+router.post('/users/:userId/change-password',
+    authenticateUser,
+    checkPermission('MANAGE_ROLES'),
+    checkApprovalLevel(2),
+    adminController.changeUserPassword.bind(adminController)
+);
+
 export default router;

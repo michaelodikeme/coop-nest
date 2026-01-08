@@ -18,8 +18,9 @@ import { tokenService } from './token.service';
 import jwt from 'jsonwebtoken';
 import env from '../../../config/env';
 import { redisClient } from '../../../config/redis';
+import { prisma } from '../../../utils/prisma';
 
-const prisma = new PrismaClient();
+
 
 // Type for Prisma transaction
 type PrismaTransaction = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
@@ -527,7 +528,7 @@ export class UserService {
     
     return { success: true };
   }
-  
+
   async validatePermissions(permissions: string[]): Promise<boolean> {
     const validPermissions = PERMISSIONS.map(p => p.name);
     return permissions.every(p => validPermissions.includes(p));

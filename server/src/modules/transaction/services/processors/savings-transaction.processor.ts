@@ -4,15 +4,15 @@ import { CreateTransactionDto } from '../../dtos/create-transaction.dto';
 import { TransactionError, TransactionErrorCodes } from '../../errors/transaction.error';
 import { Decimal } from '@prisma/client/runtime/library';
 import logger from '../../../../utils/logger';
+import { prisma } from '../../../../utils/prisma';
 
 /**
  * Processor for savings-related transactions
  */
 export class SavingsTransactionProcessor implements TransactionProcessor {
-  private prisma: PrismaClient;
+
   
   constructor() {
-    this.prisma = new PrismaClient();
   }
   
   /**
@@ -110,7 +110,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
     
     // If savingsId is provided, check that it exists
     if (data.relatedEntityId && data.relatedEntityType === 'SAVINGS') {
-      const savings = await this.prisma.savings.findUnique({
+      const savings = await prisma.savings.findUnique({
         where: { id: data.relatedEntityId }
       });
       
@@ -148,7 +148,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
     
     // Check if there are sufficient funds
     if (data.relatedEntityType === 'SAVINGS') {
-      const savings = await this.prisma.savings.findUnique({
+      const savings = await prisma.savings.findUnique({
         where: { id: data.relatedEntityId }
       });
       
@@ -184,7 +184,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
     }
     
     // Find the savings record
-    const savings = await this.prisma.savings.findUnique({
+    const savings = await prisma.savings.findUnique({
       where: { id: transaction.savingsId }
     });
     
@@ -197,7 +197,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
     }
     
     // Update the savings balance
-    await this.prisma.savings.update({
+    await prisma.savings.update({
       where: { id: savings.id },
       data: {
         balance: savings.balance.plus(transaction.amount),
@@ -207,7 +207,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
     });
     
     // Update the transaction's balanceAfter field
-    await this.prisma.transaction.update({
+    await prisma.transaction.update({
       where: { id: transaction.id },
       data: {
         balanceAfter: savings.balance.plus(transaction.amount)
@@ -227,7 +227,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
     const withdrawalAmount = transaction.amount.abs();
     
     // Find the savings record
-    const savings = await this.prisma.savings.findUnique({
+    const savings = await prisma.savings.findUnique({
       where: { id: transaction.savingsId }
     });
     
@@ -250,7 +250,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
     
     // Update the savings balance
     const newBalance = savings.balance.minus(withdrawalAmount);
-    await this.prisma.savings.update({
+    await prisma.savings.update({
       where: { id: savings.id },
       data: {
         balance: newBalance,
@@ -259,7 +259,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
     });
     
     // Update the transaction's balanceAfter field
-    await this.prisma.transaction.update({
+    await prisma.transaction.update({
       where: { id: transaction.id },
       data: {
         balanceAfter: newBalance
@@ -276,7 +276,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
       return;
     }
     
-    const originalTx = await this.prisma.transaction.findUnique({
+    const originalTx = await prisma.transaction.findUnique({
       where: { id: transaction.parentTxnId }
     });
     
@@ -285,7 +285,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
     }
     
     // Find the savings record
-    const savings = await this.prisma.savings.findUnique({
+    const savings = await prisma.savings.findUnique({
       where: { id: originalTx.savingsId }
     });
     
@@ -297,7 +297,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
     if (originalTx.transactionType === TransactionType.SAVINGS_DEPOSIT) {
       const newBalance = savings.balance.minus(originalTx.amount);
       
-      await this.prisma.savings.update({
+      await prisma.savings.update({
         where: { id: savings.id },
         data: {
           balance: newBalance,
@@ -306,7 +306,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
       });
       
       // Update the transaction's balanceAfter field
-      await this.prisma.transaction.update({
+      await prisma.transaction.update({
         where: { id: transaction.id },
         data: {
           balanceAfter: newBalance
@@ -319,7 +319,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
       const amountToRestore = originalTx.amount.abs(); // Get positive value
       const newBalance = savings.balance.plus(amountToRestore);
       
-      await this.prisma.savings.update({
+      await prisma.savings.update({
         where: { id: savings.id },
         data: {
           balance: newBalance,
@@ -328,7 +328,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
       });
       
       // Update the transaction's balanceAfter field
-      await this.prisma.transaction.update({
+      await prisma.transaction.update({
         where: { id: transaction.id },
         data: {
           balanceAfter: newBalance
@@ -345,7 +345,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
       if (!transaction.savingsId) return;
       
       // Get the savings record to find the member
-      const savings = await this.prisma.savings.findUnique({
+      const savings = await prisma.savings.findUnique({
         where: { id: transaction.savingsId },
         include: {
           member: true
@@ -355,7 +355,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
       if (!savings || !savings.member) return;
 
       // Get the member's user account
-      const user = await this.prisma.user.findFirst({
+      const user = await prisma.user.findFirst({
         where: { biodataId: savings.memberId }
       });
       
@@ -388,7 +388,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
       }
       
       // Create notification in the database
-      await this.prisma.notification.create({
+      await prisma.notification.create({
         data: {
           userId: user.id,
           type: 'TRANSACTION',

@@ -3,12 +3,12 @@ import { CreateTransactionDto } from '../dtos/create-transaction.dto';
 import { TransactionError, TransactionErrorCodes } from '../errors/transaction.error';
 import { Decimal } from '@prisma/client/runtime/library';
 import logger from '../../../utils/logger';
+import { prisma } from '../../../utils/prisma';
 
 /**
  * Service for validating transaction data
  */
 export class TransactionValidatorUtils {
-  private static prisma: PrismaClient = new PrismaClient();
   
   /**
    * Validate transaction data based on its type
@@ -67,7 +67,7 @@ export class TransactionValidatorUtils {
           errors.push('Parent transaction ID is required for reversal transactions');
         } else {
           // Validate parent transaction exists
-          const parentTxn = await this.prisma.transaction.findUnique({
+          const parentTxn = await prisma.transaction.findUnique({
             where: { id: data.parentTxnId }
           });
           if (!parentTxn) {
@@ -84,7 +84,7 @@ export class TransactionValidatorUtils {
         
       case TransactionType.LOAN_DISBURSEMENT:
         if (data.relatedEntityType === 'LOAN' && data.relatedEntityId) {
-          const loan = await this.prisma.loan.findUnique({
+          const loan = await prisma.loan.findUnique({
             where: { id: data.relatedEntityId }
           });
           if (loan && loan.status !== 'APPROVED') {
@@ -95,7 +95,7 @@ export class TransactionValidatorUtils {
         
       case TransactionType.SHARES_LIQUIDATION:
         if (data.relatedEntityType === 'SHARES' && data.relatedEntityId) {
-          const shares = await this.prisma.shares.findUnique({
+          const shares = await prisma.shares.findUnique({
             where: { id: data.relatedEntityId }
           });
           if (shares) {
@@ -187,25 +187,25 @@ export class TransactionValidatorUtils {
     try {
       switch (entityType) {
         case 'SAVINGS':
-          const savings = await this.prisma.savings.findUnique({
+          const savings = await prisma.savings.findUnique({
             where: { id: entityId }
           });
           return !!savings;
           
         case 'LOAN':
-          const loan = await this.prisma.loan.findUnique({
+          const loan = await prisma.loan.findUnique({
             where: { id: entityId }
           });
           return !!loan;
           
         case 'SHARES':
-          const shares = await this.prisma.shares.findUnique({
+          const shares = await prisma.shares.findUnique({
             where: { id: entityId }
           });
           return !!shares;
           
         case 'BIODATA':
-          const biodata = await this.prisma.biodata.findUnique({
+          const biodata = await prisma.biodata.findUnique({
             where: { id: entityId }
           });
           return !!biodata;
@@ -231,7 +231,7 @@ export class TransactionValidatorUtils {
     
     try {
       if (data.relatedEntityType === 'SAVINGS' && data.relatedEntityId) {
-        const savings = await this.prisma.savings.findUnique({
+        const savings = await prisma.savings.findUnique({
           where: { id: data.relatedEntityId }
         });
         

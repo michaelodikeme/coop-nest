@@ -3,9 +3,9 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import routes from '../routes';
-import { PrismaClient } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import logger from '../utils/logger';
+import { prisma } from '../utils/prisma';
 import { errorHandler } from '../middlewares/errorHandler';
 import { securityHeaders } from '../middlewares/rateLimiter';
 import { requestLogger, requestContextMiddleware } from '../middlewares/request.middleware';
@@ -17,9 +17,17 @@ import { generateCsrfToken, validateCsrfToken } from '../middlewares/csrf';
 import { authRateLimiter } from '../middlewares/rateLimit';
 import { healthService } from '../services/health.service';
 
+// Global error handlers - prevent silent crashes
+process.on('uncaughtException', (err) => {
+    logger.error('Uncaught exception:', err);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Unhandled rejection at:', promise, 'reason:', reason);
+});
 
 const app = express();
-const prisma = new PrismaClient();
 const permissionSync = new PermissionSyncService(prisma);
 
 // Middleware setup
@@ -100,16 +108,16 @@ const initializeApp = async (): Promise<void> => {
     }
 };
 
-// Call initializeApp immediately
-initializeApp().catch(error => {
-    logger.error('Failed to initialize application:', error);
-    process.exit(1);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', async () => {
+// Graceful shutdown handler
+const gracefulShutdown = async (signal: string) => {
+    logger.info(`${signal} received, shutting down gracefully`);
+    healthService.stop();
     await prisma.$disconnect();
     process.exit(0);
-});
+};
 
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+export { initializeApp };
 export default app;

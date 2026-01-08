@@ -1,16 +1,16 @@
-import { 
-  PrismaClient, 
-  MembershipStatus, 
-  NotificationType, 
-  RequestType, 
+import {
+  PrismaClient,
+  MembershipStatus,
+  NotificationType,
+  RequestType,
   RequestStatus,
   RequestModule,
   Prisma
 } from '@prisma/client';
-import { 
+import {
   IBiodata,
-  IUpdateBiodataInput, 
-  ICreateBiodataInput, 
+  IUpdateBiodataInput,
+  ICreateBiodataInput,
   IBiodataStatusUpdate,
   IBiodataQueryFilters,
   ICreateAccountInfoInput,
@@ -22,8 +22,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import logger from '../../../utils/logger';
 import { SystemSettingsService } from "../../system/services/systemSettings.service"
-
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 
 // Get the actual system user ID from the SystemSettingsService
 const systemSettingsService = SystemSettingsService.getInstance()

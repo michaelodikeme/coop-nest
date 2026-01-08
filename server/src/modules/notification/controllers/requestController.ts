@@ -4,8 +4,8 @@ import { CreateRequestDTO, UpdateRequestDTO, FilterOptions } from '../types/requ
 import { RequestError, requestErrorCodes } from '../../../middlewares/errorHandlers/requestErrorHandler';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../../../types/express';
+import { prisma } from '../../../utils/prisma';
 
-const prisma = new PrismaClient();
 const requestService = new RequestService();
 
 export class RequestController {

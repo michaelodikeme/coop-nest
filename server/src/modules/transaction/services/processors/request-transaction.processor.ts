@@ -3,15 +3,16 @@ import { TransactionProcessor } from '../../interfaces/transaction-processor.int
 import { CreateTransactionDto } from '../../dtos/create-transaction.dto';
 import { TransactionError, TransactionErrorCodes } from '../../errors/transaction.error';
 import logger from '../../../../utils/logger';
+import { prisma } from '../../../../utils/prisma';
 
 /**
  * Processor for request-related transactions
  */
 export class RequestTransactionProcessor implements TransactionProcessor {
-  private prisma: PrismaClient;
+
   
   constructor() {
-    this.prisma = new PrismaClient();
+
   }
   
   /**
@@ -26,7 +27,7 @@ export class RequestTransactionProcessor implements TransactionProcessor {
       }
       
       // Check if request exists
-      const request = await this.prisma.request.findUnique({
+      const request = await prisma.request.findUnique({
         where: { id: data.requestId }
       });
       
@@ -56,11 +57,10 @@ export class RequestTransactionProcessor implements TransactionProcessor {
    */
   async processTransaction(transaction: Transaction, tx?: any): Promise<void> {
     try {
-      const prisma = tx || this.prisma;
       
       // Check if this is a transaction related to request approval
       if (transaction.requestId) {
-        await this.processRequestTransaction(transaction, prisma);
+        await this.processRequestTransaction(transaction);
       }
     } catch (error) {
       logger.error(`Error processing request transaction ${transaction.id}:`, error);
@@ -100,7 +100,7 @@ export class RequestTransactionProcessor implements TransactionProcessor {
    * @param transaction Transaction to process
    * @param prisma Prisma client instance
    */
-  private async processRequestTransaction(transaction: Transaction, prisma: any): Promise<void> {
+  private async processRequestTransaction(transaction: Transaction): Promise<void> {
     // Skip if not completed
     if (transaction.status !== TransactionStatus.COMPLETED || !transaction.requestId) {
       return;
@@ -300,7 +300,7 @@ export class RequestTransactionProcessor implements TransactionProcessor {
   private async createNotification(transaction: Transaction): Promise<void> {
     try {
       // Find the request and associated user
-      const request = await this.prisma.request.findUnique({
+      const request = await prisma.request.findUnique({
         where: { id: transaction.requestId! },
         include: { 
           initiator: true,
@@ -319,7 +319,7 @@ export class RequestTransactionProcessor implements TransactionProcessor {
       let message = this.createNotificationMessage(request, isApproved, metadata);
       
       // Create notification in the database
-      await this.prisma.notification.create({
+      await prisma.notification.create({
         data: {
           userId: request.initiator.id,
           title,
