@@ -73,17 +73,20 @@ export const processSavingsTransaction = async (
         });
         
         // Calculate cumulative totals properly
-        const runningTotals = allEntries.reduce((acc, curr) => ({
-            grossTotal: acc.grossTotal.add(curr.monthlyTarget || new Decimal(0)),
-            savingsTotal: acc.savingsTotal.add(curr.balance || new Decimal(0)),
-            sharesTotal: curr.shares[0] 
-                ? acc.sharesTotal.add(curr.shares[0].totalValue || new Decimal(0))
-                : acc.sharesTotal
-        }), {
-            grossTotal: new Decimal(grossAmount),
-            savingsTotal: new Decimal(savingsAmount),
-            sharesTotal: new Decimal(shareAmount)
-        });
+        // Use the latest record's totals and add the new amounts
+        const latestEntry = allEntries[allEntries.length - 1];
+
+        const runningTotals = {
+            grossTotal: latestEntry
+                ? latestEntry.totalGrossAmount.add(grossAmount)
+                : grossAmount,
+            savingsTotal: latestEntry
+                ? latestEntry.totalSavingsAmount.add(savingsAmount)
+                : savingsAmount,
+            sharesTotal: latestEntry?.shares[0]
+                ? latestEntry.shares[0].totalSharesAmount.add(shareAmount)
+                : shareAmount
+        };
 
         // Create savings entry with ACCUMULATED totals
         const savings = await tx.savings.create({

@@ -212,7 +212,7 @@ export class EligibilityService {
         const isOneYearPlus = loanType.name.toLowerCase().includes('1 year plus');
         
         if (isSoftLoan) {
-            return loanType.interestRate.equals(new Decimal(0.10)); // 10% monthly
+            return loanType.interestRate.equals(new Decimal(0.075)); // 7.5% monthly
         }
         
         if (isOneYearPlus) {

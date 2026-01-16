@@ -79,6 +79,25 @@ class SavingsWithdrawalService {
                 );
             }
 
+            // Check if user has unpaid regular loans
+            const activeRegularLoan = await prisma.loan.findFirst({
+                where: {
+                    memberId: biodataId,
+                    remainingBalance: { gt: 0 },
+                    loanType: {
+                        name: { contains: 'Regular', mode: 'insensitive' }
+                    }
+                }
+            });
+
+            if (activeRegularLoan) {
+                throw new SavingsError(
+                    SavingsErrorCodes.WITHDRAWAL_NOT_ALLOWED,
+                    'Cannot withdraw while you have unpaid regular loans',
+                    400
+                );
+            }
+
             // Ensure the withdrawal amount is not more than 80% of total savings
             // This maintains a minimum balance requirement
             const maxWithdrawalAmount = new Decimal(latestSavings.totalSavingsAmount).mul(0.8);
