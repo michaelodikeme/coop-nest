@@ -30,7 +30,7 @@ npx prisma generate
 # Start the Express server on port 5000 in background
 echo "🖥️  Starting Express server on port 5000..."
 cd /app/server
-SERVER_PORT=5000 npm run dev &
+SERVER_PORT=5000 npm run start &
 SERVER_PID=$!
 
 # Give server time to start
@@ -39,7 +39,7 @@ sleep 3
 # Start the Next.js client on port 3000 in background
 echo "🌐 Starting Next.js client on port 3000..."
 cd /app/client
-CLIENT_PORT=3000 npm run dev &
+CLIENT_PORT=3000 npm run start &
 CLIENT_PID=$!
 
 echo "✅ Both services started successfully!"
