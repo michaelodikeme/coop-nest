@@ -16,7 +16,8 @@ export function useAdminSavings(page = 1, limit = 10, filters = {}) {
       try {
         const response = await savingsService.getAllSavings(page, limit, filters);
         console.log('Savings response:', response);
-        return response.data;
+        // Service already unwraps, so return as-is
+        return response;
       } catch (error) {
         console.error('Error fetching savings:', error);
         throw error;
@@ -53,11 +54,11 @@ export function useAdminMonthlySavings(year: number, month: number, page = 0, li
     queryFn: async () => {
       try {
         // Pass pagination params to the API call
-        const response = await savingsService.getMonthlySavings(year, month, {page, limit});
-        
+        const response = await savingsService.getMonthlySavings(year, month, {page, limit}) as any;
+
         console.log('Monthly savings response:', response);
-        
-        return response.data;
+
+        return response.data || response;
       } catch (error) {
         console.error(`Error fetching monthly savings for ${month}/${year}:`, error);
         throw error;
@@ -402,7 +403,8 @@ export function useMembersSavingsSummary(
           ...filters
         });
         console.log('Members savings summary response:', response);
-        return response.data;
+        // Service already unwraps, return as-is
+        return response;
       } catch (error) {
         console.error('Error fetching members savings summary:', error);
         throw error;

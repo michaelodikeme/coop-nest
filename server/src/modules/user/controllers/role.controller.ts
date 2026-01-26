@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { RoleService } from '../services/role.service';
 import { ApiError } from '../../../utils/apiError';
 import { z } from 'zod';
+import { ICreateRoleInput } from '../interfaces/role.interface';
 
 // Extend Express Request to include authenticated user
 interface AuthRequest extends Request {
@@ -151,7 +152,7 @@ export class RoleController {
         moduleAccess: z.array(z.string())
       });
 
-      const validatedData = createRoleSchema.parse(req.body);
+      const validatedData = createRoleSchema.parse(req.body) as ICreateRoleInput;
       const role = await this.roleService.createRole(validatedData);
 
       res.status(201).json({

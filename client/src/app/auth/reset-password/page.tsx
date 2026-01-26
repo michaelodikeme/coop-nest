@@ -12,7 +12,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { apiService as authApi } from '@/lib/api/apiService';
+// import { apiService as authApi } from '@/lib/api/apiService';
 
 export default function ResetPasswordPage() {
   const [formData, setFormData] = useState({
@@ -51,7 +51,8 @@ export default function ResetPasswordPage() {
     setError('');
 
     try {
-      await authApi.resetPassword(token, formData.password, formData.confirmPassword);
+      // TODO: Implement forgot password functionality when backend is ready
+      // await authApi.resetPassword(token, formData.password, formData.confirmPassword);
       router.push('/login?reset=success');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Password reset failed. Please try again.');

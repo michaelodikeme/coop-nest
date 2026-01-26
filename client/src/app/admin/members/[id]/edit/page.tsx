@@ -8,21 +8,28 @@ import { Button } from '@/components/atoms/Button';
 import type { Member, MemberFormData } from '@/types/member.types';
 import { apiService } from '@/lib/api/apiService';
 import PermissionGate from '@/components/atoms/PermissionGate';
+import { use } from 'react';
 
-export default function MemberEditPage({ params }: { params: { id: string } }) {
+export default function MemberEditPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+
+  return <MemberEditPageClient id={id} />;
+}
+
+function MemberEditPageClient({ id }: { id: string }) {
   const router = useRouter();
   const [error, setError] = useState<string>();
   const { data: member, isLoading: isFetching } = useQuery<Member>({
-    queryKey: ['member', params.id],
+    queryKey: ['member', id],
     queryFn: async () => {
-      const response = await apiService.get<{ data: Member }>(`/biodata/${params.id}`);
+      const response = await apiService.get<{ data: Member }>(`/biodata/${id}`);
       return response.data;
     },
   });
 
   const { mutate, isPending: isUpdating } = useMutation({
     mutationFn: async (data: MemberFormData) => {
-      const response = await apiService.put<{ data: Member }>(`/biodata/${params.id}`, data);
+      const response = await apiService.put<{ data: Member }>(`/biodata/${id}`, data);
       return response.data;
     },
     onSuccess: () => {
@@ -56,17 +63,19 @@ export default function MemberEditPage({ params }: { params: { id: string } }) {
 
   const initialData: MemberFormData = {
     erpId: member.erpId,
+    ippisId: member.ippisId,
     firstName: member.firstName,
     lastName: member.lastName,
-    email: member.email,
-    phone: member.phone,
-    dateOfBirth: member.dateOfBirth,
-    gender: member.gender,
-    address: member.address,
+    emailAddress: member.emailAddress,
+    phoneNumber: member.phoneNumber,
+    residentialAddress: member.residentialAddress,
     department: member.department,
-    position: member.position,
-    employmentDate: member.employmentDate,
+    staffNo: member.staffNo,
+    dateOfEmployment: member.dateOfEmployment,
     nextOfKin: member.nextOfKin,
+    relationshipOfNextOfKin: member.relationshipOfNextOfKin,
+    nextOfKinPhoneNumber: member.nextOfKinPhoneNumber,
+    nextOfKinEmailAddress: member.nextOfKinEmailAddress,
   };
 
   return (
@@ -105,7 +114,7 @@ export default function MemberEditPage({ params }: { params: { id: string } }) {
               <PermissionGate permissions={['MANAGE_ACCOUNTS']}>
                 <Button
                   variant="outlined"
-                  onClick={() => router.push(`/admin/members/${params.id}/accounts`)}
+                  onClick={() => router.push(`/admin/members/${id}/accounts`)}
                 >
                   Manage Bank Accounts
                 </Button>
@@ -117,6 +126,7 @@ export default function MemberEditPage({ params }: { params: { id: string } }) {
             <div className="px-4 py-5 sm:p-6">
               <MemberForm
                 onSubmit={handleSubmit}
+                onCancel={() => router.push(`/admin/members/${id}`)}
                 isLoading={isUpdating}
                 error={error}
                 initialData={initialData}

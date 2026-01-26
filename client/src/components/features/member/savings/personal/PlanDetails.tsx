@@ -1,3 +1,5 @@
+'use client';
+
 import { usePersonalSavingsPlan, useBalanceHistory, useRequestWithdrawal } from '@/lib/hooks/member/usePersonalSavings';
 import { PersonalSavingsStatus, RequestStatus } from '@/types/personal-savings.types';
 import { useState } from 'react';

@@ -4,13 +4,14 @@ import { ApiError } from '../../../utils/apiError';
 import { AuthenticatedRequest } from '../../../types/express';
 import SavingsWithdrawalService from '../services/withdrawal.service';
 import { SavingsError } from '../errors/savings.error';
-import { 
-    createWithdrawalSchema, 
-    updateWithdrawalSchema, 
-    withdrawalQuerySchema 
+import {
+    createWithdrawalSchema,
+    updateWithdrawalSchema,
+    withdrawalQuerySchema
 } from '../validations/withdrawal.validation';
 import { z } from 'zod';
 import logger from '../../../utils/logger';
+import { WithdrawalRequestInput } from '../interfaces/withdrawal.interface';
 
 export class WithdrawalController {
     /**
@@ -22,7 +23,7 @@ export class WithdrawalController {
 
             // Get biodataId and erpId from logged in user
             const { biodataId, erpId } = req.user;
-            
+
             if (!biodataId || !erpId) {
                 throw new ApiError('User profile is incomplete', 400);
             }
@@ -32,13 +33,13 @@ export class WithdrawalController {
                 ...req.body,
                 biodataId,
                 erpId
-            });
-            
+            }) as WithdrawalRequestInput;
+
             // Member can only withdraw from their own account
             if (req.user.biodataId !== validatedData.biodataId && !req.user.isAdmin) {
                 throw new ApiError('You can only request withdrawals from your own account', 403);
             }
-            
+
             const result = await SavingsWithdrawalService.createWithdrawalRequest({
                 ...validatedData,
                 userId: req.user.id // User ID from authentication

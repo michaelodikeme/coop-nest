@@ -17,7 +17,7 @@ import { Module } from '../../../types/permissions';
 // }
 
 export interface ICreateUserInput {
-  biodataId: string;
+  biodataId?: string;
   username?: string;
   password: string;
   isMember: boolean;

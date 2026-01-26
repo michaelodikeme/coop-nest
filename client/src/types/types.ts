@@ -1,11 +1,10 @@
-// Export the general paginated response type
-export interface PaginatedResponse<T> {
-  meta: any;
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+// API Response wrapper - matches actual backend response structure
+export interface ApiResponse<T = any> {
+  success: boolean;
+  status: string;
+  message: string;
+  data: T;
+  code?: number;
 }
 
 export interface ApiErrorResponse {
@@ -15,11 +14,26 @@ export interface ApiErrorResponse {
   errors?: Record<string, string>;
 }
 
-export interface ApiResponse<T = any> {
-  status: string;
-  data?: T;
-  message?: string;
-  error?: ApiErrorResponse;
+// Paginated data structure (inner data from API)
+export interface PaginatedData<T> {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+// For backward compatibility - this is what services should return after unwrapping
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }
 
 // Import auth-related types from auth.ts

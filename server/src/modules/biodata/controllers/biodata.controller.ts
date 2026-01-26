@@ -14,6 +14,7 @@ import { ApiError } from '../../../utils/apiError';
 import { ZodError } from 'zod';
 import { MembershipStatus } from '@prisma/client';
 import { SystemSettingsService } from "../../system/services/systemSettings.service"
+import { ICreateBiodataInput, ICreateAccountInfoInput } from '../interfaces/biodata.interface';
 
 // Update AuthenticatedRequest interface to match auth middleware
 interface AuthenticatedRequest extends Request {
@@ -41,7 +42,7 @@ export class BiodataController {
 
   async createBiodata(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-        const validatedData = createBiodataSchema.parse(req.body);
+        const validatedData = createBiodataSchema.parse(req.body) as ICreateBiodataInput;
         const biodata = await this.biodataService.createBiodata(
             validatedData,
             req.user.id,
@@ -56,7 +57,7 @@ export class BiodataController {
   // FIX: Update this method to handle public registration
   async createNewMember(req: Request, res: Response, next: NextFunction) {
     try {
-      const validatedData = createBiodataSchema.parse(req.body)
+      const validatedData = createBiodataSchema.parse(req.body) as ICreateBiodataInput
 
       // For public registration, use the actual system user
       const systemSettingsService = SystemSettingsService.getInstance()
@@ -152,7 +153,7 @@ export class BiodataController {
     // Endpoint to add account information to a biodata
     try {
       const biodataId = req.params.id;
-      const validatedData = accountInfoSchema.parse(req.body);
+      const validatedData = accountInfoSchema.parse(req.body) as ICreateAccountInfoInput;
       const accountInfo = await this.biodataService.addAccountInfo(biodataId, validatedData);
       res.json(accountInfo);
     } catch (error) {

@@ -815,7 +815,7 @@ export default function LoanApprovalsPage() {
               Loan Applications
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {approvals?.meta?.total || 0} total applications
+              {approvals?.data?.meta?.total || 0} total applications
             </Typography>
           </Box>
           

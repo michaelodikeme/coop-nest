@@ -126,11 +126,11 @@ export default function SavingsTransactionsPage() {
 
   // Calculate deposit and withdrawal totals
   const deposits = transactionsData?.data
-    .filter(tx => tx.transactionType === 'DEPOSIT')
+    .filter(tx => tx.transactionType === 'SAVINGS_DEPOSIT')
     .reduce((sum, tx) => sum + Number(tx.amount), 0) || 0;
 
   const withdrawals = transactionsData?.data
-    .filter(tx => tx.transactionType === 'WITHDRAWAL')
+    .filter(tx => tx.transactionType === 'SAVINGS_WITHDRAWAL')
     .reduce((sum, tx) => sum + Number(tx.amount), 0) || 0;
 
   // Generate data for charts

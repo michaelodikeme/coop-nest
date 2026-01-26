@@ -497,11 +497,11 @@ const PersonalSavingsApprovalsPage = () => {
     pageIndex: page,
     pageSize: pageSize,
     pageCount: (showingWithdrawals
-      ? (withdrawalRequests?.meta && typeof (withdrawalRequests.meta as any).totalPages === 'number' ? (withdrawalRequests.meta as any).totalPages : 0)
-      : (creationRequests?.meta && typeof (creationRequests.meta as any).totalPages === 'number' ? (creationRequests.meta as any).totalPages : 0)),
+      ? (withdrawalRequests?.meta?.totalPages || 0)
+      : (creationRequests?.meta?.totalPages || 0)),
       totalRecords: (showingWithdrawals
-        ? (withdrawalRequests?.meta && typeof (withdrawalRequests.meta as any).total === 'number' ? (withdrawalRequests.meta as any).total : 0)
-        : (creationRequests?.meta && typeof (creationRequests.meta as any).total === 'number' ? (creationRequests.meta as any).total : 0)),
+        ? (withdrawalRequests?.meta?.total || 0)
+        : (creationRequests?.meta?.total || 0)),
       };
       
       return (

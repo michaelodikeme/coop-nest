@@ -75,7 +75,8 @@ export default function RolesPage() {
 
   const columns: DataTableColumn<Role>[] = [
     {
-      Header: 'Role Name',
+      id: 'name',
+      label: 'Role Name',
       accessor: 'name' as keyof Role,
       Cell: ({ value, row }: { value: string; row: { original: Role } }) => {
         const isSystem = SYSTEM_ROLES.includes(value);
@@ -88,14 +89,16 @@ export default function RolesPage() {
       },
     },
     {
-      Header: 'Description',
+      id: 'description',
+      label: 'Description',
       accessor: 'description' as keyof Role,
       Cell: ({ value }: { value: string }) => (
         <span className="text-gray-600">{value || 'No description'}</span>
       ),
     },
     {
-      Header: 'Approval Level',
+      id: 'approvalLevel',
+      label: 'Approval Level',
       accessor: 'approvalLevel' as keyof Role,
       Cell: ({ value }: { value: number }) => (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -104,19 +107,22 @@ export default function RolesPage() {
       ),
     },
     {
-      Header: 'Approval Authority',
+      id: 'canApprove',
+      label: 'Approval Authority',
       accessor: 'canApprove' as keyof Role,
       Cell: ({ value }: { value: boolean }) => <RoleBadge canApprove={value} />,
     },
     {
-      Header: 'Permissions',
+      id: 'permissions',
+      label: 'Permissions',
       accessor: 'permissions' as keyof Role,
       Cell: ({ value }: { value: string[] }) => (
         <span className="text-sm text-gray-600">{value?.length || 0} permissions</span>
       ),
     },
     {
-      Header: 'Actions',
+      id: 'actions',
+      label: 'Actions',
       accessor: 'id' as keyof Role,
       Cell: ({ row }: { row: { original: Role } }) => {
         const isSystem = SYSTEM_ROLES.includes(row.original.name);
@@ -226,7 +232,7 @@ export default function RolesPage() {
       </div>
 
       <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-        <DataTable columns={columns} data={filteredRoles} pagination filtering />
+        <DataTable columns={columns} data={filteredRoles} enableFiltering />
       </div>
 
       {/* Create Role Modal */}
@@ -234,7 +240,7 @@ export default function RolesPage() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         title="Create New Role"
-        size="large"
+        maxWidth="lg"
       >
         <CreateRoleForm
           onSuccess={() => {
@@ -250,7 +256,7 @@ export default function RolesPage() {
         isOpen={!!selectedRole}
         onClose={() => setSelectedRole(null)}
         title="Edit Role"
-        size="large"
+        maxWidth="lg"
       >
         {selectedRole && (
           <EditRoleForm
@@ -269,7 +275,7 @@ export default function RolesPage() {
         isOpen={!!viewDetailsRole}
         onClose={() => setViewDetailsRole(null)}
         title="Role Details"
-        size="large"
+        maxWidth="lg"
       >
         {viewDetailsRole && (
           <div className="space-y-6">

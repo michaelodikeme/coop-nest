@@ -228,6 +228,7 @@ const WithdrawalRequests: React.FC<WithdrawalRequestsProps> = ({ maxAmount = 0 }
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setOpenNewRequest(true)}
+          data-withdrawal-new-request
         >
           New Request
         </Button>

@@ -5,12 +5,13 @@ import { ApiError } from '../../../utils/apiError';
 import { AuthenticatedRequest } from '../../../types/express';
 import RequestService from '../services/request.service';
 import { RequestError } from '../errors/request.error';
-import { 
-    createRequestSchema, 
-    updateRequestStatusSchema, 
+import {
+    createRequestSchema,
+    updateRequestStatusSchema,
     requestQuerySchema,
-    requestIdSchema 
+    requestIdSchema
 } from '../validations/request.validation';
+import { ICreateRequestInput } from '../interfaces/request.interface';
 import logger from '../../../utils/logger';
 
 export class RequestController {
@@ -20,17 +21,17 @@ export class RequestController {
      */
     public async createRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
         try {
-            const validatedData = createRequestSchema.parse(req.body);
-            
+            const validatedData = createRequestSchema.parse(req.body) as ICreateRequestInput;
+
             const result = await RequestService.createRequest({
                 ...validatedData,
                 userId: req.user.id // Add user ID from auth
             });
-            
+
             ApiResponse.created(res, 'Request created successfully', result);
         } catch (error) {
             logger.error('Error creating request:', error);
-            
+
             if (error instanceof z.ZodError) {
                 next(new ApiError('Validation error', 400, error.errors));
             } else if (error instanceof RequestError) {

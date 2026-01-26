@@ -5,11 +5,8 @@ import logger from '../../../utils/logger';
 import RequestService from '../../request/services/request.service';
 import { 
   IPersonalSavingsQueryParams,
-  IPersonalSavingsInput,
   IPersonalSavingsResponse,
   IPersonalSavingsTransactionQueryParams,
-  IPersonalSavingsSummaryResponse,
-  IProcessedPersonalSavings,
   IPersonalSavingsBalanceHistory,
   IBalanceHistoryItem
 } from '../interfaces/personal-savings.interface';

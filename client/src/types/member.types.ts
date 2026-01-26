@@ -51,6 +51,7 @@ export interface MemberFilterParams {
   department?: string;
   isVerified?: boolean;
   membershipStatus?: string;
+  searchTerm?: string;
   page?: number;
   limit?: number;
 }

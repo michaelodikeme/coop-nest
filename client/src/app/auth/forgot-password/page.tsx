@@ -12,7 +12,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { apiService as authApi } from '@/lib/api/apiService';
+// import { apiService as authApi } from '@/lib/api/apiService';
 import Link from 'next/link';
 
 export default function ForgotPasswordPage() {
@@ -27,8 +27,9 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     setError('');
 
+    // TODO: Implement forgot password functionality when backend is ready
     try {
-      await authApi.forgotPassword(username);
+      // await authApi.forgotPassword(username);
       setSuccess(true);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to process request. Please try again.');

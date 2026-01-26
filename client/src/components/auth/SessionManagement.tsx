@@ -37,7 +37,7 @@ export const SessionManagement = () => {
         <>
           <ul className="session-list">
             {userSessions.map(session => (
-              <li key={session.id} className={isCurrentSession(session.id) ? 'current' : ''}>
+              <li key={session.id} className={''}>
                 <div className="session-info">
                   <div className="device">{session.userAgent || 'Unknown device'}</div>
                   <div className="ip">{session.ipAddress}</div>
@@ -45,12 +45,12 @@ export const SessionManagement = () => {
                     Last active: {formatDistanceToNow(new Date(session.lastActive || session.createdAt))} ago
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => invalidateSession(session.id)}
-                  disabled={isCurrentSession(session.id)}
-                  className={isCurrentSession(session.id) ? 'current-session' : 'terminate-session'}
+                  disabled={false}
+                  className={'terminate-session'}
                 >
-                  {isCurrentSession(session.id) ? 'Current Session' : 'Terminate'}
+                  Terminate
                 </button>
               </li>
             ))}

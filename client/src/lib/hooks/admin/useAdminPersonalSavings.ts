@@ -120,7 +120,7 @@ export function useAdminPendingPersonalSavingsRequests(
   status?: string
 ) {
   const toast = useToast();
-  
+
   return useQuery({
     queryKey: ['adminPendingPersonalSavingsRequests', page, limit, status],
     queryFn: async () => {
@@ -132,12 +132,9 @@ export function useAdminPendingPersonalSavingsRequests(
           status: status as RequestStatus | undefined
         });
         console.log('Fetched pending personal savings approval requests:', response);
-        
-        // Return just the data part for easier consumption
-        return {
-          data: response.data.data,
-          meta: response.data.meta
-        };
+
+        // Service layer already unwraps, just return the response
+        return response;
       } catch (error) {
         toast.error('Failed to fetch personal savings approval requests');
         console.error('Error fetching pending personal savings requests:', error);
@@ -185,7 +182,7 @@ export function useAdminPendingPersonalSavingsWithdrawals(
   status?: string
 ) {
   const toast = useToast();
-  
+
   return useQuery({
     queryKey: ['adminPendingPersonalSavingsWithdrawals', page, limit, status],
     queryFn: async () => {
@@ -197,8 +194,9 @@ export function useAdminPendingPersonalSavingsWithdrawals(
           limit,
           status: status as RequestStatus | undefined
         });
-        console.log('Fetched pending personal savings withdrawal requests:', response.data);
-        return response.data;
+        console.log('Fetched pending personal savings withdrawal requests:', response);
+        // Service layer already unwraps, just return the response
+        return response;
       } catch (error) {
         toast.error('Failed to fetch personal savings withdrawal requests');
         console.error('Error fetching pending personal savings withdrawal requests:', error);

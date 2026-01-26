@@ -24,7 +24,7 @@ import { transactionService } from '@/lib/api/services/transactionService';
 import TransactionTable from '@/components/features/member/transactions/TransactionTable';
 import FilterDrawer from '@/components/features/member/transactions/FilterDrawer';
 import DateRangeSelector from '@/components/molecules/DateRangeSelector';
-import TransactionSummaryCard from '@/components/features/member/transactions/TransactionsSummaryChart';
+import TransactionSummaryCard from '@/components/features/member/transactions/TransactionSummaryCard';
 import LoanActivityChart from '@/components/features/member/transactions/LoanActivityChart';
 import { formatCurrency } from '@/utils/formatting/format';
 import ExportDialog from '@/components/molecules/ExportDialog';

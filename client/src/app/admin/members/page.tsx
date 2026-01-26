@@ -60,7 +60,6 @@ export default function MembersPage() {
   
   // Export dialog state
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
   
   // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -231,30 +230,6 @@ export default function MembersPage() {
     queryClient.invalidateQueries({ queryKey: ['members'] });
   };
 
-  // Handle export
-  const handleExport = async (format: string, options: Record<string, boolean>) => {
-    try {
-      setIsExporting(true);
-      
-      // In a real implementation, this would connect to a backend service to generate
-      // the export file in the requested format
-      console.log(`Exporting data in ${format} format with options:`, options);
-      
-      // Simulate export process
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Close dialog and show success message
-      setExportDialogOpen(false);
-      setIsExporting(false);
-      
-      // You would implement a proper toast notification here
-      console.log('Export completed successfully');
-    } catch (error) {
-      setIsExporting(false);
-      console.error('Export failed:', error);
-    }
-  };
-
   // Build filter toolbar content - update to reflect default active status
   const filterToolbarContent = (
     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -348,7 +323,7 @@ export default function MembersPage() {
           <DataTable
             data={members}
             columns={columns}
-            isLoading={isLoading || deleteMember.isLoading}
+            isLoading={isLoading || deleteMember.isPending}
             pagination={true}
             page={pagination?.page ? pagination.page - 1 : 0}
             pageSize={pagination?.limit || 10}
@@ -382,10 +357,9 @@ export default function MembersPage() {
       <ExportDialog
         open={exportDialogOpen}
         onClose={() => setExportDialogOpen(false)}
-        onExport={handleExport}
-        isLoading={isExporting}
         title="Export Members Data"
-        subtitle="Choose format and options for exporting member data"
+        entityType="members"
+        filters={filters}
       />
       
       {/* Delete confirmation dialog */}
@@ -403,13 +377,13 @@ export default function MembersPage() {
           <Button onClick={handleDeleteDialogClose} color="primary">
             Cancel
           </Button>
-          <Button 
-            onClick={handleDeleteConfirm} 
-            color="error" 
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
             variant="contained"
-            disabled={deleteMember.isLoading}
+            disabled={deleteMember.isPending}
           >
-            {deleteMember.isLoading ? 'Deleting...' : 'Delete'}
+            {deleteMember.isPending ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>

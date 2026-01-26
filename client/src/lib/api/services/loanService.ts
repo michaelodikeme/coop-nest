@@ -1,16 +1,16 @@
 import { apiService } from '@/lib/api/apiService';
-import { 
-  Loan, 
+import {
+  Loan,
   LoanType,
   LoanStatus,
-  LoanSummary, 
+  LoanSummary,
   LoanDetails,
-  LoanQueryParams, 
-  PaginatedResponse,
+  LoanQueryParams,
   LoanApiResponse,
   EnhancedLoanSummary
 } from '@/types/loan.types';
 import { requestService } from '@/lib/api/services/requestService';
+import { ApiResponse, PaginatedResponse, PaginatedData } from '@/types/types';
 
 export class LoanService {
   /**
@@ -66,7 +66,7 @@ export class LoanService {
   */
   async getLoans(p0: number, p1: number, filters: LoanQueryParams = {}): Promise<PaginatedResponse<Loan>> {
     const params = new URLSearchParams();
-    
+
     // Add all filters to URL params
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
@@ -78,9 +78,10 @@ export class LoanService {
         }
       }
     });
-    
+
     const queryString = params.toString();
-    return apiService.get(`/loan${queryString ? `?${queryString}` : ''}`);
+    const response = await apiService.get<ApiResponse<PaginatedData<Loan>>>(`/loan${queryString ? `?${queryString}` : ''}`);
+    return response.data; // Unwrap the API response
   }
   
   /**

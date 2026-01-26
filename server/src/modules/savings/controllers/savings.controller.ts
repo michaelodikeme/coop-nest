@@ -11,6 +11,7 @@ import { createSavingsSchema, listSavingsQuerySchema, transactionQuerySchema, wi
 import { ValidationError } from '../../../utils/apiError';
 import path from 'path';
 import fs from 'fs';
+import { IMonthlySavingsInput, ISavingsStatementParams } from '../interfaces/savings.interface';
 
 export class SavingsController {
   private savingsService: SavingsService;
@@ -33,7 +34,7 @@ export class SavingsController {
 
   createMonthlySavings = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const validatedData = createSavingsSchema.parse(req.body);
+      const validatedData = createSavingsSchema.parse(req.body) as IMonthlySavingsInput;
       const result = await this.savingsService.createMonthlySavings(validatedData);
       ApiResponse.success(res, 'Monthly savings entry created successfully', result);
     } catch (error) {
@@ -47,13 +48,13 @@ export class SavingsController {
         year: parseInt(req.query.year as string),
         month: parseInt(req.query.month as string),
         erpId: req.params.erpId,
-      });
-      
+      }) as ISavingsStatementParams;
+
       // Ensure user can only access their own data unless they're admin
       if (!req.user?.isAdmin && req.user?.erpId !== queryParams.erpId) {
         throw new Error('Unauthorized access');
       }
-      
+
       const statement = await this.savingsService.getSavingsStatement(queryParams);
       ApiResponse.success(res, 'Savings statement retrieved successfully', statement);
     } catch (error) {

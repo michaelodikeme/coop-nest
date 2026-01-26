@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { DataTable, DataTableColumn } from '@/components/organisms/DataTable';
-import { Column } from 'react-table';
 import { Button } from '@/components/atoms/Button';
 import { Modal } from '@/components/molecules/Modal';
 import { BankAccountForm } from '@/components/organisms/admin/members/forms/BankAccountForm';
@@ -25,22 +24,29 @@ const VerificationStatusBadge = ({ isVerified }: { isVerified: boolean }) => (
   </span>
 );
 
-export default function MemberBankAccountsPage({ params }: { params: { id: string } }) {
+export default async function MemberBankAccountsPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
+  const memberId = resolvedParams.id;
+
+  return <MemberBankAccountsPageClient memberId={memberId} />;
+}
+
+function MemberBankAccountsPageClient({ memberId }: { memberId: string }) {
   const router = useRouter();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<BankAccount | null>(null);
   const [error, setError] = useState<string>();
 
   const { data: member, isLoading: isFetchingMember } = useQuery<Member>({
-    queryKey: ['member', params.id],
+    queryKey: ['member', memberId],
     queryFn: async () => {
-      const response = await apiService.get<{ data: Member }>(`/biodata/${params.id}`);
+      const response = await apiService.get<{ data: Member }>(`/biodata/${memberId}`);
       return (response as { data: Member }).data;
     },
   });
   const { mutate: addAccount, isPending: isAdding } = useMutation({
     mutationFn: async (data: Omit<BankAccount, 'id' | 'isVerified'>) => {
-      const response = await apiService.post<{ data: BankAccount }>(`/biodata/${params.id}/accounts`, data);
+      const response = await apiService.post<{ data: BankAccount }>(`/biodata/${memberId}/accounts`, data);
       return (response as { data: BankAccount }).data;
     },
     onSuccess: () => {
@@ -63,64 +69,64 @@ export default function MemberBankAccountsPage({ params }: { params: { id: strin
       setError(err.message);
     },
   });
-  const columns: Column<BankAccount>[] = [
+  const columns: DataTableColumn<BankAccount>[] = [
     {
-      Header: 'Account Number',
+      id: 'accountNumber',
+      label: 'Account Number',
       accessor: 'accountNumber',
-      filterable: true,
     },
     {
-      Header: 'Bank',
+      id: 'bankName',
+      label: 'Bank',
       accessor: 'bankName',
-      filterable: true,
     },
     {
-      Header: 'Type',
+      id: 'accountType',
+      label: 'Type',
       accessor: 'accountType',
-      filterable: true,
     },
     {
-      Header: 'Status',
+      id: 'isVerified',
+      label: 'Status',
       accessor: 'isVerified',
-      Cell: ({ value }) => <VerificationStatusBadge isVerified={value} />,
-      filterable: false,
+      Cell: ({ value }: { value: any }) => <VerificationStatusBadge isVerified={value} />,
     },
     {
-      Header: 'Primary',
+      id: 'isPrimary',
+      label: 'Primary',
       accessor: 'isPrimary',
-      Cell: ({ value }) => (value ? '✓' : '-'),
-      filterable: false,
+      Cell: ({ value }: { value: any }) => (value ? '✓' : '-'),
       align: 'center',
     },
     {
-      Header: 'Actions',
+      id: 'id',
+      label: 'Actions',
       accessor: 'id',
-      Cell: ({ row: { original } }) => (
+      Cell: ({ row }: { row: { original: BankAccount } }) => (
         <div className="flex space-x-2">
           <PermissionGate permissions={['VERIFY_ACCOUNTS']} approvalLevel={2}>
             <Button
               size="small"
-              variant={original.isVerified ? 'outlined' : 'contained'}
+              variant={row.original.isVerified ? 'outlined' : 'contained'}
               onClick={() =>
                 updateAccount({
-                  id: original.id,
-                  isVerified: !original.isVerified,
+                  id: row.original.id,
+                  isVerified: !row.original.isVerified,
                 })
               }
             >
-              {original.isVerified ? 'Unverify' : 'Verify'}
+              {row.original.isVerified ? 'Unverify' : 'Verify'}
             </Button>
           </PermissionGate>
           <Button
             size="small"
             variant="outlined"
-            onClick={() => setSelectedAccount(original)}
+            onClick={() => setSelectedAccount(row.original)}
           >
             Edit
           </Button>
         </div>
       ),
-      filterable: false,
       align: 'right',
     },
   ];
@@ -169,8 +175,8 @@ export default function MemberBankAccountsPage({ params }: { params: { id: strin
             </div>
             <div className="mt-4 sm:mt-0 space-x-3">
               <Button
-                variant="outline"
-                onClick={() => router.push(`/admin/members/${params.id}/edit`)}
+                variant="outlined"
+                onClick={() => router.push(`/admin/members/${memberId}/edit`)}
               >
                 Back to Profile
               </Button>
@@ -183,9 +189,9 @@ export default function MemberBankAccountsPage({ params }: { params: { id: strin
           <div className="bg-white shadow rounded-lg">
             <DataTable
               columns={columns}
-              data={member.bankAccounts}
-              pagination
-              filtering
+              data={[]}
+              enableFiltering
+              noDataMessage="No bank accounts found. Bank account management will be implemented in a future update."
             />
           </div>
 

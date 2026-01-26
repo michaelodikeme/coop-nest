@@ -1,12 +1,12 @@
 import { apiService } from '@/lib/api/apiService';
-import type { PaginatedResponse } from '@/types/types';
-import { 
-  CreateRequestInput, 
-  ApprovalStep, 
-  Request, 
-  RequestQueryParams, 
-  RequestStatus, 
-  RequestStatistics 
+import type { PaginatedResponse, ApiResponse, PaginatedData } from '@/types/types';
+import {
+  CreateRequestInput,
+  ApprovalStep,
+  Request,
+  RequestQueryParams,
+  RequestStatus,
+  RequestStatistics
 } from '@/types/request.types';
 
 /**
@@ -37,49 +37,24 @@ class RequestService {
   */
   async getAllRequests(params: RequestQueryParams = {}): Promise<PaginatedResponse<Request>> {
     console.log('Fetching all requests with params:', params);
-    
+
     // Clone params to avoid modifying the original object
     const queryParams = { ...params };
-    
+
     // Special handling for loan-specific statuses
     if (queryParams.status === 'DISBURSED' as any) {
       // Convert DISBURSED (loan status) to COMPLETED (request status)
       queryParams.status = RequestStatus.COMPLETED;
     }
-    
+
     const queryString = this.buildQueryString(queryParams);
-    const response = await apiService.get<{
-      data: {
-        data: Request[];
-        meta: {
-          total: number;
-          page: number;
-          limit: number;
-          totalPages: number;
-        };
-      };
-    }>(`/requests${queryString}`);
-    
+    const response = await apiService.get<ApiResponse<PaginatedData<Request>>>(`/requests${queryString}`);
+
     console.log('Raw API response structure:', response);
-    console.log('Nested data structure:', response.data);
-    console.log('Meta information:', response.data?.meta);
-    
-    // FIXED: Extract data from the nested structure
-    const actualData = response.data?.data || [];
-    const actualMeta = response.data?.meta || {};
-    
-    console.log('Extracted data count:', actualData.length);
-    console.log('Extracted total from meta:', actualMeta.total);
-    
-    // Ensure consistent response structure
-    return {
-      data: actualData,
-      total: actualMeta.total || 0,
-      page: actualMeta.page || params.page || 1,
-      limit: actualMeta.limit || params.limit || 10,
-      totalPages: actualMeta.totalPages || 0,
-      meta: actualMeta
-    };
+    console.log('Unwrapped data:', response.data);
+
+    // Unwrap the API response - return inner data structure
+    return response.data;
   }
   
   /**
@@ -92,9 +67,9 @@ class RequestService {
   async getUserRequests(params: RequestQueryParams = {}): Promise<PaginatedResponse<Request>> {
     console.log('Fetching user requests with params:', params);
     const queryString = this.buildQueryString(params);
-    const response = await apiService.get<PaginatedResponse<Request>>(`/requests/user${queryString}`);
+    const response = await apiService.get<ApiResponse<PaginatedData<Request>>>(`/requests/user${queryString}`);
     console.log('User requests fetched successfully:', response);
-    return response;
+    return response.data; // Unwrap the API response
   }
   
   /**
@@ -219,15 +194,23 @@ class RequestService {
   async getAssignedRequests(page = 1, limit = 10): Promise<PaginatedResponse<Request>> {
     console.log(`Fetching assigned requests (page ${page}, limit ${limit})`);
     try {
-      const response = await apiService.get<PaginatedResponse<Request>>(
+      const response = await apiService.get<ApiResponse<PaginatedData<Request>>>(
         `/users/me/requests/assigned?page=${page}&limit=${limit}`
       );
       console.log('Assigned requests fetched successfully:', response);
-      return response;
+      return response.data; // Unwrap the API response
     } catch (error) {
       console.error('Error fetching assigned requests:', error);
       // Return empty response if endpoint fails
-      return { data: [], total: 0, page, limit, totalPages: 0, meta: {} };
+      return {
+        data: [],
+        meta: {
+          total: 0,
+          page,
+          limit,
+          totalPages: 0
+        }
+      };
     }
   }
   
@@ -247,8 +230,8 @@ class RequestService {
         limit: 1 // We only need the total count, not the data
       });
       
-      console.log('System pending requests count from getAllRequests:', response.total);
-      return response.total || 0;
+      console.log('System pending requests count from getAllRequests:', response.meta.total);
+      return response.meta.total || 0;
     } catch (error) {
       console.error('Error fetching system pending requests count:', error);
       return 0;

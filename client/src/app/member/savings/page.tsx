@@ -93,8 +93,8 @@ export default function SavingsPage() {
     queryFn: async () => {
       const result = await savingsService.getTransactions({ page: 1, limit: 1 });
       console.log('Last transaction data:', result);
-      // Always return a value (null if not found)
-      return result?.data?.data?.[0] || null;
+      // Service already unwraps, so data is the array
+      return result?.data?.[0] || null;
     },
     enabled: !!user?.biodata?.id
   });
@@ -201,8 +201,8 @@ export default function SavingsPage() {
   }, [allTransactions]);
   
   // Replace the current withdrawal requests filter with this direct query data access
-  const hasActiveWithdrawalRequests = withdrawalRequestsData?.data?.data && 
-    withdrawalRequestsData.data?.data.length > 0;
+  const hasActiveWithdrawalRequests = withdrawalRequestsData?.data &&
+    withdrawalRequestsData.data.length > 0;
   
   // Calculate share percentage
   const sharesPercentage = useMemo(() => {
@@ -267,8 +267,17 @@ export default function SavingsPage() {
             variant="contained"
             color="primary"
             startIcon={<SwapHoriz />}
-            onClick={() => setActiveTab(2)}
-            disabled={isSummaryLoading || (savingsSummary?.data?.totalSavingsAmount || 0) <= 0}
+            onClick={() => {
+              setActiveTab(2);
+              // Small delay to allow tab to switch, then trigger new request modal
+              setTimeout(() => {
+                const newRequestButton = document.querySelector('[data-withdrawal-new-request]') as HTMLElement;
+                if (newRequestButton) {
+                  newRequestButton.click();
+                }
+              }, 100);
+            }}
+            disabled={isSummaryLoading || !savingsSummary?.data?.balance || (savingsSummary?.data?.balance || 0) <= 0}
           >
             Request Withdrawal
           </Button>
@@ -277,13 +286,13 @@ export default function SavingsPage() {
 
       {/* Notification for pending withdrawal requests */}
       {hasActiveWithdrawalRequests && (
-        <Alert 
-          severity="info" 
+        <Alert
+          severity="info"
           sx={{ mb: 3, borderRadius: 2 }}
           action={
-            <Button 
-              color="inherit" 
-              size="small" 
+            <Button
+              color="inherit"
+              size="small"
               onClick={() => setActiveTab(2)}
             >
               View Details
@@ -291,8 +300,8 @@ export default function SavingsPage() {
           }
         >
           <AlertTitle>Pending Withdrawal Request</AlertTitle>
-          You have {withdrawalRequestsData?.data?.data?.length} pending withdrawal 
-          {withdrawalRequestsData?.data?.data?.length === 1 ? 'request' : 'requests'}.
+          You have {withdrawalRequestsData?.data?.length || 0} pending withdrawal
+          {(withdrawalRequestsData?.data?.length || 0) === 1 ? ' request' : ' requests'}.
           Processing usually takes 2-3 business days.
         </Alert>
       )}
@@ -428,18 +437,18 @@ export default function SavingsPage() {
             icon={<History />} 
             iconPosition="start" 
           />
-          <Tab 
+          <Tab
             label={
-              <Badge 
-                color="error" 
-                badgeContent={withdrawalRequestsData?.data?.data?.length || 0}
+              <Badge
+                color="error"
+                badgeContent={withdrawalRequestsData?.data?.length || 0}
                 showZero={false}
               >
                 Withdrawal Requests
               </Badge>
             }
-            icon={<Receipt />} 
-            iconPosition="start" 
+            icon={<Receipt />}
+            iconPosition="start"
           />
         </Tabs>
       </Box>
@@ -566,19 +575,7 @@ export default function SavingsPage() {
                   {isWithdrawalLoading ? (
                     <LinearProgress />
                   ) : (
-                    <WithdrawalRequests maxAmount={savingsSummary?.totalSavingsAmount || 0} />
-                  )}
-                  
-                  {/* Only show this when there are no withdrawal requests */}
-                  {!hasActiveWithdrawalRequests && !isWithdrawalLoading && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        You can request a withdrawal by clicking the "New Request" button above.
-                      </Typography>
-                      <Alert severity="info" sx={{ borderRadius: 1, mt: 2 }}> 
-                        You don't have any withdrawal requests at the moment.
-                      </Alert>
-                    </Box>
+                    <WithdrawalRequests maxAmount={Number(savingsSummary?.data?.balance || 0) * 0.8} />
                   )}
                   
                   <Box sx={{ mt: 3 }}>

@@ -75,11 +75,11 @@ export default function SharesTransactionsPage() {
 
   // Calculate purchases and redemptions from filtered data
   const purchases = transactionsData?.data
-    .filter(tx => tx.transactionType === 'SHARE_PURCHASE')
+    .filter(tx => tx.transactionType === 'SHARES_PURCHASE')
     .reduce((sum, tx) => sum + Number(tx.amount), 0) || 0;
 
   const redemptions = transactionsData?.data
-    .filter(tx => tx.transactionType === 'SHARE_REDEMPTION')
+    .filter(tx => tx.transactionType === 'SHARES_REDEMPTION')
     .reduce((sum, tx) => sum + Number(tx.amount), 0) || 0;
   
   // Handle filter changes from any component

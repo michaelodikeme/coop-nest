@@ -6,6 +6,8 @@ export interface WithdrawalRequestInput {
     reason: string;
     userId: string; // ID of the user making the request
     erpId: string; // Member ERP ID
+    savingsId?: string; // For regular savings withdrawal
+    personalSavingsId?: string; // For personal savings withdrawal
 }
 
 export interface WithdrawalQueryParams {

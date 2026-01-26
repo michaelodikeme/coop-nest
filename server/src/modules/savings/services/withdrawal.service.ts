@@ -32,18 +32,48 @@ class SavingsWithdrawalService {
     }
 
     /**
+     * Determine if this is a personal savings withdrawal
+     */
+    private isPersonalSavingsWithdrawal(data: WithdrawalRequestInput): boolean {
+        return !!data.personalSavingsId;
+    }
+
+    /**
+     * Check if member has an active loan
+     * Members cannot withdraw if they have an active loan
+     */
+    private async checkActiveLoan(biodataId: string): Promise<boolean> {
+        const activeLoan = await prisma.loan.findFirst({
+            where: {
+                memberId: biodataId,
+                status: 'ACTIVE'
+            }
+        });
+
+        return activeLoan === null; // Returns true if no active loan
+    }
+
+    /**
      * Check if member is eligible for withdrawal based on yearly limit
      * Members can only make one withdrawal request per year
+     * NOTE: This only applies to regular Savings withdrawals, not Personal Savings
      */
-    private async checkYearlyWithdrawalLimit(biodataId: string): Promise<boolean> {
+    private async checkYearlyWithdrawalLimit(biodataId: string, isPersonalSavings: boolean): Promise<boolean> {
+        // Skip yearly check for personal savings - they can withdraw multiple times per year
+        if (isPersonalSavings) {
+            return true;
+        }
         const currentYear = new Date().getFullYear();
         const startOfYear = new Date(currentYear, 0, 1);
-        
-        // Check for any approved or pending withdrawals this year
+
+        // Check for any approved or pending REGULAR SAVINGS withdrawals this year
+        // Only count withdrawals with savingsId (not personalSavingsId)
         const withdrawalsThisYear = await prisma.request.count({
             where: {
                 biodataId,
                 type: RequestType.SAVINGS_WITHDRAWAL,
+                savingsId: { not: null }, // Only count regular savings withdrawals
+                personalSavingsId: null,  // Exclude personal savings withdrawals
                 createdAt: {
                     gte: startOfYear
                 },
@@ -57,45 +87,79 @@ class SavingsWithdrawalService {
     }
 
     /**
-     * Validate withdrawal amount against member's savings balance
+     * Validate withdrawal amount against member's savings/personal savings balance
      */
-    private async validateWithdrawalAmount(biodataId: string, amount: number): Promise<void> {
+    private async validateWithdrawalAmount(
+        biodataId: string,
+        amount: number,
+        isPersonalSavings: boolean,
+        savingsId?: string,
+        personalSavingsId?: string
+    ): Promise<void> {
         try {
-            // Get latest savings record to check available balance
-            const latestSavings = await prisma.savings.findFirst({
-                where: { 
-                    memberId: biodataId,
-                    status: 'ACTIVE'
-                },
-                orderBy: [
-                    { year: 'desc' },
-                    { month: 'desc' }
-                ]
-            });
+            let balance: Decimal;
+            let recordType: string;
 
-            if (!latestSavings) {
-                throw new SavingsError(
-                    SavingsErrorCodes.INSUFFICIENT_BALANCE,
-                    'No active savings record found',
-                    400
-                );
+            if (isPersonalSavings && personalSavingsId) {
+                // Get personal savings record
+                const personalSavings = await prisma.personalSavings.findUnique({
+                    where: { id: personalSavingsId }
+                });
+
+                if (!personalSavings) {
+                    throw new SavingsError(
+                        SavingsErrorCodes.INSUFFICIENT_BALANCE,
+                        'Personal savings record not found',
+                        400
+                    );
+                }
+
+                balance = personalSavings.currentBalance;
+                recordType = 'personal savings';
+            } else {
+                // Get regular savings record
+                const latestSavings = await prisma.savings.findFirst({
+                    where: {
+                        memberId: biodataId,
+                        status: 'ACTIVE'
+                    },
+                    orderBy: [
+                        { year: 'desc' },
+                        { month: 'desc' }
+                    ]
+                });
+
+                if (!latestSavings) {
+                    throw new SavingsError(
+                        SavingsErrorCodes.INSUFFICIENT_BALANCE,
+                        'No active savings record found',
+                        400
+                    );
+                }
+
+                balance = latestSavings.balance;
+                recordType = 'savings';
             }
 
-            // Ensure the withdrawal amount is not more than 80% of total savings
-            // This maintains a minimum balance requirement
-            const maxWithdrawalAmount = new Decimal(latestSavings.totalSavingsAmount).mul(0.8);
+            // Apply different withdrawal limits based on type
+            // Personal Savings: 100% withdrawable
+            // Regular Savings: 80% withdrawable (maintains minimum balance)
+            const maxPercentage = isPersonalSavings ? 1.0 : 0.8;
+            const percentageText = isPersonalSavings ? '100%' : '80%';
+            const maxWithdrawalAmount = balance.mul(maxPercentage);
+
             if (new Decimal(amount).gt(maxWithdrawalAmount)) {
                 throw new SavingsError(
                     SavingsErrorCodes.WITHDRAWAL_LIMIT_EXCEEDED,
-                    `Maximum withdrawal amount is ${formatCurrency(maxWithdrawalAmount)} (80% of total savings)`,
+                    `Maximum withdrawal amount is ${formatCurrency(maxWithdrawalAmount)} (${percentageText} of available ${recordType} balance)`,
                     400
                 );
             }
 
-            if (new Decimal(amount).gt(latestSavings.totalSavingsAmount)) {
+            if (new Decimal(amount).gt(balance)) {
                 throw new SavingsError(
                     SavingsErrorCodes.INSUFFICIENT_BALANCE,
-                    `Withdrawal amount exceeds available balance of ${formatCurrency(latestSavings.balance)}`,
+                    `Withdrawal amount exceeds available ${recordType} balance of ${formatCurrency(balance)}`,
                     400
                 );
             }
@@ -103,7 +167,7 @@ class SavingsWithdrawalService {
             if (error instanceof SavingsError) {
                 throw error;
             }
-            
+
             logger.error('Error validating withdrawal amount:', error);
             throw new SavingsError(
                 SavingsErrorCodes.VALIDATION_ERROR,
@@ -118,32 +182,42 @@ class SavingsWithdrawalService {
      */
     async createWithdrawalRequest(data: WithdrawalRequestInput) {
         try {
-            // First check if member has already made a withdrawal request this year
-            const canWithdraw = await this.checkYearlyWithdrawalLimit(data.biodataId);
-            if (!canWithdraw) {
+            // Determine withdrawal type
+            const isPersonalSavings = this.isPersonalSavingsWithdrawal(data);
+
+            // First check if member has an active loan
+            const canWithdrawDueToLoan = await this.checkActiveLoan(data.biodataId);
+            if (!canWithdrawDueToLoan) {
                 throw new SavingsError(
-                    SavingsErrorCodes.WITHDRAWAL_LIMIT_EXCEEDED,
-                    'You can only make one withdrawal request per year',
+                    SavingsErrorCodes.ACTIVE_LOAN_EXISTS,
+                    'Cannot process withdrawal request. You have an active loan that must be cleared first.',
                     400
                 );
             }
 
-            // Validate withdrawal amount
-            await this.validateWithdrawalAmount(data.biodataId, data.amount);
+            // Check if member has already made a withdrawal request this year
+            // (Only applies to regular savings, not personal savings)
+            const canWithdraw = await this.checkYearlyWithdrawalLimit(data.biodataId, isPersonalSavings);
+            if (!canWithdraw) {
+                throw new SavingsError(
+                    SavingsErrorCodes.WITHDRAWAL_LIMIT_EXCEEDED,
+                    'You can only make one savings withdrawal request per year',
+                    400
+                );
+            }
 
-            // Fetch the member and latest savings data
+            // Validate withdrawal amount with appropriate limits
+            await this.validateWithdrawalAmount(
+                data.biodataId,
+                data.amount,
+                isPersonalSavings,
+                data.savingsId,
+                data.personalSavingsId
+            );
+
+            // Fetch the member data
             const member = await prisma.biodata.findUnique({
-                where: { id: data.biodataId },
-                include: {
-                    savings: {
-                        where: { status: 'ACTIVE' },
-                        orderBy: [
-                            { year: 'desc' },
-                            { month: 'desc' }
-                        ],
-                        take: 1,
-                    }
-                }
+                where: { id: data.biodataId }
             });
 
             if (!member) {
@@ -154,15 +228,54 @@ class SavingsWithdrawalService {
                 );
             }
 
-            if (member.savings.length === 0) {
-                throw new SavingsError(
-                    SavingsErrorCodes.INSUFFICIENT_BALANCE,
-                    'No active savings record found',
-                    400
-                );
-            }
+            // Fetch appropriate savings data based on type
+            let savingsData: any;
+            let savingsRecordId: string;
+            let balance: Decimal;
 
-            const latestSavings = member.savings[0];
+            if (isPersonalSavings && data.personalSavingsId) {
+                // Get personal savings record
+                const personalSavings = await prisma.personalSavings.findUnique({
+                    where: { id: data.personalSavingsId },
+                    include: { planType: true }
+                });
+
+                if (!personalSavings) {
+                    throw new SavingsError(
+                        SavingsErrorCodes.INSUFFICIENT_BALANCE,
+                        'Personal savings record not found',
+                        400
+                    );
+                }
+
+                savingsData = personalSavings;
+                savingsRecordId = personalSavings.id;
+                balance = personalSavings.currentBalance;
+            } else {
+                // Get regular savings record
+                const latestSavings = await prisma.savings.findFirst({
+                    where: {
+                        memberId: data.biodataId,
+                        status: 'ACTIVE'
+                    },
+                    orderBy: [
+                        { year: 'desc' },
+                        { month: 'desc' }
+                    ]
+                });
+
+                if (!latestSavings) {
+                    throw new SavingsError(
+                        SavingsErrorCodes.INSUFFICIENT_BALANCE,
+                        'No active savings record found',
+                        400
+                    );
+                }
+
+                savingsData = latestSavings;
+                savingsRecordId = latestSavings.id;
+                balance = latestSavings.balance;
+            }
 
             // Create withdrawal request with approval workflow
             const withdrawalRequest = await prisma.$transaction(async (tx) => {
@@ -194,37 +307,55 @@ class SavingsWithdrawalService {
                     }
                 ];
                 
+                // Prepare request data based on withdrawal type
+                const requestData: any = {
+                    id: uuidv4(),
+                    type: RequestType.SAVINGS_WITHDRAWAL,
+                    module: RequestModule.SAVINGS,
+                    status: RequestStatus.PENDING,
+                    biodataId: data.biodataId,
+                    initiatorId: data.userId,
+                    nextApprovalLevel: 1,
+                    content: {
+                        amount: data.amount.toString(),
+                        reason: data.reason,
+                        erpId: data.erpId,
+                        requestDate: new Date().toISOString(),
+                        withdrawalType: isPersonalSavings ? 'PERSONAL_SAVINGS' : 'SAVINGS'
+                    },
+                    metadata: {
+                        member: {
+                            id: member.id,
+                            erpId: member.erpId,
+                            fullName: member.fullName,
+                            department: member.department
+                        }
+                    }
+                };
+
+                // Set appropriate savings ID based on type
+                if (isPersonalSavings) {
+                    requestData.personalSavingsId = savingsRecordId;
+                    requestData.metadata.personalSavings = {
+                        id: savingsRecordId,
+                        currentBalance: balance.toString(),
+                        planName: savingsData.planName || savingsData.planType?.name || 'Unknown',
+                        remainingBalance: new Decimal(balance).minus(data.amount).toString()
+                    };
+                } else {
+                    requestData.savingsId = savingsRecordId;
+                    requestData.metadata.savings = {
+                        id: savingsRecordId,
+                        currentBalance: balance.toString(),
+                        totalSavings: savingsData.totalSavingsAmount?.toString() || '0',
+                        remainingBalance: new Decimal(balance).minus(data.amount).toString()
+                    };
+                }
+
                 // Create the request with approval chain
                 const request = await tx.request.create({
                     data: {
-                        id: uuidv4(),
-                        type: RequestType.SAVINGS_WITHDRAWAL,
-                        module: RequestModule.SAVINGS,
-                        status: RequestStatus.PENDING,
-                        biodataId: data.biodataId,
-                        savingsId: latestSavings.id,
-                        initiatorId: data.userId,
-                        nextApprovalLevel: 1,
-                        content: {
-                            amount: data.amount.toString(),
-                            reason: data.reason,
-                            erpId: data.erpId,
-                            requestDate: new Date().toISOString()
-                        },
-                        metadata: {
-                            member: {
-                                id: member.id,
-                                erpId: member.erpId,
-                                fullName: member.fullName,
-                                department: member.department
-                            },
-                            savings: {
-                                id: latestSavings.id,
-                                currentBalance: latestSavings.balance.toString(),
-                                totalSavings: latestSavings.totalSavingsAmount.toString(),
-                                remainingBalance: new Decimal(latestSavings.balance).minus(data.amount).toString()
-                            }
-                        },
+                        ...requestData,
                         approvalSteps: {
                             create: approvalSteps
                         }
@@ -241,17 +372,19 @@ class SavingsWithdrawalService {
                     }
                 });
 
-                // Create a notification for admins
+                // Create a notification for the member
+                const withdrawalTypeText = isPersonalSavings ? 'personal savings' : 'savings';
                 await tx.notification.create({
                     data: {
                         userId: data.userId, // Send to the requester
                         type: 'REQUEST_UPDATE',
-                        title: 'Withdrawal Request Submitted',
-                        message: `Your withdrawal request of ${formatCurrency(data.amount)} has been submitted and is pending review.`,
+                        title: `${isPersonalSavings ? 'Personal Savings ' : ''}Withdrawal Request Submitted`,
+                        message: `Your ${withdrawalTypeText} withdrawal request of ${formatCurrency(data.amount)} has been submitted and is pending review.`,
                         metadata: {
                             requestId: request.id,
                             amount: data.amount,
-                            status: 'PENDING'
+                            status: 'PENDING',
+                            withdrawalType: isPersonalSavings ? 'PERSONAL_SAVINGS' : 'SAVINGS'
                         }
                     }
                 });

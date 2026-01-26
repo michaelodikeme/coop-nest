@@ -54,7 +54,12 @@ function useTransactions(page = 1, limit = 10) {
     queryKey: ['transactions', page, limit],
     queryFn: async () => {
       try {
-        const response = await apiService.get<Transaction[]>(`/transactions?page=${page}&limit=${limit}`);
+        const response = await apiService.get<any>(`/transactions?page=${page}&limit=${limit}`);
+        // If response has data property, it's wrapped - unwrap it
+        if (response && typeof response === 'object' && 'data' in response && 'meta' in response.data) {
+          return response.data;
+        }
+        // Already unwrapped or plain array
         return response;
       } catch (error) {
         console.error('Failed to fetch transactions:', error);
@@ -140,54 +145,60 @@ export default function FinancialServicesPage() {
 
   const columns: DataTableColumn<Transaction>[] = [
     {
-      Header: 'Member',
+      id: 'memberName',
+      label: 'Member',
       accessor: 'memberName',
       filterable: true,
     },
     {
-      Header: 'Type',
+      id: 'type',
+      label: 'Type',
       accessor: 'type',
       filterable: true,
-      Cell: ({ value }) => (
+      Cell: ({ value }: { value: any }) => (
         <span className="capitalize">{value.toLowerCase()}</span>
       ),
     },
     {
-      Header: 'Amount',
+      id: 'amount',
+      label: 'Amount',
       accessor: 'amount',
       align: 'right',
-      Cell: ({ value }) => (
+      Cell: ({ value }: { value: any }) => (
         <span className="font-medium">
           ${value.toLocaleString('en-US', { minimumFractionDigits: 2 })}
         </span>
       ),
     },
     {
-      Header: 'Status',
+      id: 'status',
+      label: 'Status',
       accessor: 'status',
       align: 'center',
-      Cell: ({ value }) => <StatusBadge status={value} />,
+      Cell: ({ value }: { value: any }) => <StatusBadge status={value} />,
       filterable: true,
     },
     {
-      Header: 'Date',
+      id: 'date',
+      label: 'Date',
       accessor: 'date',
-      Cell: ({ value }) => (
+      Cell: ({ value }: { value: any }) => (
         <span>{new Date(value).toLocaleDateString()}</span>
       ),
       filterable: true,
     },
     {
-      Header: 'Actions',
+      id: 'id',
+      label: 'Actions',
       accessor: 'id',
       align: 'right',
       filterable: false,
-      Cell: ({ row: { original } }) => (
+      Cell: ({ row }: { row: { original: Transaction } }) => (
         <PermissionGate permissions={['REVIEW_TRANSACTIONS']} approvalLevel={2}>
           <Button
             size="small"
             variant="outlined"
-            onClick={() => setSelectedTransaction(original)}
+            onClick={() => setSelectedTransaction(row.original)}
           >
             Review
           </Button>
@@ -223,7 +234,7 @@ export default function FinancialServicesPage() {
         <FinancialCard
           icon={ArrowTrendingUpIcon}
           title="Monthly Deposits"
-          value={isLoadingSavings ? "Loading..." : formatCurrency(savingsSummary?.monthlyDeposits || 0)}
+          value={isLoadingSavings ? "Loading..." : formatCurrency(savingsSummary?.monthlyContribution || 0)}
           trend={"+5.3% from last month"}
           isLoading={isLoadingSavings}
         />
@@ -277,12 +288,12 @@ export default function FinancialServicesPage() {
               pageIndex: currentPage - 1,
               pageSize: pageSize,
               pageCount: transactions?.meta?.totalPages || 1,
-              totalRecords: transactions?.meta?.totalCount || 0,
+              totalRecords: transactions?.meta?.total || 0,
             }}
             onPageChange={(newPage) => setCurrentPage(newPage + 1)}
             onPageSizeChange={setPageSize}
             loading={isLoading}
-            filtering
+            enableFiltering
           />
         </div>
       </div>

@@ -1,18 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { 
-  Typography, 
-  Box, 
-  Paper, 
-  Grid, 
-  Button, 
-  Tabs, 
+import {
+  Typography,
+  Box,
+  Paper,
+  Grid,
+  Button,
+  Tabs,
   Tab,
   Divider,
-  Chip 
+  Chip
 } from '@mui/material';
 import { TabPanel } from '@/components/atoms/TabPanel';
 import { MemberStatusBadge } from '@/components/atoms/MemberStatusBadge';
@@ -23,7 +23,13 @@ import { Module } from '@/types/permissions.types';
 
 type TabPanelType = 'overview' | 'financial' | 'documents' | 'activity';
 
-export default function MemberDetailPage({ params }: { params: { id: string } }) {
+export default function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+
+  return <MemberDetailPageClient id={id} />;
+}
+
+function MemberDetailPageClient({ id }: { id: string }) {
   const [activeTab, setActiveTab] = useState<TabPanelType>('overview');
   const router = useRouter();
   
@@ -33,21 +39,21 @@ export default function MemberDetailPage({ params }: { params: { id: string } })
     isLoading: isMemberLoading,
     error: memberError 
   } = useQuery({
-    queryKey: ['member', params.id],
+    queryKey: ['member', id],
     queryFn: async () => {
-      return await memberService.getBiodataById(params.id);
+      return await memberService.getBiodataById(id);
     }
   });
   
   // Fetch financial data
-  const { 
-    data: financialData, 
-    isLoading: isFinancialLoading 
-  } = useQuery({
-    queryKey: ['member-financial', params.id],
+  const {
+    data: financialData,
+    isLoading: isFinancialLoading
+  } = useQuery<any>({
+    queryKey: ['member-financial', id],
     queryFn: async () => {
-      const response = await apiService.get(`/financial/member/${params.id}`);
-      return response.data.data;
+      const response = await apiService.get(`/financial/member/${id}`) as any;
+      return response.data?.data || response;
     },
     enabled: activeTab === 'financial'
   });
@@ -57,9 +63,9 @@ export default function MemberDetailPage({ params }: { params: { id: string } })
     data: loanData,
     isLoading: isLoanLoading 
   } = useQuery({
-    queryKey: ['member-loans', params.id],
+    queryKey: ['member-loans', id],
     queryFn: async () => {
-      return await memberService.getMemberLoans(params.id, 1, 10);
+      return await memberService.getMemberLoans(id, 1, 10);
     },
     enabled: activeTab === 'financial'
   });
@@ -69,23 +75,23 @@ export default function MemberDetailPage({ params }: { params: { id: string } })
     data: documents, 
     isLoading: isDocumentsLoading 
   } = useQuery({
-    queryKey: ['member-documents', params.id],
+    queryKey: ['member-documents', id],
     queryFn: async () => {
-      const response:any = await apiService.get(`/documents/member/${params.id}`);
+      const response:any = await apiService.get(`/documents/member/${id}`);
       return response.data.data;
     },
     enabled: activeTab === 'documents'
   });
   
   // Fetch activity logs
-  const { 
-    data: activityLogs, 
-    isLoading: isActivityLoading 
-  } = useQuery({
-    queryKey: ['member-activity', params.id],
+  const {
+    data: activityLogs,
+    isLoading: isActivityLoading
+  } = useQuery<any>({
+    queryKey: ['member-activity', id],
     queryFn: async () => {
-      const response = await apiService.get(`/activity/member/${params.id}`);
-      return response.data.data;
+      const response = await apiService.get(`/activity/member/${id}`) as any;
+      return response.data?.data || response;
     },
     enabled: activeTab === 'activity'
   });
@@ -94,7 +100,7 @@ export default function MemberDetailPage({ params }: { params: { id: string } })
   const handleStatusUpdate = async (status: string) => {
     try {
       await memberService.updateMembershipStatus(
-        params.id, 
+        id, 
         status as 'PENDING' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED',
         `Status updated to ${status} from admin panel`
       );
@@ -221,7 +227,7 @@ export default function MemberDetailPage({ params }: { params: { id: string } })
             <PermissionGate permissions={['EDIT_MEMBERS']}>
               <Button 
                 variant="outlined"
-                onClick={() => router.push(`/admin/members/${params.id}/edit`)}
+                onClick={() => router.push(`/admin/members/${id}/edit`)}
               >
                 Edit Member
               </Button>
@@ -230,7 +236,7 @@ export default function MemberDetailPage({ params }: { params: { id: string } })
             <PermissionGate permissions={['VIEW_ACCOUNTS']}>
               <Button
                 variant="outlined"
-                onClick={() => router.push(`/admin/members/${params.id}/accounts`)}
+                onClick={() => router.push(`/admin/members/${id}/accounts`)}
               >
                 Bank Accounts
               </Button>
@@ -307,7 +313,7 @@ export default function MemberDetailPage({ params }: { params: { id: string } })
                         Date of Birth
                       </Typography>
                       <Typography variant="body1">
-                        {formatDate(member.dateOfBirth)}
+                        {'Not provided'}
                       </Typography>
                     </Grid>
                     <Grid size={{ xs: 12 }}>
@@ -442,7 +448,7 @@ export default function MemberDetailPage({ params }: { params: { id: string } })
                           Loans
                         </Typography>
                         
-                        {loanData?.data?.length > 0 ? (
+                        {(loanData?.data?.length || 0) > 0 ? (
                           <Box sx={{ mt: 2 }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                               <thead>
@@ -454,7 +460,7 @@ export default function MemberDetailPage({ params }: { params: { id: string } })
                                 </tr>
                               </thead>
                               <tbody>
-                                {loanData.data.map((loan: any) => (
+                                {loanData?.data?.map((loan: any) => (
                                   <tr key={loan.id}>
                                     <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{loan.amount}</td>
                                     <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{loan.status}</td>
@@ -480,7 +486,7 @@ export default function MemberDetailPage({ params }: { params: { id: string } })
                           Bank Accounts
                         </Typography>
                         
-                        {member.accountInfo && member.accountInfo.length > 0 ? (
+                        {member.accountInfo ? (
                           <Box sx={{ mt: 2 }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                               <thead>
@@ -492,7 +498,7 @@ export default function MemberDetailPage({ params }: { params: { id: string } })
                                 </tr>
                               </thead>
                               <tbody>
-                                {member.accountInfo.map((account: any) => (
+                                {[member.accountInfo].map((account: any) => (
                                   <tr key={account.id}>
                                     <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{account.bank?.name || 'Unknown Bank'}</td>
                                     <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{account.accountNumber}</td>
@@ -518,7 +524,7 @@ export default function MemberDetailPage({ params }: { params: { id: string } })
                           <Button 
                             variant="outlined" 
                             size="small" 
-                            onClick={() => router.push(`/admin/members/${params.id}/accounts`)}
+                            onClick={() => router.push(`/admin/members/${id}/accounts`)}
                           >
                             Manage Bank Accounts
                           </Button>

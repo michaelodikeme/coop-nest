@@ -10,7 +10,6 @@ import { SecuritySettingsForm } from '@/components/organisms/settings/SecuritySe
 import { NotificationSettingsForm } from '@/components/organisms/settings/NotificationSettingsForm';
 import { SharesSettingsForm } from '@/components/organisms/settings/SharesSettingsForm';
 import { AdvancedSettingsForm } from '@/components/organisms/settings/AdvancedSettingsForm';
-import { savingsService } from '@/lib/api/services/savingsService';
 import { settingsService } from '@/lib/api/services/settingsService';
 
 export default function SettingsPage() {
@@ -24,19 +23,19 @@ export default function SettingsPage() {
     }
   });
   
-  // Fetch shares amount settings
-  const { data: sharesSettings, isLoading: isLoadingShares, error: sharesError } = useQuery({
-    queryKey: ['settings', 'shares'],
-    queryFn: async () => {
-      return await savingsService.getShareAmount();
-    }
-  });
-  
+  // TODO: Implement shares amount settings when backend is ready
+  // const { data: sharesSettings, isLoading: isLoadingShares, error: sharesError } = useQuery({
+  //   queryKey: ['settings', 'shares'],
+  //   queryFn: async () => {
+  //     return await savingsService.getShareAmount();
+  //   }
+  // });
+
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
   };
     // Check for errors
-  const error = settingsError || sharesError;
+  const error = settingsError;
   if (error) {
     return (
       <Box sx={{ maxWidth: '100%', width: '100%' }}>
@@ -48,7 +47,7 @@ export default function SettingsPage() {
   }
   
   // Check if loading
-  const isLoading = isLoadingSettings || isLoadingShares;
+  const isLoading = isLoadingSettings;
   
   return (
     <Box sx={{ maxWidth: '100%', width: '100%' }}>
@@ -107,8 +106,8 @@ export default function SettingsPage() {
           <TabPanel value={activeTab} index={3}>
           <PermissionGate permissions={['settings:shares']} approvalLevel={2}>
             <SharesSettingsForm
-              initialData={sharesSettings}
-              isLoading={isLoadingShares}
+              initialData={undefined}
+              isLoading={false}
             />
           </PermissionGate>
         </TabPanel>

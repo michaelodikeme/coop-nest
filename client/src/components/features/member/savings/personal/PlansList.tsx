@@ -1,12 +1,12 @@
-import { usePersonalSavingsPlans } from '@/lib/hooks/member/usePersonalSavings';
+import { usePersonalSavingsPlans, useRequestWithdrawal } from '@/lib/hooks/member/usePersonalSavings';
 import { PersonalSavingsResponse, PersonalSavingsStatus, RequestStatus } from '@/types/personal-savings.types';
 import { useState } from 'react';
 import { formatCurrency } from '@/utils/formatting/format';
 import { useRouter } from 'next/navigation';
-import { 
+import {
   Button,
-  Card, 
-  CardContent, 
+  Card,
+  CardContent,
   Box,
   Typography,
   Grid,
@@ -21,8 +21,14 @@ import {
   LinearProgress,
   Divider,
   SelectChangeEvent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import React from 'react';
 
 // Approval progress component
@@ -87,13 +93,19 @@ export function PlansList() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [viewFilter, setViewFilter] = useState<'all' | 'active' | 'pending'>('all');
+  const [withdrawalModalOpen, setWithdrawalModalOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<PersonalSavingsResponse | null>(null);
+  const [withdrawalAmount, setWithdrawalAmount] = useState('');
+  const [withdrawalReason, setWithdrawalReason] = useState('');
   const router = useRouter();
-  
-  const { data, isLoading, error } = usePersonalSavingsPlans({ 
+
+  const { data, isLoading, error } = usePersonalSavingsPlans({
     page: page + 1, // API uses 1-indexed pagination
     limit: rowsPerPage,
     includePending: viewFilter !== 'active', // Include pending requests based on filter
   });
+
+  const requestWithdrawalMutation = useRequestWithdrawal();
 
   const handleChangePage = (_: unknown, newPage: number) => {
     setPage(newPage);
@@ -103,9 +115,45 @@ export function PlansList() {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
+
   const handleViewFilterChange = (event: SelectChangeEvent) => {
     setViewFilter(event.target.value as 'all' | 'active' | 'pending');
     setPage(0);
+  };
+
+  const handleOpenWithdrawalModal = (plan: PersonalSavingsResponse) => {
+    setSelectedPlan(plan);
+    setWithdrawalAmount('');
+    setWithdrawalReason('');
+    setWithdrawalModalOpen(true);
+  };
+
+  const handleCloseWithdrawalModal = () => {
+    setWithdrawalModalOpen(false);
+    setSelectedPlan(null);
+    setWithdrawalAmount('');
+    setWithdrawalReason('');
+  };
+
+  const handleSubmitWithdrawal = () => {
+    if (!selectedPlan?.id || !withdrawalAmount) return;
+
+    const amount = parseFloat(withdrawalAmount);
+    if (isNaN(amount) || amount <= 0) {
+      return;
+    }
+
+    requestWithdrawalMutation.mutate({
+      id: selectedPlan.id,
+      data: {
+        amount,
+        reason: withdrawalReason || 'Personal savings withdrawal',
+      },
+    }, {
+      onSuccess: () => {
+        handleCloseWithdrawalModal();
+      },
+    });
   };
 
   // Filter items based on view filter
@@ -319,16 +367,30 @@ export function PlansList() {
                     </CardContent>
                     
                     <Box sx={{ p: 2, pt: 0, mt: 'auto' }}>
-                      <Button
-                        variant="outlined"
-                        fullWidth
-                        onClick={() => router.push(isPending 
-                          ? `/member/savings/personal/requests/${item.requestId}`
-                          : `/member/savings/personal/${item.id || item.requestId}`
+                      <Stack spacing={1}>
+                        <Button
+                          variant="outlined"
+                          fullWidth
+                          onClick={() => router.push(isPending
+                            ? `/member/savings/personal/requests/${item.requestId}`
+                            : `/member/savings/personal/${item.id || item.requestId}`
+                          )}
+                        >
+                          {isPending ? 'View Request' : 'View Details'}
+                        </Button>
+
+                        {/* Show withdrawal button only for active plans without pending withdrawals */}
+                        {!isPending && !hasWithdrawal && item.status === PersonalSavingsStatus.ACTIVE && (item.currentBalance || 0) > 0 && (
+                          <Button
+                            variant="contained"
+                            fullWidth
+                            startIcon={<AccountBalanceWalletIcon />}
+                            onClick={() => handleOpenWithdrawalModal(item)}
+                          >
+                            Request Withdrawal
+                          </Button>
                         )}
-                      >
-                        {isPending ? 'View Request' : 'View Details'}
-                      </Button>
+                      </Stack>
                     </Box>
                   </Card>
                 </Grid>
@@ -350,6 +412,68 @@ export function PlansList() {
           </Box>
         </Box>
       )}
+
+      {/* Withdrawal Request Modal */}
+      <Dialog
+        open={withdrawalModalOpen}
+        onClose={handleCloseWithdrawalModal}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Request Withdrawal</DialogTitle>
+        <DialogContent>
+          {selectedPlan && (
+            <Box sx={{ pt: 2 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Plan: {selectedPlan.planName || "Savings Plan"}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Available Balance: {formatCurrency(selectedPlan.currentBalance || 0)}
+              </Typography>
+
+              <TextField
+                fullWidth
+                label="Withdrawal Amount"
+                type="number"
+                value={withdrawalAmount}
+                onChange={(e) => setWithdrawalAmount(e.target.value)}
+                margin="normal"
+                inputProps={{
+                  min: 0,
+                  max: selectedPlan.currentBalance || 0,
+                  step: 0.01,
+                }}
+                helperText={`Maximum: ${formatCurrency(selectedPlan.currentBalance || 0)}`}
+              />
+
+              <TextField
+                fullWidth
+                label="Reason (Optional)"
+                multiline
+                rows={3}
+                value={withdrawalReason}
+                onChange={(e) => setWithdrawalReason(e.target.value)}
+                margin="normal"
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseWithdrawalModal}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleSubmitWithdrawal}
+            disabled={
+              requestWithdrawalMutation.isPending ||
+              !withdrawalAmount ||
+              parseFloat(withdrawalAmount) <= 0 ||
+              parseFloat(withdrawalAmount) > (selectedPlan?.currentBalance || 0)
+            }
+          >
+            {requestWithdrawalMutation.isPending ? 'Submitting...' : 'Submit Request'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -217,20 +217,35 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
   
   /**
    * Process a savings withdrawal transaction
+   * Handles both regular Savings and Personal Savings withdrawals
    */
   private async processSavingsWithdrawal(transaction: Transaction): Promise<void> {
-    if (!transaction.amount || !transaction.savingsId) {
+    if (!transaction.amount) {
+      logger.warn(`Cannot process withdrawal: transaction ${transaction.id} has no amount`);
       return;
     }
-    
+
     // Ensure amount is positive for calculations (schema stores withdrawals as negative amounts)
     const withdrawalAmount = transaction.amount.abs();
-    
+
+    // Check if this is a Personal Savings withdrawal
+    if (transaction.personalSavingsId) {
+      await this.processPersonalSavingsWithdrawal(transaction, withdrawalAmount);
+      return;
+    }
+
+    // If we reach here, it should be a regular Savings withdrawal
+    // Check if savingsId exists
+    if (!transaction.savingsId) {
+      logger.error(`Cannot process withdrawal: transaction ${transaction.id} has neither savingsId nor personalSavingsId`);
+      return;
+    }
+
     // Find the savings record
     const savings = await this.prisma.savings.findUnique({
       where: { id: transaction.savingsId }
     });
-    
+
     if (!savings) {
       throw new TransactionError(
         `Savings record not found: ${transaction.savingsId}`,
@@ -238,7 +253,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
         404
       );
     }
-    
+
     // Check if there are sufficient funds
     if (savings.balance.lessThan(withdrawalAmount)) {
       throw new TransactionError(
@@ -247,7 +262,7 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
         400
       );
     }
-    
+
     // Update the savings balance
     const newBalance = savings.balance.minus(withdrawalAmount);
     await this.prisma.savings.update({
@@ -257,7 +272,55 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
         totalSavingsAmount: savings.totalSavingsAmount.minus(withdrawalAmount)
       }
     });
-    
+
+    // Update the transaction's balanceAfter field
+    await this.prisma.transaction.update({
+      where: { id: transaction.id },
+      data: {
+        balanceAfter: newBalance
+      }
+    });
+  }
+
+  /**
+   * Process a personal savings withdrawal transaction
+   */
+  private async processPersonalSavingsWithdrawal(transaction: Transaction, withdrawalAmount: Decimal): Promise<void> {
+    if (!transaction.personalSavingsId) {
+      return;
+    }
+
+    // Find the personal savings record
+    const personalSavings = await this.prisma.personalSavings.findUnique({
+      where: { id: transaction.personalSavingsId }
+    });
+
+    if (!personalSavings) {
+      throw new TransactionError(
+        `Personal savings record not found: ${transaction.personalSavingsId}`,
+        TransactionErrorCodes.ENTITY_NOT_FOUND,
+        404
+      );
+    }
+
+    // Check if there are sufficient funds
+    if (personalSavings.currentBalance.lessThan(withdrawalAmount)) {
+      throw new TransactionError(
+        'Insufficient personal savings balance for withdrawal',
+        TransactionErrorCodes.INSUFFICIENT_FUNDS,
+        400
+      );
+    }
+
+    // Update the personal savings balance
+    const newBalance = personalSavings.currentBalance.minus(withdrawalAmount);
+    await this.prisma.personalSavings.update({
+      where: { id: personalSavings.id },
+      data: {
+        currentBalance: newBalance
+      }
+    });
+
     // Update the transaction's balanceAfter field
     await this.prisma.transaction.update({
       where: { id: transaction.id },
