@@ -97,3 +97,19 @@ export function getFieldDisplayName(fieldName: string): string {
 
   return fieldNameMap[fieldName] || fieldName
 }
+
+export const getErrorMessage = (error: any, defaultMessage: string = 'An error occurred. Please try again.'): string => {
+  const formattedError = extractErrorFromResponse(error);
+  return formattedError.message || defaultMessage;
+};
+
+export const getFormattedError = (error: any, defaultMessage: string = 'An error occurred. Please try again.') => {
+  const formattedError = extractErrorFromResponse(error);
+  
+  // If no message was extracted, use the default
+  if (formattedError.message === 'An error occurred. Please try again.' && defaultMessage !== formattedError.message) {
+    formattedError.message = defaultMessage;
+  }
+  
+  return formattedError;
+};

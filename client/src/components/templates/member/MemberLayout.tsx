@@ -34,6 +34,7 @@ import {
   People as MembersIcon,
   Settings as SettingsIcon,
   Notifications as NotificationsIcon,
+  Receipt as Receipt,
 } from '@mui/icons-material';
 
 const drawerWidth = 280;
@@ -56,6 +57,7 @@ const memberNavItems: NavItem[] = [
     children: [
       { title: 'Regular Savings', path: '/member/savings', icon: <SavingsIcon /> },
       { title: 'Personal Savings', path: '/member/savings/personal', icon: <SavingsIcon /> },
+      { title: 'Withdrawal Requests', path: '/member/savings/requests', icon: <Receipt /> },
     ]
   },
   { title: 'Loans', path: '/member/loans', icon: <LoansIcon /> },

@@ -41,17 +41,17 @@ export default function MemberApprovalsPage() {
     }
   };
   
-  // Access the members directly without the nested .data
+  // Access the members and meta correctly from the unwrapped response
   const members = approvals?.data || [];
-  const meta = approvals?.data?.meta || { totalCount: 0, totalPages: 0 };
-  
+  const meta = approvals?.meta || { total: 0, totalPages: 0 };
+
   // For statistics
   const countStatus = (status: string): number => {
-    return Array.isArray(members) 
-    ? members.filter(item => item.status === status).length 
+    return Array.isArray(members)
+    ? members.filter(item => item.status === status).length
     : 0;
   };
-  
+
   // Fixed statistics calculations
   const statistics = {
     pending: countStatus('PENDING'),
@@ -60,7 +60,7 @@ export default function MemberApprovalsPage() {
     approved: countStatus('APPROVED'),
     rejected: countStatus('REJECTED'),
     completed: countStatus('COMPLETED'),
-    total: Array.isArray(approvals?.data?.data) ? approvals.data.data.length : 0
+    total: Array.isArray(approvals?.data) ? approvals.data.length : 0
   };
   
   const columns = [
@@ -195,7 +195,7 @@ export default function MemberApprovalsPage() {
       pageIndex: page - 1,
       pageSize,
       pageCount: meta.totalPages || 0,
-      totalRecords: meta.totalCount || 0,
+      totalRecords: meta.total || 0,
     }}
     onPageChange={(p) => setPage(p + 1)}
     onPageSizeChange={setPageSize}

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import LastTransactionSummary from '@/components/features/member/savings/LastTransactionSummary';
 import React from 'react';
 import { 
   Box, 
@@ -23,40 +22,123 @@ import {
   LinearProgress,
   Alert,
   AlertTitle,
-  useTheme
+  useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  CircularProgress
 } from '@mui/material';
-import TransactionHistory from '@/components/features/member/savings/TransactionHistory';
-import WithdrawalRequests from '@/components/features/member/savings/WithdrawalRequests';
-import TransactionForm from '@/components/features/member/savings/TransactionForm';
-import SavingsChart from '@/components/features/member/savings/SavingsChart';
-import { useQuery } from '@tanstack/react-query';
-import { savingsService } from '@/lib/api';
-import { useAuth } from '@/lib/api/contexts/AuthContext';
-import { formatCurrency, formatDate } from '@/utils/formatting/format';
-import LoadingScreen from '@/components/atoms/LoadingScreen';
 import { 
-  AccountBalance, 
-  TrendingUp, 
-  Savings, 
+  AccountBalance,
+  TrendingUp,
+  Savings,
   MonetizationOn,
   History,
   CalendarMonth,
-  Info,
+  Info as InfoIcon,
   SwapHoriz,
   FileDownload,
+  Add as AddIcon,
+  Cancel as CancelIcon,
+  Check as CheckIcon,
+  AccessTime as AccessTimeIcon,
+  Person as PersonIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
   ArrowUpward,
   ArrowDownward,
   Receipt
 } from '@mui/icons-material';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import LastTransactionSummary from '@/components/features/member/savings/LastTransactionSummary';
+import TransactionHistory from '@/components/features/member/savings/TransactionHistory';
+import WithdrawalRequests from '@/components/features/member/savings/WithdrawalRequests';
+import TransactionForm from '@/components/features/member/savings/TransactionForm';
+import SavingsChart from '@/components/features/member/savings/SavingsChart';
+import LoadingScreen from '@/components/atoms/LoadingScreen';
+import { savingsService } from '@/lib/api';
+import { useAuth } from '@/lib/api/contexts/AuthContext';
+import { formatCurrency, formatDate } from '@/utils/formatting/format';
 import { format } from 'date-fns';
 import { WithdrawalStatus } from '@/types/financial.types';
 import { Transaction } from '@/types/transaction.types';
+
+
 
 export default function SavingsPage() {
   const theme = useTheme();
   const { user } = useAuth();
   const [showWithdrawalForm, setShowWithdrawalForm] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
+  const [openNewRequest, setOpenNewRequest] = useState(false);
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const createMutation = useMutation({
+    mutationFn: (data: { amount: number, reason: string }) => 
+      savingsService.createWithdrawalRequest({
+        amount: data.amount,
+        reason: data.reason
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['withdrawal-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['savings-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['savings-summary'] });
+      handleCloseNewRequest();
+    },
+    onError: (error: any) => {
+      setError(error.message || 'Failed to submit withdrawal request');
+    }
+  });
+
+  const handleCloseNewRequest = () => {
+    setOpenNewRequest(false);
+    setAmount('');
+    setReason('');
+    setError(null);
+  };
+
+  const handleSubmitRequest = () => {
+    setError(null);
+    const amountValue = parseFloat(amount);
+    const maxAmount = Number(savingsSummary?.data?.balance || 0) * 0.8;
+    
+    if (!amountValue || isNaN(amountValue)) {
+      setError('Please enter a valid amount');
+      return;
+    }
+    
+    if (amountValue <= 0) {
+      setError('Amount must be greater than zero');
+      return;
+    }
+    
+    if (amountValue < 1000) {
+      setError('Minimum withdrawal amount is ₦1,000');
+      return;
+    }
+    
+    if (amountValue > maxAmount) {
+      setError(`Amount exceeds your available balance of ${formatCurrency(maxAmount)}`);
+      return;
+    }
+    
+    if (!reason.trim()) {
+      setError('Please provide a reason for the withdrawal (minimum 10 characters)');
+      return;
+    }
+    
+    if (reason.trim().length < 10) {
+      setError('Please provide a more detailed reason (minimum 10 characters)');
+      return;
+    }
+    
+    createMutation.mutate({ amount: amountValue, reason });
+  };
+
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
   
@@ -72,40 +154,26 @@ export default function SavingsPage() {
     queryFn: () => savingsService.getMySavings(),
     enabled: !!user?.biodata?.id
   });
-  
-  // Keep existing transactions query (for the Transactions tab)
-  const { data: allTransactions, isLoading: isTransactionsLoading } = useQuery({
-    queryKey: ['savings-transactions'],  // Rename this key to be more descriptive
-    queryFn: () => savingsService.getTransactions(),
-    enabled: !!user?.biodata?.id
-  });
 
-  // Add a new query specifically for withdrawal requests
+  // Fetch withdrawal requests - used for withdrawal requests tab and notifications
   const { data: withdrawalRequestsData, isLoading: isWithdrawalLoading } = useQuery({
     queryKey: ['withdrawal-requests'],
     queryFn: () => savingsService.getWithdrawalRequests(),
-    enabled: !!user?.biodata?.id
+    enabled: !!user?.biodata?.id,
+    select: (data) => {
+      if (!data?.data) return { data: [] };
+      const filtered = data.data.filter(req => req.type === 'SAVINGS_WITHDRAWAL');
+      return { ...data, data: filtered };
+    }
   });
 
-  // Inside your component, add a query to get the last transaction
+  // Fetch last transaction for summary card
   const { data: lastTransactionData, isLoading: isLastTransactionLoading } = useQuery({
     queryKey: ['last-transaction'],
     queryFn: async () => {
       const result = await savingsService.getTransactions({ page: 1, limit: 1 });
-      console.log('Last transaction data:', result);
-      // Always return a value (null if not found)
-      return result?.data?.data?.[0] || null;
-    },
-    enabled: !!user?.biodata?.id
-  });
-
-  const { data: transactionList, isLoading: istransactionListLoading } = useQuery({
-    queryKey: ['transaction-list'],
-    queryFn: async () => {
-      const result = await savingsService.getTransactions({ page: 1, limit: 10 });
-      console.log('Transaction list data:', result);
-      // Always return an array
-      return result?.data || [];
+      // Service already unwraps, so return the first transaction or null
+      return result?.data?.[0] || null;
     },
     enabled: !!user?.biodata?.id
   });
@@ -176,33 +244,14 @@ export default function SavingsPage() {
       item => item.month === currentMonth && item.year === currentYear
     );
   }, [mySavings, currentMonth, currentYear]);
-  
-  // Extract all transactions from savings records
-  const allSavingsTransactions = useMemo(() => {
-    if (!mySavings?.data?.length) return [];
-    
-    return mySavings.data.flatMap(record => record.transactions || []);
-  }, [mySavings]);
-  
-  // Filter transactions to get pending withdrawal requests
-  const withdrawalRequests = useMemo(() => {
-    if (!allTransactions) return { data: [] };
-    
-    const transactionsArray = Array.isArray(allTransactions) 
-      ? allTransactions 
-      : [];
-    
-    const pendingWithdrawals = transactionsArray.filter(
-      tx => tx && typeof tx === 'object' && tx.type === 'WITHDRAWAL' && 
-           tx.status === WithdrawalStatus.PENDING
+
+  // Check if user has active withdrawal requests
+  const hasActiveWithdrawalRequests = useMemo(() => {
+    if (!withdrawalRequestsData?.data) return false;
+    return withdrawalRequestsData.data.some(req => 
+      ['PENDING', 'IN_REVIEW', 'APPROVED'].includes(req.status)
     );
-    
-    return { data: pendingWithdrawals };
-  }, [allTransactions]);
-  
-  // Replace the current withdrawal requests filter with this direct query data access
-  const hasActiveWithdrawalRequests = withdrawalRequestsData?.data?.data && 
-    withdrawalRequestsData.data?.data.length > 0;
+  }, [withdrawalRequestsData]);
   
   // Calculate share percentage
   const sharesPercentage = useMemo(() => {
@@ -267,8 +316,8 @@ export default function SavingsPage() {
             variant="contained"
             color="primary"
             startIcon={<SwapHoriz />}
-            onClick={() => setActiveTab(2)}
-            disabled={isSummaryLoading || (savingsSummary?.data?.totalSavingsAmount || 0) <= 0}
+            onClick={() => setOpenNewRequest(true)}
+            disabled={isSummaryLoading || !savingsSummary?.data?.balance || (savingsSummary?.data?.balance || 0) <= 0}
           >
             Request Withdrawal
           </Button>
@@ -277,13 +326,13 @@ export default function SavingsPage() {
 
       {/* Notification for pending withdrawal requests */}
       {hasActiveWithdrawalRequests && (
-        <Alert 
-          severity="info" 
+        <Alert
+          severity="info"
           sx={{ mb: 3, borderRadius: 2 }}
           action={
-            <Button 
-              color="inherit" 
-              size="small" 
+            <Button
+              color="inherit"
+              size="small"
               onClick={() => setActiveTab(2)}
             >
               View Details
@@ -291,15 +340,15 @@ export default function SavingsPage() {
           }
         >
           <AlertTitle>Pending Withdrawal Request</AlertTitle>
-          You have {withdrawalRequestsData?.data?.data?.length} pending withdrawal 
-          {withdrawalRequestsData?.data?.data?.length === 1 ? 'request' : 'requests'}.
+          You have {withdrawalRequestsData?.data?.length || 0} pending withdrawal
+          {(withdrawalRequestsData?.data?.length || 0) === 1 ? ' request' : ' requests'}.
           Processing usually takes 2-3 business days.
         </Alert>
       )}
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, md: 3 }}>
+        <Grid item xs={12} md={3}>
           <Card elevation={0} sx={{ 
             borderRadius: 2, 
             height: '100%',
@@ -320,7 +369,7 @@ export default function SavingsPage() {
             </CardContent>
           </Card>
         </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
+          <Grid item xs={12} md={3}>
           <Card elevation={0} sx={{ 
             borderRadius: 2, 
             height: '100%',
@@ -341,7 +390,7 @@ export default function SavingsPage() {
             </CardContent>
           </Card>
         </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
+          <Grid item xs={12} md={3}>
           <Card elevation={0} sx={{ 
             borderRadius: 2, 
             height: '100%',
@@ -363,7 +412,7 @@ export default function SavingsPage() {
           </Card>
         </Grid>
 
-        <Grid size={{ xs: 12, md: 3 }}>
+        <Grid item xs={12} md={3}>
           <Card elevation={0} sx={{ 
             borderRadius: 2, 
             height: '100%',
@@ -420,25 +469,12 @@ export default function SavingsPage() {
         >
           <Tab 
             label="Overview" 
-            icon={<Info />} 
+            icon={<InfoIcon />} 
             iconPosition="start" 
           />
           <Tab 
             label="Transactions" 
             icon={<History />} 
-            iconPosition="start" 
-          />
-          <Tab 
-            label={
-              <Badge 
-                color="error" 
-                badgeContent={withdrawalRequestsData?.data?.data?.length || 0}
-                showZero={false}
-              >
-                Withdrawal Requests
-              </Badge>
-            }
-            icon={<Receipt />} 
             iconPosition="start" 
           />
         </Tabs>
@@ -465,7 +501,7 @@ export default function SavingsPage() {
                 How It Works
               </Typography>
               <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 4 }}>
+                <Grid item xs={12} md={4}>
                   <Paper sx={{ p: 2, borderRadius: 2, height: '100%', border: `1px solid ${theme.palette.divider}`, boxShadow: 'none' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                       <Box sx={{ 
@@ -490,7 +526,7 @@ export default function SavingsPage() {
                     </Typography>
                   </Paper>
                 </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
+                <Grid item xs={12} md={4}>
                   <Paper sx={{ p: 2, borderRadius: 2, height: '100%', border: `1px solid ${theme.palette.divider}`, boxShadow: 'none' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                       <Box sx={{ 
@@ -515,7 +551,7 @@ export default function SavingsPage() {
                     </Typography>
                   </Paper>
                 </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
+                <Grid item xs={12} md={4}>
                   <Paper sx={{ p: 2, borderRadius: 2, height: '100%', border: `1px solid ${theme.palette.divider}`, boxShadow: 'none' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                       <Box sx={{ 
@@ -555,52 +591,76 @@ export default function SavingsPage() {
             />
           </Box>
         )}
-
-        {/* Withdrawal Requests Tab */}
-        {activeTab === 2 && (
-          <Box>
-            <Grid container spacing={3}>
-              <Grid size={12}>
-                <Paper sx={{ p: 3, borderRadius: 2, mb: 3, border: `1px solid ${theme.palette.divider}`, boxShadow: 'none' }}>
-                  
-                  {isWithdrawalLoading ? (
-                    <LinearProgress />
-                  ) : (
-                    <WithdrawalRequests maxAmount={savingsSummary?.totalSavingsAmount || 0} />
-                  )}
-                  
-                  {/* Only show this when there are no withdrawal requests */}
-                  {!hasActiveWithdrawalRequests && !isWithdrawalLoading && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        You can request a withdrawal by clicking the "New Request" button above.
-                      </Typography>
-                      <Alert severity="info" sx={{ borderRadius: 1, mt: 2 }}> 
-                        You don't have any withdrawal requests at the moment.
-                      </Alert>
-                    </Box>
-                  )}
-                  
-                  <Box sx={{ mt: 3 }}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Withdrawal Process:
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      1. Submit a withdrawal request specifying the amount and reason
-                      <br />
-                      2. Your request will be reviewed by the cooperative management
-                      <br />
-                      3. Once approved, funds will be transferred to your registered bank account
-                      <br />
-                      4. You'll receive notifications at each step of the process
-                    </Typography>
-                  </Box>
-                </Paper>
-              </Grid>
-            </Grid>
-          </Box>
-        )}
       </Box>
+
+      <Dialog 
+        open={openNewRequest} 
+        onClose={handleCloseNewRequest}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>New Withdrawal Request</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1 }}>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+            
+            <Grid container spacing={2}>
+                <TextField
+                  label="Amount"
+                  type="number"
+                  fullWidth
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  InputProps={{
+                    startAdornment: <Box component="span" mr={0.5}>₦</Box>,
+                  }}
+                  margin="normal"
+                  variant="outlined"
+                  helperText={`Maximum available: ${formatCurrency(Number(savingsSummary?.data?.balance || 0) * 0.8)}`}
+                />
+              
+                <TextField
+                  label="Reason for Withdrawal"
+                  multiline
+                  rows={3}
+                  fullWidth
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  margin="normal"
+                  variant="outlined"
+                  helperText="Please provide a detailed reason (minimum 10 characters)"
+                />
+            </Grid>
+            
+            <Alert severity="info" icon={<InfoIcon />} sx={{ mt: 2 }}>
+              <Typography variant="body2">
+                Withdrawal requests are subject to approval and typically processed within 2-3 business days.
+              </Typography>
+            </Alert>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleCloseNewRequest}>
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleSubmitRequest}
+            disabled={createMutation.isPending}
+          >
+            {createMutation.isPending ? (
+              <>
+                <CircularProgress size={16} sx={{ mr: 1 }} />
+                Submitting...
+              </>
+            ) : 'Submit Request'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

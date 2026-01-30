@@ -73,21 +73,24 @@ export default function MemberDashboard() {
   if (isAnyLoading) {
     return <DashboardSkeleton />;
   }
-  
-  // Handle errors
-  if (error.biodata || error.savings || error.loans) {
+
+  // Handle CRITICAL errors only (biodata is required, savings/loans are optional)
+  if (error.biodata) {
     return (
       <Container maxWidth="xl">
         <Alert severity="error" sx={{ mt: 4 }}>
-          Unable to load dashboard data. Please try again later.
+          Unable to load your profile information. Please try again later.
         </Alert>
       </Container>
     );
   }
 
+  // Show non-critical errors as warnings (savings and loans can be empty for new users)
+  const hasNonCriticalErrors = error.savings || error.loans;
+
   // Check for upcoming payment
   const hasUpcomingPayment = nextPaymentDue && 
-    new Date(nextPaymentDue) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    new Date(nextPaymentDue.dueDate) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
   return (
     <Container maxWidth="xl">
@@ -115,6 +118,28 @@ export default function MemberDashboard() {
         </Box>
       </Box>
 
+      {/* Non-Critical Error Warning */}
+      {hasNonCriticalErrors && (
+        <Alert
+          severity="info"
+          sx={{ mb: 3, borderRadius: 2 }}
+          action={
+            <IconButton
+              aria-label="close"
+              color="inherit"
+              size="small"
+              onClick={handleRefreshData}
+            >
+              <RefreshIcon fontSize="inherit" />
+            </IconButton>
+          }
+        >
+          <Typography variant="subtitle2">
+            Some data could not be loaded. This is normal for new members. Click refresh to try again.
+          </Typography>
+        </Alert>
+      )}
+
       {/* Information Alert */}
       {showAlert && hasUpcomingPayment && (
         <Alert
@@ -132,8 +157,8 @@ export default function MemberDashboard() {
           }
         >
           <Typography variant="subtitle2">
-            You have a loan payment due on {nextPaymentDue ? 
-              format(new Date(nextPaymentDue), 'MMMM dd, yyyy') : ''}
+            You have a loan payment due on {nextPaymentDue ?
+              format(new Date(nextPaymentDue.dueDate), 'MMMM dd, yyyy') : ''}
           </Typography>
         </Alert>
       )}

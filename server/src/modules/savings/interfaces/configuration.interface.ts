@@ -1,5 +1,4 @@
 import { Decimal } from "@prisma/client/runtime/library";
-import { SystemSettingKeys } from "../../system/interfaces/settings.interface";
 
 export interface ISavingsSettingValue {
   value: Decimal;

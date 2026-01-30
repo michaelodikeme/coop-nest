@@ -5,6 +5,7 @@ import { BulkRepaymentService } from '../utils/bulk-repayment.util';
 import { ApiResponse } from '../../../utils/apiResponse';
 import { ApiError } from '../../../utils/apiError';
 import { repaymentSchema } from '../validations/repayment.validation';
+import { LoanRepaymentData } from '../interfaces/repayment.interface';
 
 export class RepaymentController {
     private repaymentService: RepaymentService;
@@ -18,8 +19,8 @@ export class RepaymentController {
             const validatedData = await repaymentSchema.parseAsync({
                 ...req.body,
                 uploadedBy: req.user.id
-            });
-            
+            }) as LoanRepaymentData;
+
             const result = await this.repaymentService.processLoanRepayment(validatedData);
             return ApiResponse.success(res, 'Repayment processed successfully', result);
         } catch (error) {

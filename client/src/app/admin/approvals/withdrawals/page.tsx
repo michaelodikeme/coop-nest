@@ -31,7 +31,7 @@ export default function WithdrawalApprovalsPage() {
   const [pageSize, setPageSize] = useState(10);
   
   const { data: approvals, isLoading, error } = useWithdrawalRequestApprovals(
-    'SAVINGS_WITHDRAWAL',
+    ['SAVINGS_WITHDRAWAL', 'PERSONAL_SAVINGS_WITHDRAWAL'],
     page,
     pageSize,
     statusFilter,
@@ -42,37 +42,37 @@ export default function WithdrawalApprovalsPage() {
   const toast = useToast();
   
   const columns = [
-    { 
+    {
       id: 'member',
-      label: 'Member', 
-      accessor: (row: any) => row.biodata?.fullName || row.memberName || '',
-      Cell: ({ value, row }) => (
+      label: 'Member',
+      accessor: (row: any) => row.member?.name || '',
+      Cell: ({ value, row }: { value: any; row: any }) => (
         <Box>
           <Typography variant="body2" fontWeight={500}>{value}</Typography>
-          <Typography variant="caption" color="text.secondary">{row.original.biodata?.erpId || row.original.memberNumber || ''}</Typography>
+          <Typography variant="caption" color="text.secondary">{row.original.member?.erpId || ''}</Typography>
         </Box>
       ),
     },
-    { 
+    {
       id: 'amount',
-      label: 'Amount', 
-      accessor: (row: any) => row.content?.amount || 0,
-      Cell: ({ value }) => formatCurrency(Number(value))
+      label: 'Amount',
+      accessor: (row: any) => row.rawAmount || 0,
+      Cell: ({ value }: { value: any }) => formatCurrency(Number(value))
     },
     {
       id: 'status',
-      label: 'Status', 
+      label: 'Status',
       accessor: (row: any) => row.status,
-      Cell: ({ value }) => (
-        <Chip 
-          label={value} 
+      Cell: ({ value }: { value: any }) => (
+        <Chip
+          label={value}
           size="small"
           color={
             value === 'PENDING' ? 'warning' :
             value === 'IN_REVIEW' ? 'info' :
             value === 'REVIEWED' ? 'info' :
             value === 'APPROVED' ? 'success' :
-            value === 'REJECTED' ? 'error' : 
+            value === 'REJECTED' ? 'error' :
             value === 'COMPLETED' ? 'success' : 'default'
           }
         />
@@ -80,24 +80,24 @@ export default function WithdrawalApprovalsPage() {
     },
     {
       id: 'nextApprovalLevel',
-      label: 'Approval Level', 
-      accessor: (row: any) => row.nextApprovalLevel,
-      Cell: ({ value }) => (
-        <Chip 
+      label: 'Approval Level',
+      accessor: (row: any) => row.currentApprovalLevel,
+      Cell: ({ value }: { value: any }) => (
+        <Chip
           label={`Level ${value}`}
           size="small"
           variant="outlined"
         />
       )
     },
-    { 
+    {
       id: 'requestedAt',
-      label: 'Requested At', 
-      accessor: (row: any) => row.createdAt,
-      Cell: ({ value }) => (
+      label: 'Requested At',
+      accessor: (row: any) => row.requestDate,
+      Cell: ({ value }: { value: any }) => (
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <AccessTimeIcon fontSize="small" sx={{ mr: 0.5, opacity: 0.7 }} />
-          <Typography variant="body2">{new Date(value).toLocaleDateString()}</Typography>
+          <Typography variant="body2">{new Date(value).toLocaleString()}</Typography>
         </Box>
       )
     },
@@ -105,7 +105,7 @@ export default function WithdrawalApprovalsPage() {
       id: 'actions',
       label: 'Actions',
       accessor: (row: any) => row.id,
-      Cell: ({ value }) => (
+      Cell: ({ value }: { value: any }) => (
         <Button
           size="small"
           variant="contained"
@@ -169,10 +169,10 @@ export default function WithdrawalApprovalsPage() {
       <Paper sx={{ p: 0 }}>
         <DataTable
           columns={columns}
-          data={(approvals?.data?.data) || []} // Fix the data access path
+          data={approvals?.data || []}
           loading={isLoading}
           pagination={{
-            pageCount: approvals?.data?.meta?.totalPages || 0,
+            pageCount: approvals?.meta?.totalPages || 0,
             pageIndex: page - 1,
             pageSize,
           }}

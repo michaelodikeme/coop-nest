@@ -15,7 +15,7 @@ export class SavingsUploadService {
             return await systemSettings.getSetting<Decimal>('DEFAULT_SHARE_AMOUNT');
         } catch (error) {
             logger.warn('Failed to get share amount from settings, using default:', error);
-            return new Decimal(3000);
+            return new Decimal(5000);
         }
     }
 

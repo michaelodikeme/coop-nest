@@ -74,18 +74,21 @@ export default function UsersPage() {
 
   const columns: DataTableColumn<User>[] = [
     {
-      Header: 'Username',
+      id: 'username',
+      label: 'Username',
       accessor: 'username' as keyof User,
     },
     {
-      Header: 'Full Name',
+      id: 'fullName',
+      label: 'Full Name',
       accessor: 'biodata' as keyof User,
       Cell: ({ value }: { value: any }) => (
         <span>{value?.fullName || 'N/A'}</span>
       ),
     },
     {
-      Header: 'Role',
+      id: 'role',
+      label: 'Role',
       accessor: 'roleAssignment' as keyof User,
       Cell: ({ value }: { value: RoleAssignment }) => {
         const primaryRole = value?.role;
@@ -97,14 +100,16 @@ export default function UsersPage() {
       },
     },
     {
-      Header: 'Status',
+      id: 'status',
+      label: 'Status',
       accessor: 'isActive' as keyof User,
       Cell: ({ value }: { value: boolean }) => (
         <UserStatusBadge isActive={value} />
       ),
     },
     {
-      Header: 'Actions',
+      id: 'actions',
+      label: 'Actions',
       accessor: 'id' as keyof User,
       Cell: ({ row }: { row: { original: User } }) => (
         <div className="flex flex-wrap gap-2">
@@ -202,8 +207,7 @@ export default function UsersPage() {
         <DataTable
           columns={columns}
           data={filteredUsers}
-          pagination
-          filtering
+          enableFiltering
         />
       </div>
 

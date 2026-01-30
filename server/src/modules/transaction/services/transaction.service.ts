@@ -577,6 +577,10 @@ export class TransactionService {
           ...(data.relatedEntityType === 'SAVINGS' && data.relatedEntityId ? { 
             savings: { connect: { id: data.relatedEntityId } } 
           } : {}),
+
+          ...(data.relatedEntityType === 'PERSONAL_SAVINGS' && data.relatedEntityId ? { 
+            personalSavings: { connect: { id: data.relatedEntityId } } 
+          } : {}),
           
           ...(data.relatedEntityType === 'SHARES' && data.relatedEntityId ? { 
             shares: { connect: { id: data.relatedEntityId } } 

@@ -75,35 +75,35 @@ export default function MemberFinancialPage() {
   // Fetch savings data
   const { data: savingsData, isLoading: isSavingsLoading } = useQuery({
     queryKey: ['member-savings', memberId, savingsPage, pageSize],
-    queryFn: () => savingsService.getMemberSavings(memberId, savingsPage, pageSize),
+    queryFn: () => savingsService.getAllSavings(savingsPage, pageSize, { biodataId: memberId }),
     enabled: !!memberId && tabIndex === 0,
   });
 
   // Fetch loans data
-  const { data: loansData, isLoading: isLoansLoading } = useQuery({
+  const { data: loansData, isLoading: isLoansLoading } = useQuery<any>({
     queryKey: ['member-loans', memberId, loansPage, pageSize],
-    queryFn: () => memberService.getMemberLoans(memberId, loansPage, pageSize),
+    queryFn: () => apiService.get(`/loans?biodataId=${memberId}&page=${loansPage}&limit=${pageSize}`),
     enabled: !!memberId && tabIndex === 1,
   });
 
   // Fetch shares data
-  const { data: sharesData, isLoading: isSharesLoading } = useQuery({
+  const { data: sharesData, isLoading: isSharesLoading } = useQuery<any>({
     queryKey: ['member-shares', memberId, sharesPage, pageSize],
     queryFn: () => apiService.get(`/savings?biodataId=${memberId}&type=SHARE&page=${sharesPage}&limit=${pageSize}`),
     enabled: !!memberId && tabIndex === 2,
   });
 
   // Fetch transactions data
-  const { data: transactionsData, isLoading: isTransactionsLoading } = useQuery({
+  const { data: transactionsData, isLoading: isTransactionsLoading } = useQuery<any>({
     queryKey: ['member-transactions', memberId, transactionsPage, pageSize],
     queryFn: () => apiService.get(`/transactions/member/${memberId}?page=${transactionsPage}&limit=${pageSize}`),
     enabled: !!memberId && tabIndex === 3,
   });
 
   // Fetch financial summary
-  const { data: financialSummary, isLoading: isSummaryLoading } = useQuery({
+  const { data: financialSummary, isLoading: isSummaryLoading } = useQuery<any>({
     queryKey: ['member-financial-summary', memberId],
-    queryFn: () => memberService.getMemberFinancialSummary(memberId),
+    queryFn: () => apiService.get(`/biodata/${memberId}/financial-summary`),
     enabled: !!memberId,
   });
 
@@ -115,29 +115,34 @@ export default function MemberFinancialPage() {
   // Prepare columns for each data type
   const savingsColumns: DataTableColumn<SavingsRecord>[] = [
     {
-      Header: 'Date',
+      id: 'createdAt',
+      label: 'Date',
       accessor: 'createdAt',
-      Cell: ({ value }) => new Date(value).toLocaleDateString(),
+      Cell: ({ value }: { value: any }) => new Date(value).toLocaleDateString(),
     },
     {
-      Header: 'Type',
-      accessor: 'type',
+      id: 'type',
+      label: 'Type',
+      accessor: (row: any) => row.type || 'SAVINGS',
     },
     {
-      Header: 'Amount',
-      accessor: 'amount',
-      Cell: ({ value }) => formatCurrency(value),
+      id: 'amount',
+      label: 'Amount',
+      accessor: (row: any) => row.amount || row.totalSavingsAmount || 0,
+      Cell: ({ value }: { value: any }) => formatCurrency(value),
     },
     {
-      Header: 'Reference',
-      accessor: 'reference',
+      id: 'reference',
+      label: 'Reference',
+      accessor: (row: any) => row.reference || row.id || '-',
     },
     {
-      Header: 'Status',
+      id: 'status',
+      label: 'Status',
       accessor: 'status',
-      Cell: ({ value }) => (
-        <Chip 
-          label={value || 'COMPLETED'} 
+      Cell: ({ value }: { value: any }) => (
+        <Chip
+          label={value || 'COMPLETED'}
           color={value === 'COMPLETED' ? 'success' : 'default'}
           size="small"
         />
@@ -147,25 +152,29 @@ export default function MemberFinancialPage() {
 
   const loansColumns: DataTableColumn<Loan>[] = [
     {
-      Header: 'Loan ID',
+      id: 'id',
+      label: 'Loan ID',
       accessor: 'id',
-      Cell: ({ value }) => value.substring(0, 8),
+      Cell: ({ value }: { value: any }) => value.substring(0, 8),
     },
     {
-      Header: 'Type',
-      accessor: 'loanTypeName',
+      id: 'loanTypeName',
+      label: 'Type',
+      accessor: (row: any) => row.loanTypeName || row.loanType?.name || row.loanType || '-',
     },
     {
-      Header: 'Amount',
+      id: 'principalAmount',
+      label: 'Amount',
       accessor: 'principalAmount',
-      Cell: ({ value }) => formatCurrency(value),
+      Cell: ({ value }: { value: any }) => formatCurrency(value),
     },
     {
-      Header: 'Status',
+      id: 'status',
+      label: 'Status',
       accessor: 'status',
-      Cell: ({ value }) => (
-        <Chip 
-          label={value} 
+      Cell: ({ value }: { value: any }) => (
+        <Chip
+          label={value}
           color={
             value === 'ACTIVE' ? 'primary' :
             value === 'COMPLETED' ? 'success' :
@@ -179,17 +188,19 @@ export default function MemberFinancialPage() {
       ),
     },
     {
-      Header: 'Date',
+      id: 'createdAt',
+      label: 'Date',
       accessor: 'createdAt',
-      Cell: ({ value }) => new Date(value).toLocaleDateString(),
+      Cell: ({ value }: { value: any }) => new Date(value).toLocaleDateString(),
     },
     {
-      Header: 'Actions',
+      id: 'actions',
+      label: 'Actions',
       accessor: 'id',
-      Cell: ({ value }) => (
+      Cell: ({ value }: { value: any }) => (
         <PermissionGate permissions={['VIEW_LOANS']} module={Module.LOAN}>
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             variant="outlined"
             onClick={() => router.push(`/admin/financial/loans/${value}`)}
           >
@@ -202,43 +213,50 @@ export default function MemberFinancialPage() {
 
   const sharesColumns: DataTableColumn<any>[] = [
     {
-      Header: 'Date',
+      id: 'createdAt',
+      label: 'Date',
       accessor: 'createdAt',
-      Cell: ({ value }) => new Date(value).toLocaleDateString(),
+      Cell: ({ value }: { value: any }) => new Date(value).toLocaleDateString(),
     },
     {
-      Header: 'Quantity',
+      id: 'quantity',
+      label: 'Quantity',
       accessor: 'quantity',
-      Cell: ({ value }) => value || 1,
+      Cell: ({ value }: { value: any }) => value || 1,
     },
     {
-      Header: 'Value per Share',
+      id: 'shareValue',
+      label: 'Value per Share',
       accessor: 'shareValue',
-      Cell: ({ value }) => formatCurrency(value || 5000),
+      Cell: ({ value }: { value: any }) => formatCurrency(value || 5000),
     },
     {
-      Header: 'Total Value',
+      id: 'amount',
+      label: 'Total Value',
       accessor: 'amount',
-      Cell: ({ value }) => formatCurrency(value),
+      Cell: ({ value }: { value: any }) => formatCurrency(value),
     },
     {
-      Header: 'Reference',
+      id: 'reference',
+      label: 'Reference',
       accessor: 'reference',
     },
   ];
 
   const transactionsColumns: DataTableColumn<Transaction>[] = [
     {
-      Header: 'Date',
+      id: 'createdAt',
+      label: 'Date',
       accessor: 'createdAt',
-      Cell: ({ value }) => new Date(value).toLocaleDateString(),
+      Cell: ({ value }: { value: any }) => new Date(value).toLocaleDateString(),
     },
     {
-      Header: 'Type',
-      accessor: 'type',
-      Cell: ({ value }) => (
-        <Chip 
-          label={value} 
+      id: 'type',
+      label: 'Type',
+      accessor: (row: any) => row.type || 'TRANSACTION',
+      Cell: ({ value }: { value: any }) => (
+        <Chip
+          label={value}
           color={
             value === 'DEPOSIT' ? 'success' :
             value === 'WITHDRAWAL' ? 'warning' :
@@ -250,20 +268,23 @@ export default function MemberFinancialPage() {
       ),
     },
     {
-      Header: 'Amount',
+      id: 'amount',
+      label: 'Amount',
       accessor: 'amount',
-      Cell: ({ value }) => formatCurrency(value),
+      Cell: ({ value }: { value: any }) => formatCurrency(value),
     },
     {
-      Header: 'Reference',
-      accessor: 'reference',
+      id: 'reference',
+      label: 'Reference',
+      accessor: (row: any) => row.reference || row.id || '-',
     },
     {
-      Header: 'Status',
+      id: 'status',
+      label: 'Status',
       accessor: 'status',
-      Cell: ({ value }) => (
-        <Chip 
-          label={value} 
+      Cell: ({ value }: { value: any }) => (
+        <Chip
+          label={value}
           color={
             value === 'COMPLETED' ? 'success' :
             value === 'PENDING' ? 'warning' :
@@ -297,9 +318,9 @@ export default function MemberFinancialPage() {
   return (
     <Box sx={{ maxWidth: '100%', pt: 2, pb: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-        <Avatar 
+        <Avatar
           sx={{ width: 64, height: 64, mr: 2 }}
-          src={member.profileImage}
+          src={member.profilePhoto || undefined}
         >
           {member.fullName?.charAt(0) || 'M'}
         </Avatar>
@@ -308,14 +329,14 @@ export default function MemberFinancialPage() {
             {member.fullName}
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            ERP ID: {member.erpId} | Member Since: {new Date(member.joinedDate).toLocaleDateString()}
+            ERP ID: {member.erpId} | Member Since: {new Date(member.createdAt).toLocaleDateString()}
           </Typography>
         </Box>
       </Box>
 
       {/* Financial Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card variant="outlined">
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
@@ -327,8 +348,8 @@ export default function MemberFinancialPage() {
             </CardContent>
           </Card>
         </Grid>
-        
-        <Grid item xs={12} sm={6} md={3}>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card variant="outlined">
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
@@ -340,8 +361,8 @@ export default function MemberFinancialPage() {
             </CardContent>
           </Card>
         </Grid>
-        
-        <Grid item xs={12} sm={6} md={3}>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card variant="outlined">
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
@@ -353,8 +374,8 @@ export default function MemberFinancialPage() {
             </CardContent>
           </Card>
         </Grid>
-        
-        <Grid item xs={12} sm={6} md={3}>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card variant="outlined">
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
@@ -406,7 +427,7 @@ export default function MemberFinancialPage() {
                 pageIndex: savingsPage - 1,
                 pageSize: pageSize,
                 pageCount: savingsData?.meta?.totalPages || 1,
-                totalRecords: savingsData?.meta?.totalCount || 0,
+                totalRecords: savingsData?.meta?.total || 0,
               }}
               onPageChange={(newPage) => setSavingsPage(newPage + 1)}
               loading={isSavingsLoading}
@@ -435,7 +456,7 @@ export default function MemberFinancialPage() {
                 pageIndex: loansPage - 1,
                 pageSize: pageSize,
                 pageCount: loansData?.meta?.totalPages || 1,
-                totalRecords: loansData?.meta?.totalCount || 0,
+                totalRecords: loansData?.meta?.total || 0,
               }}
               onPageChange={(newPage) => setLoansPage(newPage + 1)}
               loading={isLoansLoading}
@@ -464,7 +485,7 @@ export default function MemberFinancialPage() {
                 pageIndex: sharesPage - 1,
                 pageSize: pageSize,
                 pageCount: sharesData?.meta?.totalPages || 1,
-                totalRecords: sharesData?.meta?.totalCount || 0,
+                totalRecords: sharesData?.meta?.total || 0,
               }}
               onPageChange={(newPage) => setSharesPage(newPage + 1)}
               loading={isSharesLoading}
@@ -483,7 +504,7 @@ export default function MemberFinancialPage() {
                 pageIndex: transactionsPage - 1,
                 pageSize: pageSize,
                 pageCount: transactionsData?.meta?.totalPages || 1,
-                totalRecords: transactionsData?.meta?.totalCount || 0,
+                totalRecords: transactionsData?.meta?.total || 0,
               }}
               onPageChange={(newPage) => setTransactionsPage(newPage + 1)}
               loading={isTransactionsLoading}

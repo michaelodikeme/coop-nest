@@ -172,7 +172,7 @@ const EnterLoanDetails: React.FC<EnterLoanDetailsProps> = ({ formik, calculation
     console.log(
         "eligibility",
         eligibility,
-        Number(eligibility?.data.data.maxAmount), selectedLoanType);
+        Number(eligibility?.data?.maxAmount), selectedLoanType);
     return (
       <Box sx={{ mt: 2 }}>
       <Grid container spacing={3}>
@@ -186,7 +186,7 @@ const EnterLoanDetails: React.FC<EnterLoanDetailsProps> = ({ formik, calculation
       onChange={formik.handleChange}
       error={formik.touched.loanAmount && Boolean(formik.errors.loanAmount)}
       helperText={formik.touched.loanAmount && formik.errors.loanAmount}
-      placeholder={`Maximum amount: ${formatCurrency(Number(eligibility?.data?.data.maxAmount  || 0))}`}
+      placeholder={`Maximum amount: ${formatCurrency(Number(eligibility?.data?.maxAmount  || 0))}`}
       InputProps={{
         startAdornment: <Typography sx={{ mr: 1 }}>₦</Typography>
       }}

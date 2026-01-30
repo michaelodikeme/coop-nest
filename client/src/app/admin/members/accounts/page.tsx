@@ -110,25 +110,25 @@ export default function BankAccountsPage() {
     {
       label: 'Actions',
       accessor: 'id',
-      Cell: ({ row }: { value: any; row: BankAccountWithOwner; }) => (
+      Cell: ({ row }: { row: { original: BankAccountWithOwner } }) => (
         <div className="flex space-x-2">
           <PermissionGate permissions={['VERIFY_ACCOUNTS']} approvalLevel={2}>
             <Button
               size="small"
-              variant={row.isVerified ? 'outlined' : 'contained'}
+              variant={row.original.isVerified ? 'outlined' : 'contained'}
               onClick={() => updateAccount({
-                id: row.id,
-                updatedDetails: { isVerified: !row.isVerified }
+                id: row.original.id,
+                updatedDetails: { isVerified: !row.original.isVerified }
               })}
             >
-              {row.isVerified ? 'Unverify' : 'Verify'}
+              {row.original.isVerified ? 'Unverify' : 'Verify'}
             </Button>
           </PermissionGate>
           <PermissionGate permissions={['MANAGE_ACCOUNTS']}>
             <Button
               size="small"
               variant="outlined"
-              onClick={() => setSelectedAccount(row)}
+              onClick={() => setSelectedAccount(row.original)}
             >
               Edit
             </Button>

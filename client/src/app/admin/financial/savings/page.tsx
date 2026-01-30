@@ -102,9 +102,9 @@ export default function AdminSavingsPage() {
   );
   const { data: savingsSummaryData, isLoading: isLoadingSummary } = useAdminSavingsSummary();
   const savingsUploadMutation = useAdminSavingsUpload();
-  const { data: withdrawalRequests, isLoading: isLoadingWithdrawals } = useAdminWithdrawalRequests(
-    withdrawalCurrentPage, 
-    withdrawalPageSize, 
+  const { data: withdrawalRequests, isLoading: isLoadingWithdrawals, error: withdrawalError } = useAdminWithdrawalRequests(
+    withdrawalCurrentPage,
+    withdrawalPageSize,
     withdrawalFilters
   );
   const withdrawalProcessMutation = useProcessWithdrawal();
@@ -429,17 +429,17 @@ export default function AdminSavingsPage() {
       summary.grossContributions = Number(savingsSummaryData.totalGrossAmount || 0);
       summary.monthlyTarget = Number(savingsSummaryData.monthlyTarget || 0);
       
-      const activeAccountsCount = savingsSummaryData.activeAccountsCount || 
+      const activeAccountsCount = savingsSummaryData.activeAccountsCount ||
                                 allSavings?.meta?.total ||
                                 1;
-      
+
       summary.averageAmount = summary.totalAmount / activeAccountsCount;
     }
-    
+
     // Get last update from first record if available
     if (Array.isArray(allSavings?.data) && allSavings.data.length > 0) {
       const firstRecord = allSavings.data[0];
-      summary.lastUpdate = formatDate(firstRecord.createdAt || firstRecord.date || new Date());
+      summary.lastUpdate = formatDate(firstRecord.createdAt || new Date());
     }
     
     return summary;
@@ -749,17 +749,17 @@ export default function AdminSavingsPage() {
             
             <DataTable
               columns={withdrawalsColumns}
-              data={withdrawalRequests?.data?.data || []}
+              data={withdrawalRequests?.data || []}
               pagination={{
                 pageIndex: withdrawalCurrentPage - 1,
                 pageSize: withdrawalPageSize,
-                pageCount: withdrawalRequests?.data?.meta?.totalPages || 1,
-                totalRecords: withdrawalRequests?.data?.meta?.total || 0,
+                pageCount: withdrawalRequests?.meta?.totalPages || 1,
+                totalRecords: withdrawalRequests?.meta?.total || 0,
               }}
               onPageChange={(page) => setWithdrawalCurrentPage(page + 1)}
               onPageSizeChange={setWithdrawalPageSize}
               loading={isLoadingWithdrawals}
-              error={withdrawalRequests?.error ? 'Failed to load withdrawal requests' : undefined}
+              error={withdrawalError ? 'Failed to load withdrawal requests' : undefined}
               noDataMessage="No withdrawal requests found"
             />
           </Paper>
@@ -823,16 +823,16 @@ export default function AdminSavingsPage() {
             <Button 
               variant="outlined" 
               onClick={() => setIsUploadModalOpen(false)}
-              disabled={savingsUploadMutation.isLoading}
+              disabled={savingsUploadMutation.isPending}
             >
               Cancel
             </Button>
             <Button 
               type="submit"
-              isLoading={savingsUploadMutation.isLoading}
-              disabled={savingsUploadMutation.isLoading}
+              isLoading={savingsUploadMutation.isPending}
+              disabled={savingsUploadMutation.isPending}
             >
-              {savingsUploadMutation.isLoading ? 'Uploading...' : 'Upload'}
+              {savingsUploadMutation.isPending ? 'Uploading...' : 'Upload'}
             </Button>
           </div>
         </form>
@@ -1048,7 +1048,7 @@ export default function AdminSavingsPage() {
                       variant="outlined"
                       color="error"
                       onClick={() => handleWithdrawalAction('REJECTED')}
-                      disabled={withdrawalProcessMutation.isLoading}
+                      disabled={withdrawalProcessMutation.isPending}
                     >
                       Reject
                     </Button>
@@ -1058,7 +1058,7 @@ export default function AdminSavingsPage() {
                       <Button
                         variant="contained"
                         onClick={() => handleWithdrawalAction('APPROVED')}
-                        disabled={withdrawalProcessMutation.isLoading}
+                        disabled={withdrawalProcessMutation.isPending}
                       >
                         Approve
                       </Button>
@@ -1068,7 +1068,7 @@ export default function AdminSavingsPage() {
                       <Button
                         variant="contained"
                         onClick={() => handleWithdrawalAction('PROCESSING')}
-                        disabled={withdrawalProcessMutation.isLoading}
+                        disabled={withdrawalProcessMutation.isPending}
                       >
                         Process Withdrawal
                       </Button>

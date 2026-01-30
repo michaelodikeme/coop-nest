@@ -6,13 +6,14 @@ import { EligibilityService } from '../services/eligibility.service';
 import { ApiResponse } from '../../../utils/apiResponse';
 import { ApiError } from '../../../utils/apiError';
 import { LoanStatus } from '@prisma/client';
-import { 
-    loanApplicationSchema, 
-    loanStatusUpdateSchema, 
-    loanCalculationSchema, 
+import {
+    loanApplicationSchema,
+    loanStatusUpdateSchema,
+    loanCalculationSchema,
     loanEligibilitySchema
 } from '../validations/loan.validation';
 import logger from '../../../utils/logger';
+import { LoanApplication } from '../interfaces/loan.interface';
 
 export class LoanController {
     private loanService: LoanService;
@@ -103,8 +104,13 @@ export class LoanController {
 
             console.log("got here fifth")
 
-            const loanApplicationData = {
-                ...validatedData,
+            const loanApplicationData: LoanApplication = {
+                biodataId: validatedData.biodataId!,
+                erpId: validatedData.erpId!,
+                loanTypeId: validatedData.loanTypeId!,
+                loanAmount: validatedData.loanAmount!,
+                loanTenure: validatedData.loanTenure!,
+                loanPurpose: validatedData.loanPurpose!,
                 loanTypeName: loanType.name,
                 loanTypeDescription: loanType.description,
                 loanTypeInterestRate: loanType.interestRate.toNumber()

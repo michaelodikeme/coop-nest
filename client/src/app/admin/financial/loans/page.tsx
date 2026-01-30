@@ -273,12 +273,12 @@ export default function AdminLoansPage() {
 
   // Calculate loan statistics for summary cards
   const loanStats = useMemo(() => ({
-    totalLoans: loansData?.data?.meta?.totalCount || 0,
-    totalDisbursed: loanSummary?.data?.totalDisbursed || 0,
-    totalOutstanding: loanSummary?.data?.totalOutstanding || 0,
-    totalRepaid: enhancedSummary?.data?.totalRepaid || 0,
-    pendingApproval: enhancedSummary?.data?.pendingLoans || 0,
-    activeLoans: enhancedSummary?.data?.newLoansCount || 0
+    totalLoans: loansData?.meta?.total || 0,
+    totalDisbursed: loanSummary?.totalDisbursed || 0,
+    totalOutstanding: loanSummary?.totalOutstanding || 0,
+    totalRepaid: enhancedSummary?.totalRepaid || 0,
+    pendingApproval: enhancedSummary?.pendingLoans || 0,
+    activeLoans: enhancedSummary?.newLoansCount || 0
   }), [loansData, loanSummary, enhancedSummary]);
 
   return (
@@ -450,12 +450,12 @@ export default function AdminLoansPage() {
         
         <DataTable
           columns={loansColumns}
-          data={loansData?.data.data || []}
+          data={loansData?.data || []}
           pagination={{
             pageIndex: currentPage - 1,
             pageSize: pageSize,
-            pageCount: loansData?.data?.meta?.totalPages || 1,
-            totalRecords: loansData?.data?.meta?.totalCount || 0,
+            pageCount: loansData?.meta?.totalPages || 1,
+            totalRecords: loansData?.meta?.total || 0,
           }}
           onPageChange={(newPage) => setCurrentPage(newPage + 1)}
           onPageSizeChange={setPageSize}

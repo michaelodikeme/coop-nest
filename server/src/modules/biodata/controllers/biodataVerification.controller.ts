@@ -4,6 +4,7 @@ import { ApiError } from "../../../utils/apiError";
 import { ZodError } from 'zod';
 import { Request, Response, NextFunction } from 'express';
 import { verifyBiodataSchema, verifyOtpSchema } from "../validations/biodata.validation";
+import { IVerifyBiodataInput } from "../interfaces/biodata.interface";
   
 export class BiodataVerificationController {
   private biodataVerificationService: BiodataVerificationService;
@@ -16,7 +17,7 @@ export class BiodataVerificationController {
     console.log('verifyBiodata', verifyBiodataSchema.parse(req.body));
     // Ensure the request is authenticated
     try {
-      const validatedData = verifyBiodataSchema.parse(req.body);
+      const validatedData = verifyBiodataSchema.parse(req.body) as IVerifyBiodataInput;
       const result = await this.biodataVerificationService.verifyBiodata(validatedData);
 
 

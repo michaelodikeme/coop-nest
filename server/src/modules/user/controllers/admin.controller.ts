@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AdminService } from "../services/admin.service";
 import { AdminVerificationService } from "../services/adminVerification.service";
-import { AuthRequest } from "../interfaces/admin.interface";
+import { AuthRequest, IAdminProfileInput, IVerifyAdminProfileInput, ICreateAdminUserInput } from "../interfaces/admin.interface";
 import { ApiError } from '../../../utils/apiError';
 import {
   createAdminProfileSchema,
@@ -29,8 +29,8 @@ export class AdminController {
       ) {
         throw new ApiError('Unauthorized to create admin profiles', 403);
       }
-      
-      const validatedData = createAdminProfileSchema.parse(req.body);
+
+      const validatedData = createAdminProfileSchema.parse(req.body) as IAdminProfileInput;
       const result = await this.adminService.createAdminProfile(validatedData, req.user.id);
       
       res.status(201).json({
@@ -44,7 +44,7 @@ export class AdminController {
   
   async verifyAdminProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      const validatedData = verifyAdminProfileSchema.parse(req.body);
+      const validatedData = verifyAdminProfileSchema.parse(req.body) as IVerifyAdminProfileInput;
       const result = await this.verificationService.verifyAdminProfile(validatedData);
       
       if (result.status === 'pending') {
@@ -102,17 +102,17 @@ export class AdminController {
   async createAdminUser(req: Request, res: Response, next: NextFunction) {
     try {
       const adminProfileId = req.cookies.adminProfileId;
-      
+
       if (!adminProfileId) {
         throw new ApiError('Admin profile verification required', 400);
       }
-      
+
       const userData = {
         ...req.body,
         adminProfileId
       };
-      
-      const validatedData = createAdminUserSchema.parse(userData);
+
+      const validatedData = createAdminUserSchema.parse(userData) as ICreateAdminUserInput;
       const result = await this.adminService.createAdminUser(validatedData);
       
       // Clear the cookie after successful user creation

@@ -12,8 +12,8 @@ const positiveInteger = z.number()
 
 // Common schemas
 const erpIdSchema = z.string()
-  .regex(/^[A-Z]+-[A-Z]+-\d+$/, 'Invalid ERP ID format');
-  // .regex(/^ERP\d+$/, 'Invalid ERP ID format');
+  // .regex(/^[A-Z]+-[A-Z]+-\d+$/, 'Invalid ERP ID format');
+  .regex(/^ERP\d+$/, 'Invalid ERP ID format');
 
 // Loan eligibility schema
 export const loanEligibilitySchema = z.object({

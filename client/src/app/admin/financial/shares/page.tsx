@@ -29,11 +29,16 @@ import { useToast } from '@/components/molecules/Toast';
 
 // Create a hook for shares configuration
 function useSharesConfig() {
-  return useQuery({
+  return useQuery<{ shareValue: number }>({
     queryKey: ['shares-config'],
     queryFn: async () => {
       try {
-        return await apiService.get('/settings/shares');
+        const response = await apiService.get<any>('/settings/shares');
+        // Unwrap if response is wrapped in API structure
+        if (response && typeof response === 'object' && 'data' in response) {
+          return response.data;
+        }
+        return response;
       } catch (error) {
         console.error('Failed to fetch share amount:', error);
         return { shareValue: 5000 }; // Default value
@@ -52,10 +57,15 @@ function useShares(page = 1, limit = 10, search = '') {
         limit: limit.toString(),
         type: 'SHARE',
       });
-      
+
       if (search) params.append('search', search);
-      
-      return await apiService.get(`/savings?${params.toString()}`);
+
+      const response = await apiService.get<any>(`/savings?${params.toString()}`);
+      // Unwrap if response is wrapped in API structure
+      if (response && typeof response === 'object' && 'data' in response && 'meta' in response.data) {
+        return response.data;
+      }
+      return response;
     },
   });
 }
@@ -66,7 +76,12 @@ function useSharesSummary() {
     queryKey: ['shares-summary'],
     queryFn: async () => {
       try {
-        return await apiService.get('/savings/summary?type=SHARE');
+        const response = await apiService.get<any>('/savings/summary?type=SHARE');
+        // Unwrap if response is wrapped in API structure
+        if (response && typeof response === 'object' && 'data' in response) {
+          return response.data;
+        }
+        return response;
       } catch (error) {
         console.error('Failed to fetch shares summary:', error);
         throw error;
@@ -147,9 +162,9 @@ export default function AdminSharesPage() {
       setSearchResults([]);
       return;
     }
-    
+
     try {
-      const results = await memberService.searchMembers(query);
+      const results = await memberService.getAllBiodata({ searchTerm: query, limit: 10 });
       setSearchResults(results.data || []);
     } catch (error) {
       console.error('Failed to search members:', error);
@@ -169,47 +184,54 @@ export default function AdminSharesPage() {
   // Format shares columns
   const sharesColumns: DataTableColumn<any>[] = [
     {
-      Header: 'Member',
+      id: 'memberName',
+      label: 'Member',
       accessor: 'memberName',
       filterable: true,
     },
     {
-      Header: 'ERP ID',
+      id: 'memberNumber',
+      label: 'ERP ID',
       accessor: 'memberNumber',
       filterable: true,
     },
     {
-      Header: 'Quantity',
+      id: 'quantity',
+      label: 'Quantity',
       accessor: 'quantity',
-      Cell: ({ value }) => value || 1,
+      Cell: ({ value }: { value: any }) => value || 1,
       filterable: false,
     },
     {
-      Header: 'Value per Share',
+      id: 'shareValue',
+      label: 'Value per Share',
       accessor: 'shareValue',
-      Cell: ({ value }) => formatCurrency(value || sharesConfig?.shareValue || 5000),
+      Cell: ({ value }: { value: any }) => formatCurrency(value || sharesConfig?.shareValue || 5000),
       filterable: false,
     },
     {
-      Header: 'Total Value',
+      id: 'amount',
+      label: 'Total Value',
       accessor: 'amount',
-      Cell: ({ value, row }) => formatCurrency(value || (row.original.quantity * (sharesConfig?.shareValue || 5000))),
+      Cell: ({ value, row }: { value: any; row: any }) => formatCurrency(value || (row.original.quantity * (sharesConfig?.shareValue || 5000))),
       filterable: false,
     },
     {
-      Header: 'Date',
+      id: 'createdAt',
+      label: 'Date',
       accessor: 'createdAt',
-      Cell: ({ value }) => new Date(value).toLocaleDateString(),
+      Cell: ({ value }: { value: any }) => new Date(value).toLocaleDateString(),
       filterable: true,
     },
     {
-      Header: 'Actions',
+      id: 'id',
+      label: 'Actions',
       accessor: 'id',
-      Cell: ({ row }) => (
+      Cell: ({ row }: { row: any }) => (
         <Box sx={{ display: 'flex', gap: 1 }}>
           <PermissionGate permissions={['VIEW_SHARES']} module={Module.SHARES}>
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               variant="outlined"
               onClick={() => {
                 // Navigate to member details or shares details
@@ -277,7 +299,7 @@ export default function AdminSharesPage() {
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card variant="outlined">
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
@@ -290,7 +312,7 @@ export default function AdminSharesPage() {
           </Card>
         </Grid>
         
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card variant="outlined">
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
@@ -303,7 +325,7 @@ export default function AdminSharesPage() {
           </Card>
         </Grid>
         
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card variant="outlined">
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
@@ -316,7 +338,7 @@ export default function AdminSharesPage() {
           </Card>
         </Grid>
         
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card variant="outlined">
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
@@ -339,12 +361,12 @@ export default function AdminSharesPage() {
             pageIndex: currentPage - 1,
             pageSize: pageSize,
             pageCount: sharesData?.meta?.totalPages || 1,
-            totalRecords: sharesData?.meta?.totalCount || 0,
+            totalRecords: sharesData?.meta?.total || 0,
           }}
           onPageChange={(newPage) => setCurrentPage(newPage + 1)}
           onPageSizeChange={setPageSize}
           loading={isLoading}
-          filtering
+          enableFiltering
           error={error ? 'Failed to load shares data' : undefined}
           noDataMessage="No shares found"
         />

@@ -86,7 +86,7 @@ export class SystemSettingsService {
                 await this.prisma.systemSettings.create({
                     data: {
                         key: 'DEFAULT_SHARE_AMOUNT',
-                        value: JSON.stringify(3000),
+                        value: JSON.stringify(5000),
                         type: 'number',
                         group: 'SHARES',
                         description: 'Default monthly share amount',

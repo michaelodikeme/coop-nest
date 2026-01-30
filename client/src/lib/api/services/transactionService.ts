@@ -280,12 +280,17 @@ export class TransactionService {
   /**
    * [ADMIN ONLY] Get recent transactions for admin
    * This method retrieves the most recent transactions, primarily for admin review.
-   * GET /transactions/recent
+   * Uses GET /transactions with limit and sorting
    */
   async getRecentAdminTransactions(limit: number = 5): Promise<PaginatedResponse<TransactionRecord>> {
     try {
-      const response = await apiService.get(`/transactions/recent?limit=${limit}`) as { data: PaginatedResponse<TransactionRecord> };
-      return response.data;
+      // Use the existing getAllTransactions endpoint with limit and page 1
+      const response = await this.getAllTransactions({
+        page: 1,
+        limit: limit,
+        sort: 'createdAt:desc'
+      });
+      return response;
     } catch (error) {
       console.error('Failed to fetch recent transactions:', error);
       return {
@@ -346,7 +351,7 @@ export class TransactionService {
 
   /**
    * [ADMIN ONLY] Get monthly statistics for a specific year
-   * GET /transactions/monthly/:year
+   * Uses GET /transactions with date filters and processes data client-side
    */
   async getMonthlyStats(year: number): Promise<{
     year: number;
@@ -363,15 +368,80 @@ export class TransactionService {
     yearlyCount: number;
   }> {
     try {
-      const response = await apiService.get(`/transactions/monthly/${year}`);
-      return response;
+      const months = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+
+      // Initialize monthly data structure
+      const monthlyData = months.map((monthName, index) => ({
+        month: index + 1,
+        monthName,
+        totalAmount: 0,
+        transactionCount: 0,
+        deposits: 0,
+        withdrawals: 0,
+        avgTransactionSize: 0,
+      }));
+
+      // Fetch all transactions for the year
+      const startDate = `${year}-01-01`;
+      const endDate = `${year}-12-31`;
+
+      // Fetch transactions with a large limit to get all for the year
+      const response = await this.getAllTransactions({
+        startDate,
+        endDate,
+        page: 1,
+        limit: 100, // Large limit to get all transactions for the year
+        status: 'COMPLETED' // Only include completed transactions in stats
+      });
+
+      let yearlyTotal = 0;
+      let yearlyCount = response.data.length;
+
+      // Process each transaction and group by month
+      response.data.forEach((transaction) => {
+        const date = new Date(transaction.createdAt);
+        const month = date.getMonth(); // 0-indexed (0 = January)
+
+        const amount = typeof transaction.amount === 'string'
+          ? parseFloat(transaction.amount)
+          : transaction.amount;
+
+        monthlyData[month].transactionCount++;
+        monthlyData[month].totalAmount += amount;
+
+        // Categorize as deposit or withdrawal based on baseType
+        if (transaction.baseType === 'CREDIT') {
+          monthlyData[month].deposits += amount;
+        } else if (transaction.baseType === 'DEBIT') {
+          monthlyData[month].withdrawals += amount;
+        }
+
+        yearlyTotal += amount;
+      });
+
+      // Calculate average transaction size for each month
+      monthlyData.forEach((month) => {
+        if (month.transactionCount > 0) {
+          month.avgTransactionSize = month.totalAmount / month.transactionCount;
+        }
+      });
+
+      return {
+        year,
+        monthlyData,
+        yearlyTotal,
+        yearlyCount,
+      };
     } catch (error) {
       console.error('Error fetching monthly stats:', error);
       const months = [
         'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
       ];
-      
+
       return {
         year,
         monthlyData: months.map((monthName, index) => ({

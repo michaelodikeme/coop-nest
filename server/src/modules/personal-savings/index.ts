@@ -1,8 +1,5 @@
-import { Router } from 'express';
 import personalSavingsRoutes from './routes/personal-savings.routes';
 
-// Export PersonalSavings module routes
-const personalSavingsRouter = Router();
-personalSavingsRouter.use('/personal-savings', personalSavingsRoutes);
-
-export default personalSavingsRouter;
+// Export PersonalSavings module routes directly
+// The prefix '/personal-savings' is added in routes/index.ts
+export default personalSavingsRoutes;

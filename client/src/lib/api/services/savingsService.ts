@@ -1,6 +1,7 @@
 import { apiService } from '@/lib/api/apiService';
-import { SavingsSummary, SavingsRecord, PaginatedResponse, MemberSavingsSummary } from '@/types/financial.types';
+import { SavingsSummary, SavingsRecord, MemberSavingsSummary } from '@/types/financial.types';
 import { RequestStatus } from '@/types/request.types';
+import { ApiResponse, PaginatedResponse, PaginatedData } from '@/types/types';
 
 /**
  * Service for managing savings
@@ -18,17 +19,18 @@ class SavingsService {
     status?: string;
   }): Promise<PaginatedResponse<SavingsRecord>> {
     const queryParams = new URLSearchParams();
-    
+
     if (params) {
       if (params.page) queryParams.append('page', params.page.toString());
       if (params.limit) queryParams.append('limit', params.limit.toString());
       if (params.status) queryParams.append('status', params.status);
     }
-    
+
     const queryString = queryParams.toString();
     const url = `/savings/my-savings${queryString ? `?${queryString}` : ''}`;
-    
-    return apiService.get<PaginatedResponse<SavingsRecord>>(url);
+
+    const response = await apiService.get<ApiResponse<PaginatedData<SavingsRecord>>>(url);
+    return response.data; // Unwrap the API response
   }
 
   /**
@@ -50,15 +52,16 @@ class SavingsService {
       page: page.toString(),
       limit: limit.toString()
     });
-    
+
     // Add any additional filters to the query params
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         queryParams.append(key, String(value));
       }
     });
-    
-    return apiService.get(`/savings?${queryParams.toString()}`);
+
+    const response = await apiService.get<ApiResponse<PaginatedData<SavingsRecord>>>(`/savings?${queryParams.toString()}`);
+    return response.data; // Unwrap the API response
   }
 
   /**
@@ -235,12 +238,13 @@ class SavingsService {
    * This endpoint retrieves all withdrawal requests for the current user.
    * For admins, it retrieves all requests with filtering options.
    * GET /savings/withdrawal
-   * 
+   *
    * @param params Query parameters for filtering requests
    * @returns Paginated withdrawal requests
    */
   async getWithdrawalRequests(params?: {
-    status?: RequestStatus; 
+    status?: RequestStatus;
+    type?: RequestStatus | RequestStatus[];
     page?: number;
     limit?: number;
     startDate?: string;
@@ -250,7 +254,7 @@ class SavingsService {
     search?: string;
   }): Promise<PaginatedResponse<any>> {
     const queryParams = new URLSearchParams();
-    
+
     if (params) {
       if (params.status) queryParams.append('status', params.status);
       if (params.page) queryParams.append('page', params.page.toString());
@@ -260,11 +264,20 @@ class SavingsService {
       if (params.sortBy) queryParams.append('sortBy', params.sortBy);
       if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
       if (params.search) queryParams.append('search', params.search);
+      
+      if (params.type) {
+        if (Array.isArray(params.type)) {
+          params.type.forEach(t => queryParams.append('type', t));
+        } else {
+          queryParams.append('type', params.type);
+        }
+      }
     }
-    
+
     const url = `/savings/withdrawal${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    
-    return apiService.get(url);
+
+    const response = await apiService.get<ApiResponse<PaginatedData<any>>>(url);
+    return response.data; // Unwrap the API response
   }
 
   /**
@@ -297,6 +310,21 @@ class SavingsService {
     }
   ): Promise<any> {
     return apiService.patch(`/savings/withdrawal/${withdrawalId}/status`, data);
+  }
+
+  /**
+   * Cancel a withdrawal request [MEMBER]
+   * This endpoint allows members to cancel their own pending withdrawal requests.
+   * Uses the status update endpoint with CANCELLED status.
+   *
+   * @param withdrawalId The ID of the withdrawal request to cancel
+   * @returns Updated withdrawal request with CANCELLED status
+   */
+  async cancelWithdrawalRequest(withdrawalId: string): Promise<any> {
+    return apiService.patch(`/savings/withdrawal/${withdrawalId}/status`, {
+      status: 'CANCELLED',
+      notes: 'Cancelled by member'
+    });
   }
 
   /**
@@ -343,7 +371,7 @@ class SavingsService {
     savingsId?: string;
   }): Promise<PaginatedResponse<SavingsRecord>> {
     const queryParams = new URLSearchParams();
-    
+
     if (params) {
       if (params.page) queryParams.append('page', params.page.toString());
       if (params.limit) queryParams.append('limit', params.limit.toString());
@@ -351,16 +379,17 @@ class SavingsService {
       if (params.endDate) queryParams.append('endDate', params.endDate);
       if (params.type) queryParams.append('type', params.type);
     }
-    
-    const endpoint = params?.savingsId 
-      ? `/savings/transactions/${params.savingsId}` 
+
+    const endpoint = params?.savingsId
+      ? `/savings/transactions/${params.savingsId}`
       : '/savings/transactions';
-      
-    const url = queryParams.toString() 
-      ? `${endpoint}?${queryParams.toString()}` 
+
+    const url = queryParams.toString()
+      ? `${endpoint}?${queryParams.toString()}`
       : endpoint;
-      
-    return apiService.get<PaginatedResponse<SavingsRecord>>(url);
+
+    const response = await apiService.get<ApiResponse<PaginatedData<SavingsRecord>>>(url);
+    return response.data; // Unwrap the API response
   }
 
 
@@ -391,7 +420,7 @@ class SavingsService {
     status?: string;
   }): Promise<PaginatedResponse<MemberSavingsSummary>> {
     const queryParams = new URLSearchParams();
-    
+
     if (params) {
       if (params.page) queryParams.append('page', params.page.toString());
       if (params.limit) queryParams.append('limit', params.limit.toString());
@@ -401,10 +430,11 @@ class SavingsService {
       if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
       if (params.status) queryParams.append('status', params.status);
     }
-    
+
     const url = `/savings/members-summary${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    
-    return apiService.get(url);
+
+    const response = await apiService.get<ApiResponse<PaginatedData<MemberSavingsSummary>>>(url);
+    return response.data; // Unwrap the API response
   }
 }
 

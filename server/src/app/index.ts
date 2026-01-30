@@ -34,6 +34,7 @@ const permissionSync = new PermissionSyncService(prisma);
 app.use(cors({
     origin: process.env.CORS_ORIGINS?.split(',') || [
         'http://localhost:3000',
+        'http://localhost:3001',
         'http://fuosmcsl.online', // Add your domain here
         'http://168.231.116.82:3000',
     ],

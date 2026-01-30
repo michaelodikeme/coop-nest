@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Box,
@@ -12,9 +12,10 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
+// import { apiService as authApi } from '@/lib/api/apiService';
 import { authApi } from '@/lib/api/services/authService';
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const [formData, setFormData] = useState({
     currentPassword: '',
     password: '',
@@ -160,5 +161,26 @@ export default function ResetPasswordPage() {
         </Paper>
       </Box>
     </Container>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <Container maxWidth="sm">
+        <Box
+          sx={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <CircularProgress />
+        </Box>
+      </Container>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

@@ -1255,28 +1255,28 @@ class RequestService {
         request: any,
         data: IUpdateRequestStatusInput
     ) {
-        // Find the next approval step (usually treasurer)
+        // Find the next approval step dynamically based on current level
+        const currentLevel = request.nextApprovalLevel || 1;
+        const nextLevel = currentLevel + 1;
         const nextStep = request.approvalSteps.find(
-            (step: any) => step.level === 2
+            (step: any) => step.level === nextLevel
         );
 
-        if (nextStep) {
-            // Notify the member
-            await tx.notification.create({
-                data: {
-                    userId: request.initiatorId,
-                    type: 'REQUEST_UPDATE',
-                    title: 'Request In Review',
-                    message: `Your ${this.formatRequestType(request.type)} request is now being reviewed.`,
-                    requestId: request.id,
-                    metadata: {
-                        status: 'IN_REVIEW',
-                        nextApprovalLevel: 2,
-                        nextApprovalRole: nextStep.approverRole
-                    }
+        // Notify the member about the review status
+        await tx.notification.create({
+            data: {
+                userId: request.initiatorId,
+                type: 'REQUEST_UPDATE',
+                title: 'Request In Review',
+                message: `Your ${this.formatRequestType(request.type)} request is now being reviewed.`,
+                requestId: request.id,
+                metadata: {
+                    status: 'IN_REVIEW',
+                    nextApprovalLevel: nextStep ? nextLevel : currentLevel,
+                    nextApprovalRole: nextStep?.approverRole || 'Approver'
                 }
-            });
-        }
+            }
+        });
     }
 
     /**
@@ -1287,28 +1287,28 @@ class RequestService {
         request: any,
         data: IUpdateRequestStatusInput
     ) {
-        // Find the next approval step (usually chairman)
+        // Find the next approval step dynamically based on current level
+        const currentLevel = request.nextApprovalLevel || 1;
+        const nextLevel = currentLevel + 1;
         const nextStep = request.approvalSteps.find(
-            (step: any) => step.level === 3
+            (step: any) => step.level === nextLevel
         );
 
-        if (nextStep) {
-            // Notify the member
-            await tx.notification.create({
-                data: {
-                    userId: request.initiatorId,
-                    type: 'REQUEST_UPDATE',
-                    title: 'Request Reviewed',
-                    message: `Your ${this.formatRequestType(request.type)} request has been reviewed and is awaiting final approval.`,
-                    requestId: request.id,
-                    metadata: {
-                        status: 'REVIEWED',
-                        nextApprovalLevel: 3,
-                        nextApprovalRole: nextStep.approverRole
-                    }
+        // Notify the member about the review completion
+        await tx.notification.create({
+            data: {
+                userId: request.initiatorId,
+                type: 'REQUEST_UPDATE',
+                title: 'Request Reviewed',
+                message: `Your ${this.formatRequestType(request.type)} request has been reviewed and is awaiting ${nextStep ? 'further' : 'final'} approval.`,
+                requestId: request.id,
+                metadata: {
+                    status: 'REVIEWED',
+                    nextApprovalLevel: nextStep ? nextLevel : currentLevel,
+                    nextApprovalRole: nextStep?.approverRole || 'Approver'
                 }
-            });
-        }
+            }
+        });
     }
 
     /**

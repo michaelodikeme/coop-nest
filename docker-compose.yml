@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: rootuser
-      POSTGRES_DB: postgres
+      # POSTGRES_DB: postgres
     volumes:
       - postgres_17_data:/var/lib/postgresql/data
     ports:
@@ -36,6 +36,7 @@ services:
     command: >
       sh -c "
         npm install &&
+        npx prisma generate &&
         npx prisma migrate deploy --schema=prisma/schema.prisma &&
         npm run dev
       "
@@ -46,6 +47,7 @@ services:
       - coop-nest-network
     environment:
       DATABASE_URL: postgresql://postgres:rootuser@postgres:5432/postgres?schema=coop-nest_db
+      # DATABASE_URL: "postgresql://user:password@postgres:5432/postgres?schema=coop-nest_db"
       PORT: 5001
       NODE_ENV: development
       APPLICATION_URL: http://localhost

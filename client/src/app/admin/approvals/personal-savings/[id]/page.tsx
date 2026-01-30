@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, use } from 'react';
 import {
   Box,
   Typography,
@@ -32,15 +32,15 @@ import { formatCurrency } from '@/utils/formatting/format';
 import { useRouter } from 'next/navigation';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
+type ParamsType = Promise<{ id: string }>;
 
-type  paramsType = Promise<{ id: string }>
-export default async function PersonalSavingsPendingRequestDetailPage({
+export default function PersonalSavingsPendingRequestDetailPage({
   params
 }: {
-  params: paramsType
+  params: ParamsType
 }) {
-  // Access params directly - no need for use()
-  const {id: requestId} = await params;
+  // Use React's use() hook to unwrap the Promise in client components
+  const { id: requestId } = use(params);
 
   const router = useRouter();
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | 'review' | 'completed'>('approve');
@@ -166,6 +166,16 @@ export default async function PersonalSavingsPendingRequestDetailPage({
             </Button>
           )}
 
+          {status === RequestStatus.IN_REVIEW && (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => handleOpenDialog('review')}
+            >
+              Complete Review
+            </Button>
+          )}
+
           {status === RequestStatus.REVIEWED && (
             <Button
               variant="contained"
@@ -176,18 +186,7 @@ export default async function PersonalSavingsPendingRequestDetailPage({
             </Button>
           )}
 
-        {status === RequestStatus.APPROVED && (
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => handleOpenDialog('completed')}
-            >
-              Complete Request
-            </Button>
-          )}
-
-          {/* <Stack direction="row" spacing={2}> */}
-          {status === RequestStatus.COMPLETED && (
+          {status === RequestStatus.APPROVED && (
             <Button
               variant="contained"
               color="primary"
@@ -381,13 +380,15 @@ export default async function PersonalSavingsPendingRequestDetailPage({
         <DialogTitle>
           {approvalAction === 'approve' ? 'Approve Request' :
            approvalAction === 'reject' ? 'Reject Request' :
+           approvalAction === 'completed' ? 'Complete Request' :
            'Review Request'}
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
             {approvalAction === 'approve' ? 'Approve this personal savings request?' :
              approvalAction === 'reject' ? 'Reject this personal savings request?' :
-             'Move this request to review status?'}
+             approvalAction === 'completed' ? 'Mark this request as completed and process it?' :
+             'Move this request to reviewed status?'}
           </DialogContentText>
           <form onSubmit={handleSubmit(handleProcessRequest)}>
             <Controller

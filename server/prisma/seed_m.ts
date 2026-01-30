@@ -1,3 +1,5 @@
+import * as dotenv from 'dotenv'; // 1. Import dotenv
+dotenv.config();
 import { DEFAULT_ROLES } from '../src/types/permissions';
 import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';

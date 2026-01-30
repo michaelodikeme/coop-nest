@@ -36,6 +36,8 @@ const PersonalSavingsAdminPage = () => {
     isLoading: isDashboardLoading 
   } = useAdminPersonalSavingsDashboard();
 
+  const summaryData = dashboardData?.data;
+
   // Fetch plans with current filters
   const { 
     data: plansData, 
@@ -228,7 +230,7 @@ const PersonalSavingsAdminPage = () => {
                 Active Plans
               </Typography>
               <Typography variant="h4" component="div">
-                {isDashboardLoading ? '...' : dashboardData?.activePlansCount || 0}
+                {isDashboardLoading ? '...' : summaryData?.activePlansCount || 0}
               </Typography>
             </CardContent>
           </Card>
@@ -241,7 +243,7 @@ const PersonalSavingsAdminPage = () => {
               </Typography>
               <Typography variant="h4" component="div">
                 {isDashboardLoading ? '...' : 
-                  formatCurrency(dashboardData?.totalSavingsAmount || 0)}
+                  formatCurrency(summaryData?.totalSavingsAmount || 0)}
               </Typography>
             </CardContent>
           </Card>
@@ -254,7 +256,7 @@ const PersonalSavingsAdminPage = () => {
               </Typography>
               <Typography variant="h4" component="div">
                 {isDashboardLoading ? '...' : 
-                  formatCurrency(dashboardData?.totalWithdrawalAmount || 0)}
+                  formatCurrency(summaryData?.totalWithdrawalAmount || 0)}
               </Typography>
             </CardContent>
           </Card>
@@ -267,8 +269,8 @@ const PersonalSavingsAdminPage = () => {
               </Typography>
               <Typography variant="h4" component="div">
                 {isDashboardLoading ? '...' : 
-                  (dashboardData?.pendingCreationRequests || 0) + 
-                  (dashboardData?.pendingWithdrawalRequests || 0)}
+                  (summaryData?.pendingCreationRequests || 0) + 
+                  (summaryData?.pendingWithdrawalRequests || 0)}
               </Typography>
               <Box sx={{ mt: 1 }}>
                 <Link href="/admin/approvals/personal-savings">

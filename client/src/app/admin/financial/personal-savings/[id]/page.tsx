@@ -60,19 +60,25 @@ import LoadingScreen from '@/components/atoms/LoadingScreen';
 import ErrorIcon from '@mui/icons-material/Error';
 import { Controller, useForm } from 'react-hook-form';
 
-export default function PersonalSavingsPlanDetailPage({ 
-  params 
-}: { 
-  params: { id: string } 
+export default async function PersonalSavingsPlanDetailPage({
+  params
+}: {
+  params: Promise<{ id: string }>
 }) {
+  const resolvedParams = await params;
+  const planId = resolvedParams.id;
+
+  return <PersonalSavingsPlanDetailPageClient planId={planId} />;
+}
+
+function PersonalSavingsPlanDetailPageClient({ planId }: { planId: string }) {
   const [tabValue, setTabValue] = useState(0);
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [dateRange, setDateRange] = useState<{ startDate: Date | null; endDate: Date | null }>({ startDate: null, endDate: null });
   const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly'>('daily');
-  
+
   const router = useRouter();
-  const planId = params.id;
   
   const { data: plan, isLoading, error } = useAdminPersonalSavingsPlan(planId);
   const closePlanMutation = useAdminClosePlan();

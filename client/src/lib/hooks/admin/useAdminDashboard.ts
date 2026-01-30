@@ -70,13 +70,13 @@ export function useAdminDashboard() {
   // Calculate metrics with robust fallbacks
   const metrics = useMemo(() => {
     // UPDATED: Get active savings count from members summary
-    const activeSavings = membersSavingsQuery.data?.data?.meta?.total ?? 0;
+    const activeSavings = membersSavingsQuery.data?.meta?.total ?? 0;
     console.log('useAdminDashboard Active Savings (Members with savings):', activeSavings);
 
     // Active Loans: prefer pendingLoans (number), fallback to 0
     const activeLoans =
-      typeof loansQuery.data?.data?.totalOutstanding === 'number'
-        ? loansQuery.data?.data?.totalOutstanding
+      typeof loansQuery.data?.totalOutstanding === 'number'
+        ? loansQuery.data?.totalOutstanding
         : 0;
 
     // Monthly Transactions: prefer totalCount, fallback to transactions.length
@@ -120,21 +120,21 @@ export function useAdminDashboard() {
 
   // Process monthly data for charts
   const monthlyChartData = useMemo(() => {
-    if (monthlyStatsQuery.data && Array.isArray(monthlyStatsQuery.data) && monthlyStatsQuery.data.length > 0) {
+    if (monthlyStatsQuery.data?.monthlyData && Array.isArray(monthlyStatsQuery.data.monthlyData) && monthlyStatsQuery.data.monthlyData.length > 0) {
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       return {
-        labels: monthlyStatsQuery.data.map(item => monthNames[(item.month - 1) || 0]),
+        labels: monthlyStatsQuery.data.monthlyData.map(item => monthNames[(item.month - 1) || 0]),
         datasets: [
           {
             label: 'Deposits',
-            data: monthlyStatsQuery.data.map(item => item.totalDeposits || 0),
+            data: monthlyStatsQuery.data.monthlyData.map(item => item.deposits || 0),
             borderColor: 'rgb(76, 175, 80)',
             backgroundColor: 'rgba(76, 175, 80, 0.5)',
             tension: 0.3,
           },
           {
             label: 'Withdrawals',
-            data: monthlyStatsQuery.data.map(item => item.totalWithdrawals || 0),
+            data: monthlyStatsQuery.data.monthlyData.map(item => item.withdrawals || 0),
             borderColor: 'rgb(244, 67, 54)',
             backgroundColor: 'rgba(244, 67, 54, 0.5)',
             tension: 0.3,

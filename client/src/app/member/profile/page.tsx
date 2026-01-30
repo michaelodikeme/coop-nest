@@ -97,7 +97,7 @@ export default function ProfilePage() {
   // Edit biodata mutation - use the updateProfile mutation from the hook
   const handleSave = () => {
     if (editData) {
-      const updateFields: Partial<Biodata> = {
+      const updateFields: any = {
         firstName: editData.firstName,
         lastName: editData.lastName,
         emailAddress: editData.emailAddress,

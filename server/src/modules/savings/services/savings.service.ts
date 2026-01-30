@@ -721,19 +721,29 @@ export class SavingsService {
     }
     
     async getTransactionHistory(params: ITransactionHistoryParams): Promise<IPaginatedTransactionResponse> {
-        const { 
-            savingsId, 
-            page = 1, 
+        const {
+            biodataId, // CRITICAL: Must filter by user's biodataId
+            savingsId,
+            page = 1,
             limit = 20,
             transactionType
         } = params;
-        
+
         try {
-            const where = {
-                savingsId,
-                ...(transactionType && { transactionType })
+            // Build where clause - MUST include biodataId to prevent leaking other users' data
+            const where: any = {
+                module: 'SAVINGS', // Only get savings-related transactions
+                ...(transactionType && { transactionType }),
+                // Filter by biodataId through the savings relation
+                ...(biodataId && {
+                    savings: {
+                        memberId: biodataId
+                    }
+                }),
+                // Optional: filter by specific savings record
+                ...(savingsId && { savingsId })
             };
-            
+
             const [total, transactions] = await Promise.all([
                 prisma.transaction.count({ where }),
                 prisma.transaction.findMany({
@@ -747,14 +757,15 @@ export class SavingsService {
                         status: true,
                         description: true,
                         createdAt: true,
-                        module: true
+                        module: true,
+                        savingsId: true
                     },
                     orderBy: { createdAt: 'desc' },
                     skip: (page - 1) * limit,
                     take: limit
                 })
             ]);
-            
+
             return {
                 data: transactions,
                 meta: {
@@ -1020,11 +1031,11 @@ export class SavingsService {
             }
             
             // Fallback to default value
-            return new Prisma.Decimal(3000);
+            return new Prisma.Decimal(5000);
         } catch (error) {
             logger.error('Error getting share amount:', error);
             // Fallback to default if anything goes wrong
-            return new Prisma.Decimal(3000);
+            return new Prisma.Decimal(5000);
         }
     }
     

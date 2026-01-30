@@ -17,9 +17,9 @@ import adminRoutes from "../modules/user/routes/admin.routes";
 const router = Router();
 
 // Health check route
-// router.get('/health', (req, res) => {
-//   res.status(200).json({ message: 'API is running' });
-// });
+router.get('/health', (req, res) => {
+  res.status(200).json({ message: 'API is running' });
+});
 
 // Public routes (no authentication required)
 router.use('/auth', authRoutes);

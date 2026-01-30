@@ -39,10 +39,13 @@ const RecentTransactions: FC<RecentTransactionsProps> = ({ limit = 5 }) => {
   });
   
   // Function to determine transaction icon based on type
-  const getTransactionIcon = (type: string) => {
+  const getTransactionIcon = (transaction: any) => {
+    const type = transaction.baseType || transaction.type;
     switch (type.toUpperCase()) {
+      case 'CREDIT':
       case 'DEPOSIT':
         return <ArrowUpward sx={{ color: theme.palette.success.main }} />;
+      case 'DEBIT':
       case 'WITHDRAWAL':
         return <ArrowDownward sx={{ color: theme.palette.error.main }} />;
       default:
@@ -108,7 +111,7 @@ const RecentTransactions: FC<RecentTransactionsProps> = ({ limit = 5 }) => {
             <Box key={transaction.id || index}>
               <ListItem sx={{ px: 0 }}>
                 <ListItemIcon sx={{ minWidth: 40 }}>
-                  {getTransactionIcon(transaction.type)}
+                  {getTransactionIcon(transaction)}
                 </ListItemIcon>
                 <ListItemText
                   primary={

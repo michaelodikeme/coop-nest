@@ -47,19 +47,41 @@ export default function WithdrawalDetailPage() {
   const handleProcess = async () => {
     if (!action || !withdrawal) return;
     
+    let nextStatus: RequestStatus;
+    const isLastApproval = withdrawal.currentApprovalLevel === 3;
+
+    if (action === 'REJECT') {
+      nextStatus = RequestStatus.REJECTED;
+    } else { // action === 'APPROVE'
+      switch (withdrawal.currentApprovalLevel) {
+        case 1:
+          nextStatus = RequestStatus.IN_REVIEW; // Treasurer reviews, passes to Chairman
+          break;
+        case 2:
+          nextStatus = RequestStatus.APPROVED; // Chairman approves, passes to Treasurer
+          break;
+        case 3:
+          nextStatus = RequestStatus.COMPLETED; // Treasurer completes disbursement
+          break;
+        default:
+          toast.error('Invalid approval level for action');
+          return;
+      }
+    }
+    
     try {
       await processMutation.mutateAsync({
         withdrawalId: withdrawal.id,
-        status: action === 'APPROVE' ? RequestStatus.APPROVED : RequestStatus.REJECTED,
+        status: nextStatus,
         notes: notes || undefined,
-        isLastApproval: withdrawal.nextApprovalLevel === 4
+        isLastApproval
       });
       
-      toast.success(`Withdrawal ${action === 'APPROVE' ? 'approved' : 'rejected'} successfully`);
+      toast.success(`Withdrawal ${action === 'APPROVE' ? 'processed' : 'rejected'} successfully`);
       setIsDialogOpen(false);
       router.push('/admin/approvals/withdrawals');
-    } catch (err) {
-      toast.error('Failed to process withdrawal');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to process withdrawal');
     }
   };
   
@@ -94,8 +116,8 @@ export default function WithdrawalDetailPage() {
   
   // Extract data from withdrawal object
   const {
-    member = withdrawal.member || {},
-    amount = withdrawal.amount || {},
+    member,
+    amount,
     status = withdrawal.status,
     reason = withdrawal.reason,
     requestDate = withdrawal.requestDate,
@@ -110,11 +132,22 @@ export default function WithdrawalDetailPage() {
   // Update amount extraction to handle the nested structure
   const formattedAmount = amount?.formatted ? amount.formatted : formatCurrency(Number(amount?.raw || 0));
   
-  // Update savings information extraction
-  const currentBalance = withdrawal.savings?.totalSavings || '0';
-  const remainingBalance = withdrawal.savings?.remainingBalance || '0';
-  
-  const canApprove = status === 'PENDING' || status === 'IN_REVIEW' || status === 'REVIEWED';
+  // Extract savings information - API returns unified 'savings' object with 'type' field
+  const savingsData = withdrawal.savings;
+  const isPersonalSavings = savingsData?.type === 'personal' || withdrawal.type === 'PERSONAL_SAVINGS_WITHDRAWAL';
+
+  // Get current balance from the savings object
+  const savingsCurrentBalance = savingsData?.currentBalance?.formatted || formatCurrency(0);
+  const rawCurrentBalance = Number(savingsData?.currentBalance?.raw || 0);
+
+  // Get total savings
+  const savingsTotalSavings = savingsData?.totalSavings?.formatted || formatCurrency(0);
+
+  // Get remaining balance - now returned directly from API
+  const savingsRemainingBalance = savingsData?.remainingBalance?.formatted || formatCurrency(0);
+  const rawRemainingBalance = Number(savingsData?.remainingBalance?.raw || 0);
+
+  const canApprove = status === 'PENDING' || status === 'IN_REVIEW' || status === 'APPROVED';
   
   return (
     <Box>
@@ -237,7 +270,7 @@ export default function WithdrawalDetailPage() {
               
               <Box>
                 <Typography variant="body2" color="text.secondary">Approval Level</Typography>
-                <Typography variant="body1">Level {nextApprovalLevel} of 4</Typography>
+                <Typography variant="body1">Level {Math.min(nextApprovalLevel, 3)} of 3</Typography>
               </Box>
             </CardContent>
           </Card>
@@ -256,7 +289,7 @@ export default function WithdrawalDetailPage() {
               <Box mb={2}>
                 <Typography variant="body2" color="text.secondary">Current Balance</Typography>
                 <Typography variant="body1" fontWeight={500}>
-                  {(currentBalance)}
+                  {savingsCurrentBalance}
                 </Typography>
               </Box>
               
@@ -265,13 +298,13 @@ export default function WithdrawalDetailPage() {
                 <Typography 
                   variant="body1" 
                   fontWeight={500}
-                  color={Number(remainingBalance) < 0 ? 'error.main' : 'success.main'}
+                  color={rawRemainingBalance < 0 ? 'error.main' : 'success.main'}
                 >
-                  {(remainingBalance)}
+                  {savingsRemainingBalance}
                 </Typography>
               </Box>
               
-              {Number(remainingBalance) < 0 && (
+              {rawRemainingBalance < 0 && (
                 <Alert severity="warning" sx={{ mt: 1 }}>
                   This withdrawal would result in a negative balance
                 </Alert>
@@ -286,7 +319,7 @@ export default function WithdrawalDetailPage() {
         <CardContent>
           <Typography variant="h6" mb={3}>Approval Timeline</Typography>
           
-          <Stepper activeStep={approvalSteps.filter((step: { status: string; }) => step.status === 'APPROVED').length} orientation="vertical">
+          <Stepper activeStep={approvalSteps.filter((step: { status: string; }) => step.status !== 'PENDING' && step.status !== 'REJECTED').length} orientation="vertical">
             {approvalSteps.map((step: { 
               id: Key | null | undefined; 
               status: string | number | bigint | boolean | ReactElement<any, string | JSXElementConstructor<any>> | Iterable<ReactNode> | Promise<AwaitedReactNode> | null | undefined; 
@@ -300,8 +333,10 @@ export default function WithdrawalDetailPage() {
                 <StepLabel
                   StepIconProps={{
                     sx: {
-                      color: step.status === 'APPROVED' ? 'success.main' : 
-                            step.status === 'REJECTED' ? 'error.main' : 'grey.500'
+                      color: step.status === 'APPROVED' || step.status === 'COMPLETED' ? 'success.main' :
+                            step.status === 'REJECTED' ? 'error.main' :
+                            step.status === 'PENDING' ? 'warning.main' :
+                            (step.status === 'IN_REVIEW') ? 'info.main' : 'grey.500'
                     }
                   }}
                 >
@@ -319,7 +354,11 @@ export default function WithdrawalDetailPage() {
                       <Chip 
                         label={step.status} 
                         size="small"
-                        color={step.status === 'APPROVED' ? 'success' : 'error'}
+                        color={step.status === 'APPROVED' || step.status === 'COMPLETED' ? 'success' :
+                              step.status === 'REJECTED' ? 'error' :
+                              step.status === 'PENDING' ? 'warning' :
+                              (step.status === 'IN_REVIEW' || step.status === 'REVIEWED') ? 'info' : 'default'
+                            }
                         sx={{ ml: 2 }}
                       />
                     </Box>
@@ -345,7 +384,7 @@ export default function WithdrawalDetailPage() {
         <DialogContent>
           <DialogContentText mb={2}>
             {action === 'APPROVE' 
-              ? `Are you sure you want to approve this withdrawal request for ${formatCurrency(Number(amount))}?` 
+              ? `Are you sure you want to approve this withdrawal request for ${formattedAmount}?` 
               : `Are you sure you want to reject this withdrawal request?`
             }
           </DialogContentText>

@@ -119,5 +119,8 @@ dist
 
 # Documentations 
 docs
+*.md
+phase1-implementation-roadmap.md
+backend.md
 
 # End of https://mrkandreev.name/snippets/gitignore-generator/#Node

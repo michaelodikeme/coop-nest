@@ -120,7 +120,7 @@ export function useAdminPendingPersonalSavingsRequests(
   status?: string
 ) {
   const toast = useToast();
-  
+
   return useQuery({
     queryKey: ['adminPendingPersonalSavingsRequests', page, limit, status],
     queryFn: async () => {
@@ -131,13 +131,9 @@ export function useAdminPendingPersonalSavingsRequests(
           limit,
           status: status as RequestStatus | undefined
         });
-        console.log('Fetched pending personal savings approval requests:', response);
-        
-        // Return just the data part for easier consumption
-        return {
-          data: response.data.data,
-          meta: response.data.meta
-        };
+
+        // Service layer already unwraps, just return the response
+        return response;
       } catch (error) {
         toast.error('Failed to fetch personal savings approval requests');
         console.error('Error fetching pending personal savings requests:', error);
@@ -185,7 +181,7 @@ export function useAdminPendingPersonalSavingsWithdrawals(
   status?: string
 ) {
   const toast = useToast();
-  
+
   return useQuery({
     queryKey: ['adminPendingPersonalSavingsWithdrawals', page, limit, status],
     queryFn: async () => {
@@ -197,8 +193,9 @@ export function useAdminPendingPersonalSavingsWithdrawals(
           limit,
           status: status as RequestStatus | undefined
         });
-        console.log('Fetched pending personal savings withdrawal requests:', response.data);
-        return response.data;
+        console.log('Fetched pending personal savings withdrawal requests:', response);
+        // Service layer already unwraps, just return the response
+        return response;
       } catch (error) {
         toast.error('Failed to fetch personal savings withdrawal requests');
         console.error('Error fetching pending personal savings withdrawal requests:', error);
@@ -256,13 +253,15 @@ export function useAdminProcessPersonalSavingsRequest() {
       return requestService.updateRequestStatus(requestId, status, notes);
       // ...existing code...
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast.success('Request processed successfully');
       // Invalidate relevant queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['adminPendingPersonalSavingsRequests'] });
       queryClient.invalidateQueries({ queryKey: ['adminPendingPersonalSavingsWithdrawals'] });
       queryClient.invalidateQueries({ queryKey: ['adminPersonalSavingsPlans'] });
       queryClient.invalidateQueries({ queryKey: ['adminPersonalSavingsDashboard'] });
+      // Also invalidate the specific request details to prevent stale data
+      queryClient.invalidateQueries({ queryKey: ['personalSavingsRequestDetails', variables.requestId] });
     },
     onError: (error: any) => {
       toast.error('Failed to process request');

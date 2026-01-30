@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { 
   Typography, 
@@ -18,7 +18,7 @@ import { useAuth } from '@/lib/api/contexts/AuthContext';
 import { Alert } from '@/components/atoms/Alert';
 
 export default function AdminProfilePage() {
-  const { user, updateUser } = useAuth();
+  const { user, refreshUserProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -32,30 +32,34 @@ export default function AdminProfilePage() {
   const { data: userData, isLoading, refetch } = useQuery({
     queryKey: ['user-profile', user?.id],
     queryFn: async () => {
-      const response = await apiService.get(`/users/${user?.id}/profile`);
-      return response.data.data;
-    },
-    onSuccess: (data) => {
-      setFormData({
-        firstName: data.firstName || '',
-        lastName: data.lastName || '',
-        email: data.email || '',
-        phone: data.phone || ''
-      });
+      const response = await apiService.get(`/users/${user?.id}/profile`) as any;
+      return response.data;
     }
   });
+
+  // Update form data when userData changes
+  useEffect(() => {
+    if (userData) {
+      setFormData({
+        firstName: userData.firstName || '',
+        lastName: userData.lastName || '',
+        email: userData.email || '',
+        phone: userData.phone || ''
+      });
+    }
+  }, [userData]);
   
   // Update profile mutation
   const { mutate: updateProfile, isPending } = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const response = await apiService.put(`/users/${user?.id}/profile`, data);
+      const response = await apiService.put(`/users/${user?.id}/profile`, data) as any;
       return response.data;
     },
     onSuccess: () => {
       setIsEditing(false);
       setError(null);
       refetch();
-      updateUser(); // Update user context
+      refreshUserProfile(); // Update user context
     },
     onError: (err: Error) => {
       setError(err.message);
@@ -134,13 +138,11 @@ export default function AdminProfilePage() {
         </Box>
         
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
+          <Alert variant="error" title="Error" message={error} className="mb-3" />
         )}
         
         <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Box sx={{ 
               display: 'flex', 
               flexDirection: 'column', 
@@ -168,7 +170,7 @@ export default function AdminProfilePage() {
             </Box>
           </Grid>
           
-          <Grid item xs={12} md={8}>
+          <Grid size={{ xs: 12, md: 8 }}>
             <Box component="form">
               <Typography variant="h6" gutterBottom>
                 Personal Information
@@ -176,7 +178,7 @@ export default function AdminProfilePage() {
               <Divider sx={{ mb: 3 }} />
               
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     label="First Name"
                     name="firstName"
@@ -186,7 +188,7 @@ export default function AdminProfilePage() {
                     fullWidth
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     label="Last Name"
                     name="lastName"
@@ -196,7 +198,7 @@ export default function AdminProfilePage() {
                     fullWidth
                   />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <TextField
                     label="Email"
                     name="email"
@@ -207,7 +209,7 @@ export default function AdminProfilePage() {
                     fullWidth
                   />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <TextField
                     label="Phone"
                     name="phone"
@@ -226,7 +228,7 @@ export default function AdminProfilePage() {
                 <Divider sx={{ mb: 3 }} />
                 
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       label="Username"
                       value={user?.username || ''}
@@ -234,7 +236,7 @@ export default function AdminProfilePage() {
                       fullWidth
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       label="Role"
                       value={user?.role?.name || 'Admin'}
@@ -242,7 +244,7 @@ export default function AdminProfilePage() {
                       fullWidth
                     />
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid size={{ xs: 12 }}>
                     <Box sx={{ mt: 2 }}>
                       <Button variant="outlined" size="small">
                         Change Password

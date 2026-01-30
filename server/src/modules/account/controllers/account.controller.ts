@@ -31,10 +31,10 @@ export class AccountController {
 
   createAccount = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const validatedData: ICreateAccountInput = {
+      const validatedData = {
         ...createAccountSchema.parse(req).body,
         biodataId: req.user.biodataId
-      };
+      } as ICreateAccountInput;
 
       const account = await this.accountService.createAccount(validatedData);
       return ApiResponse.created(res, 'Account registration initiated successfully', account);
@@ -158,7 +158,7 @@ export class AccountController {
   verifyAccount = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const validated = verifyAccountSchema.parse(req);
-      const validatedData: IAccountVerificationInput = validated.body;
+      const validatedData = validated.body as IAccountVerificationInput;
       
       const result = await this.accountService.verifyAccount(validatedData);
       

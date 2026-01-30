@@ -1,7 +1,7 @@
-import { PrismaClient, RequestStatus, RequestType, Prisma } from '@prisma/client';
+import { PrismaClient, RequestStatus, RequestType, RequestModule } from '@prisma/client';
 import { CreateRequestDTO, UpdateRequestDTO, FilterOptions } from '../types/request.types';
 import { NotificationService } from './notificationService';
-import { RequestError, requestErrorCodes } from '../../../middlewares/errorHandlers/requestErrorHandler';
+import { ApiError } from '../../../utils/apiError';
 import logger from '../../../utils/logger';
 import { Decimal } from 'decimal.js';
 
@@ -10,445 +10,366 @@ const notificationService = new NotificationService();
 
 export class RequestService {
   async createRequest(data: CreateRequestDTO) {
-    const { biodataId, userId, type, details } = data;
-    
+    const { biodataId, type, details } = data;
+    const userId = data.userId || '';
+
     try {
       // Validate that the biodata belongs to the user making the request
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: { biodata: true }
       });
-      
+
       if (!user || user.biodataId !== biodataId) {
-        throw new RequestError(
-          requestErrorCodes.UNAUTHORIZED_REQUEST, 
-          'Unauthorized: User does not own this biodata',
-          403
-        );
+        throw new ApiError('Unauthorized: User does not own this biodata', 403);
       }
-      
-      // Additional validation based on request type
+
+      // Determine module based on type
+      let module: RequestModule;
       switch (type) {
         case RequestType.LOAN_APPLICATION:
-          await this.validateLoanRequest(biodataId, details);
+          module = RequestModule.LOAN;
+          await this.validateLoanRequest(biodataId);
           break;
         case RequestType.SAVINGS_WITHDRAWAL:
+          module = RequestModule.SAVINGS;
           await this.validateSavingsWithdrawal(biodataId, details);
           break;
-        case RequestType.SHARE_WITHDRAWAL:
-          await this.validateShareWithdrawal(biodataId, details);
-          break;
+        default:
+          module = RequestModule.SYSTEM;
       }
-      
+
       // Start a transaction for request creation and notification
       return await prisma.$transaction(async (tx) => {
         const request = await tx.request.create({
           data: {
             type,
+            module,
             status: RequestStatus.PENDING,
-            userId,
-            biodataId,
+            initiatorId: userId,
+            biodataId: biodataId || undefined,
             content: details
           },
           include: {
-            Biodata: true,
-            user: true
+            biodata: true,
+            initiator: true
           }
         });
-        
+
         // Create notification
         await notificationService.createRequestNotification(request);
-        
+
         return request;
       });
     } catch (error) {
-      if (error instanceof RequestError) {
+      if (error instanceof ApiError) {
         throw error;
       }
       logger.error('Error creating request:', error);
-      throw new RequestError(
-        requestErrorCodes.INTERNAL_SERVER_ERROR,
+      throw new ApiError(
         error instanceof Error ? error.message : 'Error creating request',
         500
       );
     }
   }
-  
-  private async validateLoanRequest(biodataId: string, details: any) {
+
+  private async validateLoanRequest(biodataId: string) {
     // Verify member has sufficient savings history
     const savings = await prisma.savings.findMany({
-      where: { biodataId },
+      where: { memberId: biodataId },
       orderBy: { createdAt: 'desc' },
       take: 6 // Last 6 months
     });
-    
+
     if (savings.length < 6) {
-      throw new RequestError(
-        requestErrorCodes.INSUFFICIENT_SAVINGS_HISTORY,
-        'Insufficient savings history. Minimum 6 months required.',
-        400
-      );
+      throw new ApiError('Insufficient savings history. Minimum 6 months required.', 400);
     }
-    
+
     // Check for existing active loans
-    const activeLoans = await prisma.loans.findFirst({
+    const activeLoans = await prisma.loan.findFirst({
       where: {
-        biodataId,
+        memberId: biodataId,
         status: {
           in: ['PENDING', 'APPROVED', 'DISBURSED', 'ACTIVE']
         }
       }
     });
-    
+
     if (activeLoans) {
-      throw new RequestError(
-        requestErrorCodes.ACTIVE_LOAN_EXISTS,
-        'Cannot apply for a new loan while having an active loan',
-        400
-      );
+      throw new ApiError('Member has an active loan. Please settle existing loan before applying.', 400);
     }
   }
-  
+
   private async validateSavingsWithdrawal(biodataId: string, details: any) {
-    const savings = await prisma.savings.findFirst({
-      where: { 
-        biodataId,
-        status: 'ACTIVE'
-      },
-      orderBy: { createdAt: 'desc' }
+    const { amount } = details;
+
+    // Get member's total savings
+    const savingsRecords = await prisma.savings.findMany({
+      where: { memberId: biodataId }
     });
-    
-    if (!savings) {
-      throw new RequestError(
-        requestErrorCodes.INSUFFICIENT_BALANCE,
-        'No active savings found',
-        400
-      );
+
+    if (!savingsRecords.length) {
+      throw new ApiError('No savings records found for this member.', 404);
     }
-    
-    if (details.amount > savings.totalAmount) {
-      throw new RequestError(
-        requestErrorCodes.INSUFFICIENT_BALANCE,
-        'Insufficient savings balance',
-        400
-      );
+
+    // Calculate total available balance
+    const totalBalance = savingsRecords.reduce((sum, record) => {
+      return sum.add(new Decimal(record.balance || 0));
+    }, new Decimal(0));
+
+    if (totalBalance.lessThan(amount)) {
+      throw new ApiError('Insufficient savings balance for withdrawal.', 400);
     }
   }
-  
-  private async validateShareWithdrawal(biodataId: string, details: any) {
-    const shares = await prisma.shares.findFirst({
-      where: { biodataId },
-      orderBy: { createdAt: 'desc' }
-    });
-    
-    if (!shares) {
-      throw new RequestError(
-        requestErrorCodes.INVALID_SHARE_WITHDRAWAL,
-        'No shares found',
-        400
-      );
-    }
-    
-    if (details.amount > shares.totalAmount) {
-      throw new RequestError(
-        requestErrorCodes.INSUFFICIENT_BALANCE,
-        'Insufficient shares balance',
-        400
-      );
-    }
-  }
-  
-  async updateRequest(id: string, data: UpdateRequestDTO, adminId: string) {
-    const { status, adminNotes } = data;
-    
+
+  async updateRequest(requestId: string, data: UpdateRequestDTO, approverId: string) {
     try {
       const request = await prisma.request.findUnique({
-        where: { id },
-        include: { Biodata: true }
+        where: { id: requestId },
+        include: {
+          biodata: true,
+          initiator: true
+        }
       });
-      
+
       if (!request) {
-        throw new RequestError(
-          requestErrorCodes.REQUEST_NOT_FOUND,
-          'Request not found',
-          404
-        );
+        throw new ApiError('Request not found', 404);
       }
-      
-      // Start a transaction for the update and notifications
-      return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        // Update the request
-        const updatedRequest = await tx.request.update({
-          where: { id },
+
+      // Update request status
+      const updatedRequest = await prisma.$transaction(async (tx) => {
+        const updated = await tx.request.update({
+          where: { id: requestId },
           data: {
-            status,
-            notes: adminNotes,
-            reviewerId: adminId,
-            updatedAt: new Date()
+            status: data.status,
+            approverId: approverId,
+            notes: data.adminNotes
           },
           include: {
-            Biodata: true
+            biodata: true,
+            initiator: true
           }
         });
-        
+
+        // Handle approved requests
+        if (data.status === RequestStatus.APPROVED) {
+          await this.handleApprovedRequest(updated, tx);
+        }
+
         // Create status update notification
         await notificationService.createStatusUpdateNotification(
-          updatedRequest,
-          status,
-          adminNotes
+          updated,
+          data.status,
+          data.adminNotes
         );
-        
-        // Handle post-approval actions based on request type
-        if (status === RequestStatus.APPROVED) {
-          switch (request.type) {
-            case RequestType.BIODATA_APPROVAL:
-              if (!request.biodataId) {
-                throw new RequestError(
-                  requestErrorCodes.INVALID_REQUEST_TYPE,
-                  'Biodata ID is required',
-                  400
-                );
-              }
-              await tx.biodata.update({
-                where: { id: request.biodataId },
-                data: { isApproved: true }
-              });
-              break;
-            case RequestType.LOAN_APPLICATION:
-              await this.handleLoanApproval(tx, request);
-              break;
-            case RequestType.SAVINGS_WITHDRAWAL:
-              await this.handleSavingsWithdrawal(tx, request);
-              break;
-            case RequestType.SHARE_WITHDRAWAL:
-              await this.handleShareWithdrawal(tx, request);
-              break;
-          }
-        }
-        
-        return updatedRequest;
+
+        return updated;
       });
+
+      return updatedRequest;
     } catch (error) {
-      if (error instanceof RequestError) {
+      if (error instanceof ApiError) {
         throw error;
       }
       logger.error('Error updating request:', error);
-      throw new RequestError(
-        requestErrorCodes.INTERNAL_SERVER_ERROR,
+      throw new ApiError(
         error instanceof Error ? error.message : 'Error updating request',
         500
       );
     }
   }
-  
-  private async handleLoanApproval(tx: Prisma.TransactionClient, request: any) {
-    const { loanTypeId, loanAmount, loanTenure, purpose } = request.content;
-    
-    await tx.loans.create({
-      data: {
-        biodata: {
-          connect: { id: request.biodataId }
-        },
-        loanType: {
-          connect: { id: loanTypeId }
-        },
-        erpId: request.Biodata.erpId,
-        loanAmount,
-        loanTenure,
-        loanPurpose: purpose,
-        status: 'APPROVED',
-        totalInterest: 0, // Set appropriate interest calculation
-        totalRepayableAmount: loanAmount,
-        remainingBalance: loanAmount
-      }
-    });
-  }
-  
-  private async handleSavingsWithdrawal(tx: Prisma.TransactionClient, request: any) {
-    // Create the transaction record
-    await tx.savingsTransaction.create({
-      data: {
-        biodataId: request.biodataId,
-        amount: request.content.amount,
-        transactionType: 'SAVINGS_WITHDRAWAL',
-        transactionStatus: 'APPROVED',
-        description: request.content.reason || 'Withdrawal request approved'
-      }
-    });
-    
-    // Get the latest savings record for the user
-    const latestSavings = await tx.savings.findFirst({
-      where: { 
-        biodataId: request.biodataId,
-        status: 'ACTIVE'
-      },
-      orderBy: [
-        { year: 'desc' },
-        { month: 'desc' }
-      ]
-    });
-    
-    if (!latestSavings) {
-      throw new RequestError(
-        requestErrorCodes.INSUFFICIENT_BALANCE,
-        'No active savings found',
-        400
-      );
+
+  private async handleApprovedRequest(request: any, tx: any) {
+    switch (request.type) {
+      case RequestType.LOAN_APPLICATION:
+        await this.processLoanApproval(request, tx);
+        break;
+      case RequestType.SAVINGS_WITHDRAWAL:
+        await this.processSavingsWithdrawal(request, tx);
+        break;
+      default:
+        // No special processing needed
+        break;
     }
-    
-    if (new Decimal(request.content.amount).gt(latestSavings.totalAmount)) {
-      throw new RequestError(
-        requestErrorCodes.INSUFFICIENT_BALANCE,
-        'Withdrawal amount exceeds available balance',
-        400
-      );
-    }
-    
-    // Update the latest savings record with the new balance
-    await tx.savings.update({
-      where: { id: latestSavings.id },
-      data: {
-        totalAmount: {
-          decrement: request.content.amount
-        }
-      }
-    });
   }
-  
-  private async handleShareWithdrawal(tx: Prisma.TransactionClient, request: any) {
-    // Deduct shares from sender
-    await tx.shares.update({
-      where: {
-        id: request.content.sharesId
-      },
-      data: {
-        totalAmount: {
-          decrement: request.content.amount
-        }
-      }
+
+  private async processLoanApproval(request: any, tx: any) {
+    // Update loan status
+    if (request.loanId) {
+      await tx.loan.update({
+        where: { id: request.loanId },
+        data: { status: 'APPROVED' }
+      });
+    }
+  }
+
+  private async processSavingsWithdrawal(request: any, tx: any) {
+    const { amount } = request.content;
+
+    // Get member's savings
+    const savings = await tx.savings.findFirst({
+      where: { memberId: request.biodataId },
+      orderBy: { createdAt: 'desc' }
     });
-    
-    // Add shares to recipient if specified
-    if (request.content.recipientBiodataId) {
-      const recipientShares = await tx.shares.findFirst({
-        where: {
-          biodataId: request.content.recipientBiodataId
+
+    if (savings) {
+      // Deduct withdrawal amount from balance
+      const currentBalance = new Decimal(savings.balance || 0);
+      const withdrawalAmount = new Decimal(amount);
+      const newBalance = currentBalance.minus(withdrawalAmount);
+
+      await tx.savings.update({
+        where: { id: savings.id },
+        data: { balance: newBalance.toNumber() }
+      });
+
+      // Create transaction record
+      await tx.transaction.create({
+        data: {
+          biodataId: request.biodataId,
+          amount: withdrawalAmount.toNumber(),
+          type: 'DEBIT',
+          module: 'SAVINGS',
+          moduleType: 'SAVINGS_WITHDRAWAL',
+          status: 'COMPLETED',
+          requestId: request.id,
+          description: 'Savings withdrawal',
+          initiatedBy: request.initiatorId
+        }
+      });
+    }
+  }
+
+  async getRequests(filters: FilterOptions) {
+    const { type, status, biodataId, page = 1, limit = 10 } = filters;
+    const skip = (page - 1) * limit;
+
+    try {
+      const where: any = {};
+
+      if (type) where.type = type;
+      if (status) where.status = status;
+      if (biodataId) where.biodataId = biodataId;
+
+      const [requests, total] = await Promise.all([
+        prisma.request.findMany({
+          where,
+          include: {
+            biodata: true,
+            initiator: true,
+            approver: true
+          },
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' }
+        }),
+        prisma.request.count({ where })
+      ]);
+
+      return {
+        data: requests,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit)
+        }
+      };
+    } catch (error) {
+      logger.error('Error fetching requests:', error);
+      throw new ApiError('Error fetching requests', 500);
+    }
+  }
+
+  async getUserRequests(userId: string, filters: FilterOptions) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { biodataId: true }
+      });
+
+      if (!user?.biodataId) {
+        throw new ApiError('User biodata not found', 404);
+      }
+
+      return this.getRequests({
+        ...filters,
+        biodataId: user.biodataId
+      });
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      logger.error('Error fetching user requests:', error);
+      throw new ApiError('Error fetching user requests', 500);
+    }
+  }
+
+  async getRequest(requestId: string) {
+    try {
+      const request = await prisma.request.findUnique({
+        where: { id: requestId },
+        include: {
+          biodata: true,
+          initiator: true,
+          approver: true
         }
       });
 
-      if (recipientShares) {
-        await tx.shares.update({
-          where: {
-            id: recipientShares.id
-          },
-          data: {
-            totalAmount: {
-              increment: request.content.amount
-            }
-          }
-        });
+      if (!request) {
+        throw new ApiError('Request not found', 404);
       }
+
+      return request;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      logger.error('Error fetching request:', error);
+      throw new ApiError('Error fetching request', 500);
     }
-    
-    // Record the withdrawal transaction
-    await tx.savingsTransaction.create({
-      data: {
-        biodataId: request.biodataId,
-        amount: request.content.amount,
-        transactionType: 'SHARES_WITHDRAWAL',
-        transactionStatus: 'APPROVED',
-        description: request.content.reason || 'Share withdrawal approved'
-      }
-    });
   }
-  
-  async getRequestById(id: string) {
-    return prisma.request.findUnique({
-      where: { id },
-      include: {
-        Biodata: true,
-        user: true,
-        reviewer: true
+
+  async deleteRequest(requestId: string) {
+    try {
+      const request = await prisma.request.findUnique({
+        where: { id: requestId }
+      });
+
+      if (!request) {
+        throw new ApiError('Request not found', 404);
       }
-    });
-  }
-  
-  async getRequests(filters: FilterOptions) {
-    const {
-      type,
-      status,
-      biodataId,
-      userId,
-      startDate,
-      endDate,
-      page = 1,
-      limit = 10,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
-    } = filters;
-    
-    const where: any = {};
-    
-    if (type) where.type = type;
-    if (status) where.status = status;
-    if (biodataId) where.biodataId = biodataId;
-    if (userId) where.userId = userId;
-    
-    if (startDate || endDate) {
-      where.createdAt = {};
-      if (startDate) where.createdAt.gte = startDate;
-      if (endDate) where.createdAt.lte = endDate;
+
+      if (request.status !== RequestStatus.PENDING) {
+        throw new ApiError('Only pending requests can be deleted', 400);
+      }
+
+      await prisma.request.delete({
+        where: { id: requestId }
+      });
+
+      return { message: 'Request deleted successfully' };
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      logger.error('Error deleting request:', error);
+      throw new ApiError('Error deleting request', 500);
     }
-    
-    const skip = (page - 1) * limit;
-    
-    const [total, requests] = await Promise.all([
-      prisma.request.count({ where }),
-      prisma.request.findMany({
-        where,
-        include: {
-          Biodata: true,
-          user: true,
-          reviewer: true
-        },
-        skip,
-        take: limit,
-        orderBy: {
-          [sortBy]: sortOrder
+  }
+
+  async getPendingCount() {
+    try {
+      return await prisma.request.count({
+        where: {
+          status: RequestStatus.PENDING
         }
-      })
-    ]);
-    
-    return {
-      requests,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit)
-    };
-  }
-  
-  async getUserRequests(userId: string) {
-    return prisma.request.findMany({
-      where: { userId },
-      include: {
-        Biodata: true,
-        reviewer: true
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
-  }
-  
-  async getPendingRequestCount() {
-    return prisma.request.count({
-      where: { status: RequestStatus.PENDING }
-    });
-  }
-  
-  async deleteRequest(id: string) {
-    return prisma.request.delete({
-      where: { id }
-    });
+      });
+    } catch (error) {
+      logger.error('Error getting pending count:', error);
+      throw new ApiError('Error getting pending count', 500);
+    }
   }
 }
+
+export default new RequestService();

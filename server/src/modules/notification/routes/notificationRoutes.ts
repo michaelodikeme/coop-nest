@@ -1,36 +1,29 @@
 import express from 'express';
 import { NotificationController } from '../controllers/notificationController';
-import authMiddleware from '../../../middlewares/authMiddleware';
-import { checkPermission } from '../../../middlewares/permissionMiddleware';
-import { handleRequestError } from '../../../middlewares/errorHandlers/requestErrorHandler';
+import { authenticateUser, checkPermission } from '../../../middlewares/auth';
 
 const router = express.Router();
 const notificationController = new NotificationController();
 
 // Get unread notifications
 router.get('/',
-  authMiddleware,
-  checkPermission(['view_own_profile']),
+  authenticateUser,
+  checkPermission('VIEW_OWN_PROFILE'),
   notificationController.getUnreadNotifications
 );
 
 // Mark single notification as read
 router.put('/:id/read',
-  authMiddleware,
-  checkPermission(['view_own_profile']),
+  authenticateUser,
+  checkPermission('VIEW_OWN_PROFILE'),
   notificationController.markAsRead
 );
 
 // Mark all notifications as read
 router.put('/mark-all-read',
-  authMiddleware,
-  checkPermission(['view_own_profile']),
+  authenticateUser,
+  checkPermission('VIEW_OWN_PROFILE'),
   notificationController.markAllAsRead
 );
-
-// Error handler
-router.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  handleRequestError(err, req, res, next);
-});
 
 export default router;

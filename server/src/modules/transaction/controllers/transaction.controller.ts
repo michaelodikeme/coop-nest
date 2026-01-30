@@ -287,11 +287,16 @@ export class TransactionController {
       }
       
       // Validate pagination params - ApiError utility will handle any ZodError
-      const pagination = await z.object({
+      const paginationParsed = await z.object({
         page: z.coerce.number().int().positive().optional().default(1),
         limit: z.coerce.number().int().positive().max(100).optional().default(20)
       }).parseAsync(req.query);
-      
+
+      const pagination = {
+        page: paginationParsed.page || 1,
+        limit: paginationParsed.limit || 20
+      };
+
       // For member access control
       if (!req.user!.isAdmin) {
         // Check if this entity belongs to the current user
@@ -300,14 +305,14 @@ export class TransactionController {
           entityType,
           entityId
         );
-        
+
         if (!hasAccess) {
           return ApiResponse.forbidden(res, 'You do not have permission to view these transactions');
         }
       }
-      
+
       const transactions = await this.queryService.getTransactionsByEntity(
-        entityType, 
+        entityType,
         entityId,
         pagination
       );
@@ -385,11 +390,16 @@ export class TransactionController {
       }
       
       // Validate pagination params - ApiError utility will handle any ZodError
-      const pagination = await z.object({
+      const paginationParsed = await z.object({
         page: z.coerce.number().int().positive().optional().default(1),
         limit: z.coerce.number().int().positive().max(100).optional().default(20)
       }).parseAsync(req.query);
-      
+
+      const pagination = {
+        page: paginationParsed.page || 1,
+        limit: paginationParsed.limit || 20
+      };
+
       const transactions = await this.queryService.getTransactionsByUser(
         requestedUserId,
         pagination
