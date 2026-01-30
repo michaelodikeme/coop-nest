@@ -14,6 +14,7 @@ import {
 import axios, { AxiosError } from 'axios';
 import { useDispatch } from 'react-redux';
 import { setCredentials, logout as logoutAction } from '@/lib/hooks/redux/store/slices/authSlice';
+import { addToast } from '@/lib/hooks/redux/store/slices/uiSlice';
 import { AuthTokens, Session } from '@/types/auth.types';
 import { isAdminUser, isMemberUser, formatUserData } from '../../utils/roleUtils';
 import type { User } from '@/types/user.types';
@@ -26,7 +27,7 @@ interface AuthContextType {
   isInitializing: boolean;
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<void>;
-  logout: (options?: { 
+  logout: (options?: {
     invalidateAll?: boolean,
     redirectToLogin?: boolean,
     reason?: string
@@ -42,6 +43,10 @@ interface AuthContextType {
   getActiveSessions: () => Promise<Session[]>;
   invalidateSession: (sessionId: string) => Promise<void>;
   isCurrentSession: (sessionId: string) => Promise<boolean>;
+  // Additional auth validation
+  ensureValidAuth: () => Promise<boolean>;
+  error: string | null;
+  setError: (error: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,15 +61,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
   const router = useRouter();
   const dispatch = useDispatch();
-
-  // Debug function for auth issues
-  const debugAuth = (message: string, data?: any) => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.group(`🔐 Auth Debug: ${message}`);
-      if (data) console.log(data);
-      console.groupEnd();
-    }
-  };
 
   // Get active sessions
   const getActiveSessions = useCallback(async () => {
@@ -146,11 +142,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Centralized function to handle auth-based redirects
   const handleAuthRedirect = useCallback((currentPath: string = window?.location?.pathname) => {
-    // console.log('Handling auth redirect from path:', currentPath, 'Auth state:', { 
-    //   isAuthenticated, 
-    //   isAdmin: user ? isAdminUser(user) : false,
-    //   isMember: user ? isMemberUser(user) : false,
-    // });
     
     // Don't redirect during auth processes or for certain paths
     if (isLoading || isInitializing) {
@@ -266,10 +257,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     try {
       setIsLoading(true);
-      
-      // Get current token info before logout
-      const tokens = getStoredAuthTokens();
-      
+
       if (invalidateAll) {
         // Invalidate all user sessions
         console.log('Logging out all sessions');
@@ -538,8 +526,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Login error details:', error);
       const errorMessage = handleLoginError(error);
-      setError(errorMessage); // Set the error message to state
-      handleLoginError(error);
+      setError(errorMessage);
+      dispatch(addToast({
+        message: errorMessage,
+        type: 'error',
+      }));
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -683,127 +675,6 @@ export function useAuth() {
   return context;
 }
 
-// Fix formatUserData function which has critical issues
-
-// function formatUserData(userData: any): User {
-//   // First, ensure we have a valid user data object
-//   if (!userData || typeof userData !== 'object') {
-//     console.error('Invalid user data provided to formatUserData:', userData);
-//     throw new Error('Invalid user data structure');
-//   }
-  
-//   console.log('Raw user data being formatted:', {
-//     id: userData.id,
-//     username: userData.username,
-//     roleAssignments: userData.roleAssignments,
-//     isMember: userData.isMember
-//   });
-
-//   // Ensure role assignments are properly processed
-//   const formattedUser: User = {
-//     id: userData.id,
-//     username: userData.username || '',
-//     email: userData.email || '',
-
-//     // Correctly handle role property
-//     role: userData.role || null,
-
-//     // Extract permissions from roleAssignments
-//     permissions: [],
-
-//     // Extract approval level
-//     approvalLevel: userData.approvalLevel || 0,
-
-//     // Copy modules
-//     modules: userData.modules || [],
-
-//     // Extract biodata information
-//     biodataId: userData.biodataId || userData.biodata?.id || '',
-//     biodata: userData.biodata || null,
-
-//     // IMPORTANT: Set member flag explicitly with fallback checks
-//     // This is the critical fix - we need to ensure member status is correctly detected
-//     isMember: userData.isMember === true ||
-//       !!(userData.roleAssignments as RoleAssignment[])?.some((r: RoleAssignment) => r.isActive !== false && // consider active if not explicitly false
-//         (r.role?.name === 'MEMBER' ||
-//           r.role?.name?.toUpperCase() === 'MEMBER' ||
-//           r.role?.name?.includes('MEMBER'))
-//       ),
-
-//     isActive: userData.isActive !== false, // assume active unless explicitly false
-
-
-//     // Set the full roleAssignments array with safety check
-//     roleAssignments: Array.isArray(userData.roleAssignments) ? userData.roleAssignments : [],
-
-//     // Add session information 
-//     session: userData.session || null,
-
-//     // Add other required fields
-//     createdAt: userData.createdAt,
-//     updatedAt: userData.updatedAt,
-//     adminProfile: userData.adminProfile || null,
-//     data: userData.data || null
-//   };
-  
-//   // Extract and flatten permissions from all roleAssignments
-//   if (Array.isArray(userData.roleAssignments)) {
-//     const allPermissions = new Set<string>();
-    
-//     userData.roleAssignments.forEach((assignment: any) => {
-//       // More permissive check for active status - consider active unless explicitly false
-//       if (assignment.isActive !== false && assignment.role) {
-//         // Process permissions
-//         if (Array.isArray(assignment.role.permissions)) {
-//           assignment.role.permissions.forEach((permission: string | {name: string}) => {
-//             // Handle both string permissions and permission objects
-//             if (typeof permission === 'string') {
-//               allPermissions.add(permission);
-//             } else if (permission && typeof permission === 'object' && permission.name) {
-//               allPermissions.add(permission.name);
-//             }
-//           });
-//         }
-//       }
-//     });
-    
-//     formattedUser.permissions = Array.from(allPermissions);
-//   }
-  
-//   // Also extract modules from roleAssignments if not set directly
-//   if ((!formattedUser.modules || formattedUser.modules.length === 0) && Array.isArray(userData.roleAssignments)) {
-//     const allModules = new Set<string>();
-    
-//     userData.roleAssignments.forEach((assignment: any) => {
-//       if (assignment.isActive !== false && assignment.role && Array.isArray(assignment.role.moduleAccess)) {
-//         assignment.role.moduleAccess.forEach((module: string | {name: string, access: boolean}) => {
-//           if (typeof module === 'string') {
-//             allModules.add(module);
-//           } else if (module && typeof module === 'object' && module.name && module.access) {
-//             allModules.add(module.name);
-//           }
-//         });
-//       }
-//     });
-    
-//     formattedUser.modules = Array.from(allModules);
-//   }
-  
-//   // Debug formatted user to check role information
-//   console.log('Formatted user with roles:', {
-//     username: formattedUser.username,
-//     isMember: formattedUser.isMember,
-//     isAdmin: isAdminUser(formattedUser),
-//     roleAssignments: (formattedUser.roleAssignments || []).map(r => ({
-//       isActive: r.isActive,
-//       roleName: r.role?.name
-//     })),
-//     permissions: formattedUser.permissions?.length || 0
-//   });
-
-//   return formattedUser;
-// }
-
 export enum AuthErrorCode {
   INVALID_TOKEN = 'invalid_token',
   TOKEN_EXPIRED = 'token_expired',
@@ -811,24 +682,6 @@ export enum AuthErrorCode {
   PERMISSION_DENIED = 'permission_denied',
 }
 
-// export function handleLoginError(error: unknown): string {
-//   if (error instanceof AxiosError) {
-//     switch (error.response?.data?.code) {
-//       case AuthErrorCode.INVALID_TOKEN:
-//         return 'Invalid token provided.';
-//       case AuthErrorCode.TOKEN_EXPIRED:
-//         return 'Your session has expired. Please log in again.';
-//       case AuthErrorCode.SESSION_REVOKED:
-//         return 'Your session has been revoked.';
-//       case AuthErrorCode.PERMISSION_DENIED:
-//         return 'You do not have permission to access this resource.';
-//       default:
-//         return 'An unknown error occurred.';
-//     }
-//   }
-
-//   return 'An error occurred during login.';
-// }
   export function handleLoginError(error: unknown): string {
       if (error instanceof AxiosError) {
           switch (error.response?.data?.code) {

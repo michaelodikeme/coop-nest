@@ -3,9 +3,7 @@ import { sendVerificationCode, checkVerificationCode, verifyOTPFromRedis, storeO
 import { PhoneNumberService } from '../../../utils/phoneNumber';
 import { IVerifyBiodataInput, IVerifyBiodataResponse, IOtpVerificationResponse } from '../interfaces/biodata.interface';
 import { NotificationType, PrismaClient } from '@prisma/client';
-
-
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 
 // Update TransactionClient type to match Prisma's transaction type
 type TransactionClient = Omit<

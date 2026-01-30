@@ -1,8 +1,7 @@
 import { PrismaClient, RequestStatus, NotificationType } from '@prisma/client';
 import { ApiError } from '../../../utils/apiError';
 import logger from '../../../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 
 export class NotificationService {
   async createRequestNotification(request: any) {

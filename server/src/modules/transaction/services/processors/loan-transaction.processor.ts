@@ -4,15 +4,16 @@ import { CreateTransactionDto } from '../../dtos/create-transaction.dto';
 import { TransactionError, TransactionErrorCodes } from '../../errors/transaction.error';
 import { Decimal } from '@prisma/client/runtime/library';
 import logger from '../../../../utils/logger';
+import { prisma } from '../../../../utils/prisma';
 
 /**
  * Processor for loan-related transactions
  */
 export class LoanTransactionProcessor implements TransactionProcessor {
-  private prisma: PrismaClient;
+
   
   constructor() {
-    this.prisma = new PrismaClient();
+
   }
   
   /**
@@ -115,7 +116,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     }
     
     // Check if loan exists
-    const loan = await this.prisma.loan.findUnique({
+    const loan = await prisma.loan.findUnique({
       where: { id: data.relatedEntityId }
     });
     
@@ -163,7 +164,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     }
     
     // Check if loan exists
-    const loan = await this.prisma.loan.findUnique({
+    const loan = await prisma.loan.findUnique({
       where: { id: data.relatedEntityId }
     });
     
@@ -190,7 +191,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     }
     
     // Get the loan
-    const loan = await this.prisma.loan.findUnique({
+    const loan = await prisma.loan.findUnique({
       where: { id: transaction.loanId }
     });
     
@@ -207,7 +208,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
     
     // Update loan status to disbursed
-    await this.prisma.loan.update({
+    await prisma.loan.update({
       where: { id: transaction.loanId },
       data: {
         status: LoanStatus.DISBURSED,
@@ -217,7 +218,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     });
     
     // Generate loan payment schedules if they don't exist
-    const scheduleCount = await this.prisma.loanSchedule.count({
+    const scheduleCount = await prisma.loanSchedule.count({
       where: { loanId: transaction.loanId }
     });
     
@@ -226,7 +227,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     }
     
     // Record status change in history
-    await this.prisma.loanStatusHistory.create({
+    await prisma.loanStatusHistory.create({
       data: {
         loanId: loan.id,
         fromStatus: LoanStatus.APPROVED,
@@ -237,7 +238,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     });
     
     // Update the transaction's balanceAfter field (remaining balance is full amount at disbursement)
-    await this.prisma.transaction.update({
+    await prisma.transaction.update({
       where: { id: transaction.id },
       data: {
         balanceAfter: loan.totalAmount
@@ -270,7 +271,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
       
       remainingBalance = remainingBalance.minus(paymentAmount);
       
-      await this.prisma.loanSchedule.create({
+      await prisma.loanSchedule.create({
         data: {
           loanId: loan.id,
           dueDate,
@@ -292,7 +293,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     }
     
     // Get the loan
-    const loan = await this.prisma.loan.findUnique({
+    const loan = await prisma.loan.findUnique({
       where: { id: transaction.loanId },
       include: {
         paymentSchedules: {
@@ -321,7 +322,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
       : loan.remainingBalance.minus(transaction.amount);
     
     // Update loan record
-    await this.prisma.loan.update({
+    await prisma.loan.update({
       where: { id: transaction.loanId },
       data: {
         paidAmount: newPaidAmount,
@@ -334,7 +335,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     
     // Record loan status change if status changed
     if (loan.status !== newStatus) {
-      await this.prisma.loanStatusHistory.create({
+      await prisma.loanStatusHistory.create({
         data: {
           loanId: loan.id,
           fromStatus: loan.status,
@@ -364,7 +365,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
         : 'PARTIAL';
       
       // Update schedule
-      await this.prisma.loanSchedule.update({
+      await prisma.loanSchedule.update({
         where: { id: schedule.id },
         data: {
           paidAmount: newPaidForSchedule,
@@ -378,7 +379,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     
     // Create loan repayment record
     const now = new Date();
-    await this.prisma.loanRepayment.create({
+    await prisma.loanRepayment.create({
       data: {
         loanId: transaction.loanId,
         amount: transaction.amount,
@@ -392,7 +393,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     });
     
     // Update the transaction's balanceAfter field
-    await this.prisma.transaction.update({
+    await prisma.transaction.update({
       where: { id: transaction.id },
       data: {
         balanceAfter: newRemainingBalance
@@ -409,7 +410,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
       return;
     }
     
-    const originalTx = await this.prisma.transaction.findUnique({
+    const originalTx = await prisma.transaction.findUnique({
       where: { id: transaction.parentTxnId }
     });
     
@@ -434,7 +435,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     const loanId = originalTx.loanId;
     
     // Get the loan
-    const loan = await this.prisma.loan.findUnique({
+    const loan = await prisma.loan.findUnique({
       where: { id: loanId }
     });
     
@@ -450,7 +451,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     }
     
     // Update loan status back to approved
-    await this.prisma.loan.update({
+    await prisma.loan.update({
       where: { id: loanId },
       data: {
         status: LoanStatus.APPROVED,
@@ -459,7 +460,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     });
     
     // Record status change in history
-    await this.prisma.loanStatusHistory.create({
+    await prisma.loanStatusHistory.create({
       data: {
         loanId: loan.id,
         fromStatus: loan.status,
@@ -470,12 +471,12 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     });
     
     // Delete any payment schedules
-    await this.prisma.loanSchedule.deleteMany({
+    await prisma.loanSchedule.deleteMany({
       where: { loanId }
     });
     
     // Update reversal transaction balanceAfter
-    await this.prisma.transaction.update({
+    await prisma.transaction.update({
       where: { id: reversalTx.id },
       data: {
         balanceAfter: new Decimal(0)
@@ -492,7 +493,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     const loanId = originalTx.loanId;
     
     // Get the loan
-    const loan = await this.prisma.loan.findUnique({
+    const loan = await prisma.loan.findUnique({
       where: { id: loanId },
       include: {
         repayments: {
@@ -515,7 +516,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     }
     
     // Update loan record
-    await this.prisma.loan.update({
+    await prisma.loan.update({
       where: { id: loanId },
       data: {
         paidAmount: newPaidAmount,
@@ -527,7 +528,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     
     // Record status change if needed
     if (loan.status !== newStatus) {
-      await this.prisma.loanStatusHistory.create({
+      await prisma.loanStatusHistory.create({
         data: {
           loanId: loan.id,
           fromStatus: loan.status,
@@ -544,7 +545,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
       
       // Only reverse if amount matches
       if (latestRepayment.amount.equals(originalTx.amount)) {
-        await this.prisma.loanRepayment.update({
+        await prisma.loanRepayment.update({
           where: { id: latestRepayment.id },
           data: {
             isReconciled: false,
@@ -555,7 +556,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
     }
     
     // Update reversal transaction balanceAfter
-    await this.prisma.transaction.update({
+    await prisma.transaction.update({
       where: { id: reversalTx.id },
       data: {
         balanceAfter: newRemainingBalance
@@ -571,7 +572,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
       if (!transaction.loanId) return;
       
       // Get the loan record to find the member
-      const loan = await this.prisma.loan.findUnique({
+      const loan = await prisma.loan.findUnique({
         where: { id: transaction.loanId },
         include: {
           member: true
@@ -581,7 +582,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
       if (!loan || !loan.member) return;
 
       // Get the member's user account
-      const user = await this.prisma.user.findFirst({
+      const user = await prisma.user.findFirst({
         where: { biodataId: loan.memberId }
       });
       
@@ -614,7 +615,7 @@ export class LoanTransactionProcessor implements TransactionProcessor {
       }
       
       // Create notification in the database
-      await this.prisma.notification.create({
+      await prisma.notification.create({
         data: {
           userId: user.id,
           type: 'TRANSACTION',

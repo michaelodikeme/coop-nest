@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { ApiError } from '../../../utils/apiError';
 import logger from '../../../utils/logger';
+import { prisma } from '../../../utils/prisma';
 
 interface BiodataWithRelations extends Biodata {
     accountInfo: (AccountInfo & { bank: { name: string } })[];
@@ -42,11 +43,9 @@ interface ExcelRow {
 }
 
 export class BiodataBackupService {
-    private readonly prisma: PrismaClient;
     private readonly backupDir: string;
 
     constructor() {
-        this.prisma = new PrismaClient();
         this.backupDir = path.join(__dirname, '..', '..', '..', '..', 'backups', 'biodata');
     }
 
@@ -56,7 +55,7 @@ export class BiodataBackupService {
             await this.ensureBackupDirectory();
 
             // Check if biodata exists
-            const biodataCount = await this.prisma.biodata.count({
+            const biodataCount = await prisma.biodata.count({
                 where: { isDeleted: false }
             });
 
@@ -95,7 +94,7 @@ export class BiodataBackupService {
 
     private async fetchBiodataWithRelations(): Promise<BiodataWithRelations[]> {
         try {
-            return await this.prisma.biodata.findMany({
+            return await prisma.biodata.findMany({
                 where: { isDeleted: false },
                 include: {
                     accountInfo: {

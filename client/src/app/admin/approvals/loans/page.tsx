@@ -41,17 +41,10 @@ export default function LoanApprovalsPage() {
     searchTerm
   );
   
-  // Safely access the nested data structure
-  const approvals = approvalsResponse as ApiResponse<PaginatedResponse<Request>> | undefined;
-  // const requests = Array.isArray(approvals?.data?.data) ? approvals?.data?.data : [];
-  // const meta = approvals?.data?.meta || { totalCount: 0, totalPages: 0 };
-  const meta = approvals?.data.meta || { total: 0, page: 1, limit: 10, totalPages: 0 };
-
-  // const requests = Array.isArray(approvals) 
-  //   ? approvals 
-  //   : Array.isArray(approvals?.data) 
-  //     ? approvals.data 
-  //     : approvals?.data || [];
+  // Safely access the nested data structure from useApprovals hook
+  // The hook returns { data: [...], meta: { total, page, limit, totalPages } }
+  const approvals = approvalsResponse as { data: Request[]; meta: { total: number; page: number; limit: number; totalPages: number } } | undefined;
+  const meta = approvals?.meta || { total: 0, page: 1, limit: 10, totalPages: 0 };
   const requests = Array.isArray(approvals?.data) ? approvals.data : [];
   console.log('LoanApprovalPage Approvals data structure:', approvals);
   console.log('Meta data:', meta);
@@ -310,21 +303,44 @@ export default function LoanApprovalsPage() {
         getStatusWithPriority(value, row.priority)
     },
     {
-      id: 'created',
-      label: 'Created',
-      accessor: (row: any) => new Date(row.createdAt).toLocaleDateString(),
-      minWidth: 150,
-      Cell: ({ row }: { row: any }) => (
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          <Typography variant="body2">
-            {new Date(row.createdAt).toLocaleDateString()}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {new Date(row.createdAt).toLocaleTimeString()}
-          </Typography>
-        </Box>
-      )
-    },
+  id: 'created',
+  label: 'Created',
+  // The accessor extracts the value from the row
+  accessor: (row: any) => row.createdAt, 
+  minWidth: 150,
+  // Use 'value' which is the result of the accessor above
+  Cell: ({ value }: { value: string }) => {
+    if (!value) {
+      return (
+        <Typography variant="body2" color="text.secondary">
+          N/A
+        </Typography>
+      );
+    }
+
+    const date = new Date(value);
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return (
+        <Typography variant="body2" color="error">
+          Invalid Date
+        </Typography>
+      );
+    }
+
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+        <Typography variant="body2" fontWeight={500}>
+          {date.toLocaleDateString()}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Typography>
+      </Box>
+    );
+  }
+},
     {
       id: 'actions',
       label: 'Actions',
@@ -734,18 +750,18 @@ export default function LoanApprovalsPage() {
               </Badge>
             </MenuItem>
             <MenuItem value="DISBURSED">
-              <Badge 
-                badgeContent={statistics.disbursed} 
-                color="primary" 
+              <Badge
+                badgeContent={statistics.disbursed}
+                color="primary"
                 sx={{ '& .MuiBadge-badge': { right: -20 } }}
               >
                 Disbursed
               </Badge>
             </MenuItem>
-            <MenuItem value="DISBURSED">
-              <Badge 
-                badgeContent={statistics.disbursed} 
-                color="info" 
+            <MenuItem value="ACTIVE">
+              <Badge
+                badgeContent={statistics.active}
+                color="info"
                 sx={{ '& .MuiBadge-badge': { right: -20 } }}
               >
                 Active
@@ -815,7 +831,7 @@ export default function LoanApprovalsPage() {
               Loan Applications
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {approvals?.data?.meta?.total || 0} total applications
+              {meta.total || 0} total applications
             </Typography>
           </Box>
           

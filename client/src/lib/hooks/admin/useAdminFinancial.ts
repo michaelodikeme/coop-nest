@@ -15,7 +15,6 @@ export function useAdminSavings(page = 1, limit = 10, filters = {}) {
     queryFn: async () => {
       try {
         const response = await savingsService.getAllSavings(page, limit, filters);
-        console.log('Savings response:', response);
         // Service already unwraps, so return as-is
         return response;
       } catch (error) {
@@ -37,7 +36,6 @@ export function useAdminSavingsSummary() {
       try {
         // Return the direct response from savingsService without extracting .data
         const response = await savingsService.getAdminSavingsSummary();
-        console.log('Savings summary response:', response);
         return response; // Return the full transformed object
       } catch (error) {
         console.error('Error fetching savings summary:', error);
@@ -55,8 +53,6 @@ export function useAdminMonthlySavings(year: number, month: number, page = 0, li
       try {
         // Pass pagination params to the API call
         const response = await savingsService.getMonthlySavings(year, month, {page, limit}) as any;
-
-        console.log('Monthly savings response:', response);
 
         return response.data || response;
       } catch (error) {
@@ -151,9 +147,19 @@ export function useProcessWithdrawal() {
         isLastApproval
       });
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-withdrawal-requests'] });
       queryClient.invalidateQueries({ queryKey: ['admin-savings-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['withdrawal-details', variables.withdrawalId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-members-savings-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-transaction-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-monthly-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['my-personal-savings-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['my-savings-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-personal-savings'] });
+      queryClient.invalidateQueries({ queryKey: ['personal-savings-details'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['my-transactions'] }); // Member transaction history
       toast.success('Withdrawal request updated successfully');
     },
     onError: (error: any) => {
@@ -436,7 +442,7 @@ export function useWithdrawalDetails(withdrawalId: string) {
 // c:\Users\miche\OneDrive\Desktop\coop-nest\coop-nest\client\src\lib\hooks\admin\useApprovals.ts
 
 export function useWithdrawalRequestApprovals(
-  type: string,
+  type: string[],
   page = 1,
   limit = 10,
   status?: string,
@@ -450,6 +456,7 @@ export function useWithdrawalRequestApprovals(
           page,
           limit,
           status: status === 'ALL' ? undefined : (status as RequestStatus),
+          type: type as RequestType[],
           search
         });
       } catch (error) {

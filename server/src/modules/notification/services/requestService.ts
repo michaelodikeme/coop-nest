@@ -5,7 +5,7 @@ import { ApiError } from '../../../utils/apiError';
 import logger from '../../../utils/logger';
 import { Decimal } from 'decimal.js';
 
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 const notificationService = new NotificationService();
 
 export class RequestService {

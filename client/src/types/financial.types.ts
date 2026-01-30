@@ -260,6 +260,13 @@ export interface ShareStats {
   averageShares: number;
 }
 
+
+export interface TransactionFormData {
+  amount: number;
+  type: string;
+  reference?: string;
+}
+
 // Add this interface to your financial.types.ts file
 
 export interface MemberSavingsSummary {

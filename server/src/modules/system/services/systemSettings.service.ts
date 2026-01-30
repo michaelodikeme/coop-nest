@@ -79,12 +79,14 @@ export class SystemSettingsService {
                 where: { key: 'DEFAULT_SHARE_AMOUNT' }
             });
 
+            console.log('System settings initialized successfully', shareAmount);
+
             // If it doesn't exist, create it
             if (!shareAmount) {
                 await this.prisma.systemSettings.create({
                     data: {
                         key: 'DEFAULT_SHARE_AMOUNT',
-                        value: JSON.stringify(3000),
+                        value: JSON.stringify(5000),
                         type: 'number',
                         group: 'SHARES',
                         description: 'Default monthly share amount',

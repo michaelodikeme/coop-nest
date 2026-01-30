@@ -66,6 +66,11 @@ export interface ChangePasswordData {
   confirmPassword: string;
 }
 
+
+export interface ResetPasswordData {
+    username: string;
+}
+
 export interface Role {
   id?: string;
   name: string;

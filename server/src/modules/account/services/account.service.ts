@@ -1,7 +1,7 @@
-import { PrismaClient, Prisma, RequestType, RequestStatus, TransactionType, TransactionModule, RequestModule } from '@prisma/client';
-import { 
-  ICreateAccountInput, 
-  IUpdateAccountInput, 
+import { Prisma, RequestType, RequestStatus, TransactionType, TransactionModule, RequestModule } from '@prisma/client';
+import {
+  ICreateAccountInput,
+  IUpdateAccountInput,
   IAccountVerificationInput,
   IAccountQueryFilters,
   IAccountVerificationResult,
@@ -11,8 +11,7 @@ import {
 import { bankAccountVerification } from '../utils/bankVerification';
 import { ApiError } from '../../../utils/apiError';
 import logger from '../../../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 
 // Helper function to map Prisma Account to IAccountInfo
 function mapToAccountInfo(account: any): IAccountInfo {

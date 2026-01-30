@@ -31,7 +31,7 @@ export default function WithdrawalApprovalsPage() {
   const [pageSize, setPageSize] = useState(10);
   
   const { data: approvals, isLoading, error } = useWithdrawalRequestApprovals(
-    'SAVINGS_WITHDRAWAL',
+    ['SAVINGS_WITHDRAWAL', 'PERSONAL_SAVINGS_WITHDRAWAL'],
     page,
     pageSize,
     statusFilter,
@@ -45,18 +45,18 @@ export default function WithdrawalApprovalsPage() {
     {
       id: 'member',
       label: 'Member',
-      accessor: (row: any) => row.biodata?.fullName || row.memberName || '',
+      accessor: (row: any) => row.member?.name || '',
       Cell: ({ value, row }: { value: any; row: any }) => (
         <Box>
           <Typography variant="body2" fontWeight={500}>{value}</Typography>
-          <Typography variant="caption" color="text.secondary">{row.original.biodata?.erpId || row.original.memberNumber || ''}</Typography>
+          <Typography variant="caption" color="text.secondary">{row.original.member?.erpId || ''}</Typography>
         </Box>
       ),
     },
     {
       id: 'amount',
       label: 'Amount',
-      accessor: (row: any) => row.content?.amount || 0,
+      accessor: (row: any) => row.rawAmount || 0,
       Cell: ({ value }: { value: any }) => formatCurrency(Number(value))
     },
     {
@@ -81,7 +81,7 @@ export default function WithdrawalApprovalsPage() {
     {
       id: 'nextApprovalLevel',
       label: 'Approval Level',
-      accessor: (row: any) => row.nextApprovalLevel,
+      accessor: (row: any) => row.currentApprovalLevel,
       Cell: ({ value }: { value: any }) => (
         <Chip
           label={`Level ${value}`}
@@ -93,11 +93,11 @@ export default function WithdrawalApprovalsPage() {
     {
       id: 'requestedAt',
       label: 'Requested At',
-      accessor: (row: any) => row.createdAt,
+      accessor: (row: any) => row.requestDate,
       Cell: ({ value }: { value: any }) => (
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <AccessTimeIcon fontSize="small" sx={{ mr: 0.5, opacity: 0.7 }} />
-          <Typography variant="body2">{new Date(value).toLocaleDateString()}</Typography>
+          <Typography variant="body2">{new Date(value).toLocaleString()}</Typography>
         </Box>
       )
     },

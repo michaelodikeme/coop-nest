@@ -2,8 +2,7 @@ import xlsx from 'xlsx';
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
 import fs from 'fs';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 
 export class SavingsBackupService {
     static async exportSavingsToExcel(): Promise<string> {

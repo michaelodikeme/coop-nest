@@ -12,13 +12,14 @@ import routes from '../modules/request/routes';
 import personalSavingsRouter from '../modules/personal-savings';
 
 import { authenticateUser as authenticate } from '../middlewares/auth';
+import adminRoutes from "../modules/user/routes/admin.routes";
 
 const router = Router();
 
 // Health check route
-// router.get('/health', (req, res) => {
-//   res.status(200).json({ message: 'API is running' });
-// });
+router.get('/health', (req, res) => {
+  res.status(200).json({ message: 'API is running' });
+});
 
 // Public routes (no authentication required)
 router.use('/auth', authRoutes);
@@ -34,5 +35,5 @@ router.use('/savings', savingsRoutes);
 router.use('/loan', loanRoutes);
 router.use('/transactions', transactions);
 router.use('/personal-savings', personalSavingsRouter);
-
+router.use('/admin', adminRoutes);
 export default router;

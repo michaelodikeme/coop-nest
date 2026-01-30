@@ -18,11 +18,16 @@ interface EditUserFormData {
   roleId: string;
 }
 
+interface PasswordFormData {
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export default function EditUserForm({ user, onSuccess, onCancel }: EditUserFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const currentRole = user.role;
-
-  console.log("currentRole", currentRole)
 
   const {
     register,
@@ -34,6 +39,16 @@ export default function EditUserForm({ user, onSuccess, onCancel }: EditUserForm
       roleId: currentRole?.id || '',
     },
   });
+
+  const {
+    register: registerPassword,
+    handleSubmit: handlePasswordSubmit,
+    watch: watchPassword,
+    reset: resetPassword,
+    formState: { errors: passwordErrors },
+  } = useForm<PasswordFormData>();
+
+  const newPassword = watchPassword('newPassword');
 
   // Fetch available roles
   const { data: roles, isLoading: rolesLoading } = useQuery({
@@ -54,9 +69,23 @@ export default function EditUserForm({ user, onSuccess, onCancel }: EditUserForm
       setIsSubmitting(false);
       onSuccess();
     },
-    onError: (error: any) => {
+    onError: (error: { response?: { data?: { message?: string } } }) => {
       toast.error(error.response?.data?.message || 'Failed to update user role');
       setIsSubmitting(false);
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: (newPassword: string) => userService.adminChangeUserPassword(user.id, newPassword),
+    onSuccess: () => {
+      toast.success('Password changed successfully');
+      setIsChangingPassword(false);
+      setShowPasswordSection(false);
+      resetPassword();
+    },
+    onError: (error: { response?: { data?: { message?: string } } }) => {
+      toast.error(error.response?.data?.message || 'Failed to change password');
+      setIsChangingPassword(false);
     },
   });
 
@@ -69,10 +98,16 @@ export default function EditUserForm({ user, onSuccess, onCancel }: EditUserForm
     try {
       setIsSubmitting(true);
       changeRoleMutation.mutate(data.roleId);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update user');
+    } catch (error: { response?: { data?: { message?: string } } } | unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Failed to update user');
       setIsSubmitting(false);
     }
+  };
+
+  const onPasswordSubmit = async (data: PasswordFormData) => {
+    setIsChangingPassword(true);
+    changePasswordMutation.mutate(data.newPassword);
   };
 
   return (
@@ -127,6 +162,15 @@ export default function EditUserForm({ user, onSuccess, onCancel }: EditUserForm
             Cannot change role for inactive users
           </p>
         )}
+
+      <Button
+          type="submit"
+          variant="contained"
+          disabled={isSubmitting || rolesLoading || !user.isActive}
+          className="w-full sm:w-auto"
+      >
+          {isSubmitting ? 'Updating...' : 'Update Role'}
+      </Button>
       </div>
 
       {/* User Details */}
@@ -153,6 +197,80 @@ export default function EditUserForm({ user, onSuccess, onCancel }: EditUserForm
           </div>
         </div>
       )}
+
+      {/* Password Change Section */}
+      <div className="border-t pt-4">
+        <button
+          type="button"
+          onClick={() => setShowPasswordSection(!showPasswordSection)}
+          className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-900"
+        >
+          <svg
+            className={`h-4 w-4 mr-2 transition-transform ${showPasswordSection ? 'rotate-90' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          Change Password
+        </button>
+
+        {showPasswordSection && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-700 mb-4">
+              This will reset the user's password and log them out of all sessions.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  New Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  id="newPassword"
+                  {...registerPassword('newPassword', {
+                    required: 'Password is required',
+                    minLength: { value: 8, message: 'Password must be at least 8 characters' }
+                  })}
+                  className="w-full px-3 py-2 border border-gray-300 text-black rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter new password"
+                />
+                {passwordErrors.newPassword && (
+                  <p className="mt-1 text-sm text-red-600">{passwordErrors.newPassword.message}</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirm Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  {...registerPassword('confirmPassword', {
+                    required: 'Confirm password is required',
+                    validate: value => value === newPassword || 'Passwords do not match'
+                  })}
+                  className="w-full px-3 py-2 border border-gray-300 text-black rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Confirm new password"
+                />
+                {passwordErrors.confirmPassword && (
+                  <p className="mt-1 text-sm text-red-600">{passwordErrors.confirmPassword.message}</p>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="contained"
+                onClick={handlePasswordSubmit(onPasswordSubmit)}
+                disabled={isChangingPassword}
+                className="w-full bg-yellow-600 hover:bg-yellow-700"
+              >
+                {isChangingPassword ? 'Changing Password...' : 'Change Password'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Information Note */}
       {currentRole && (
@@ -182,14 +300,6 @@ export default function EditUserForm({ user, onSuccess, onCancel }: EditUserForm
           className="w-full sm:w-auto"
         >
           Cancel
-        </Button>
-        <Button
-          type="submit"
-          variant="contained"
-          disabled={isSubmitting || rolesLoading || !user.isActive}
-          className="w-full sm:w-auto"
-        >
-          {isSubmitting ? 'Updating...' : 'Update Role'}
         </Button>
       </div>
     </form>

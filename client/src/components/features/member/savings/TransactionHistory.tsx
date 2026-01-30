@@ -37,9 +37,10 @@ import { TransactionTypeEnum as TransactionType, TransactionModule } from '@/typ
 
 interface TransactionHistoryProps {
   limit?: number;
+  savingsId?: string;
 }
 
-const TransactionHistory: React.FC<TransactionHistoryProps> = ({ limit }) => {
+const TransactionHistory: React.FC<TransactionHistoryProps> = ({ limit, savingsId }) => {
   const theme = useTheme();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -48,13 +49,19 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ limit }) => {
 
   // Update query to use proper pagination and filtering
   const { data: response, isLoading, error } = useQuery({
-    queryKey: ['savings-transactions-history', page, rowsPerPage, moduleFilter, searchTerm, limit],
+    queryKey: ['savings-transactions-history', page, rowsPerPage, moduleFilter, searchTerm, limit, savingsId],
     queryFn: () => savingsService.getTransactions({
       page: page + 1, 
       limit: limit || rowsPerPage,
+      savingsId: savingsId,
       // We don't need to filter by type on the API as we'll filter client-side by module
     }),
     staleTime: 300000,
+    select: (data) => {
+      if (!data?.data) return data;
+      const filtered = data.data.filter((tx: any) => tx.module === 'SAVINGS' && !tx.personalSavingsId);
+      return { ...data, data: filtered };
+    }
   });
 
   // Display error if one occurs

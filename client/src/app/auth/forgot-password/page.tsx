@@ -14,6 +14,8 @@ import {
 } from '@mui/material';
 // import { apiService as authApi } from '@/lib/api/apiService';
 import Link from 'next/link';
+import { authApi } from '@/lib/api/services/authService';
+
 
 export default function ForgotPasswordPage() {
   const [username, setUsername] = useState('');
@@ -21,6 +23,8 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const router = useRouter();
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +67,7 @@ export default function ForgotPasswordPage() {
           {!success ? (
             <>
               <Typography variant="body1" align="center" sx={{ mb: 4 }}>
-                Enter your username and we&apos;ll send you a password reset link
+                Enter your username and we&apos;ll send you an otp
               </Typography>
 
               <Box component="form" onSubmit={handleSubmit} noValidate>
@@ -97,7 +101,7 @@ export default function ForgotPasswordPage() {
                   {loading ? (
                     <CircularProgress size={24} color="inherit" />
                   ) : (
-                    'Send Reset Link'
+                    'Send otp'
                   )}
                 </Button>
               </Box>
@@ -105,8 +109,7 @@ export default function ForgotPasswordPage() {
           ) : (
             <>
               <Alert severity="success" sx={{ mb: 3 }}>
-                If an account exists with that username, we&apos;ve sent a password reset link.
-                Please check your email.
+                If an account exists with that username, we&apos;ve sent an otp.
               </Alert>
               <Button
                 component={Link}

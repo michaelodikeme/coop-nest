@@ -38,6 +38,21 @@ router.get(
     personalSavingsController.getPersonalSavingsPlans.bind(personalSavingsController) as unknown as RouteHandler
 );
 
+// Get member summary - MUST be before /:id to avoid matching "member" as an ID
+router.get(
+    '/member/:erpId/summary',
+    checkPermission('VIEW_PERSONAL_SAVINGS'),
+    personalSavingsController.getMemberSummary.bind(personalSavingsController) as unknown as RouteHandler
+);
+
+// Admin dashboard route - MUST be before /:id to avoid matching "admin" as an ID
+router.get(
+    '/admin/dashboard',
+    checkPermission('VIEW_PERSONAL_SAVINGS'),
+    authorizeRoles(['ADMIN', 'TREASURER', 'CHAIRMAN']),
+    personalSavingsController.getAdminDashboard.bind(personalSavingsController) as unknown as RouteHandler
+);
+
 // Get specific personal savings plan
 router.get(
     '/:id',
@@ -79,21 +94,6 @@ router.get(
     '/:id/balance-history',
     checkPermission('VIEW_PERSONAL_SAVINGS'),
     personalSavingsController.getBalanceHistory.bind(personalSavingsController) as unknown as RouteHandler
-);
-
-// Get member summary
-router.get(
-    '/member/:erpId/summary',
-    checkPermission('VIEW_PERSONAL_SAVINGS'),
-    personalSavingsController.getMemberSummary.bind(personalSavingsController) as unknown as RouteHandler
-);
-
-// Admin dashboard route
-router.get(
-    '/admin/dashboard',
-    checkPermission('VIEW_PERSONAL_SAVINGS'),
-    authorizeRoles(['ADMIN', 'TREASURER', 'CHAIRMAN']),
-    personalSavingsController.getAdminDashboard.bind(personalSavingsController) as unknown as RouteHandler
 );
 
 export default router;

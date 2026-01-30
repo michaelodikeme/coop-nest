@@ -244,6 +244,7 @@ class SavingsService {
    */
   async getWithdrawalRequests(params?: {
     status?: RequestStatus;
+    type?: RequestStatus | RequestStatus[];
     page?: number;
     limit?: number;
     startDate?: string;
@@ -263,6 +264,14 @@ class SavingsService {
       if (params.sortBy) queryParams.append('sortBy', params.sortBy);
       if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
       if (params.search) queryParams.append('search', params.search);
+      
+      if (params.type) {
+        if (Array.isArray(params.type)) {
+          params.type.forEach(t => queryParams.append('type', t));
+        } else {
+          queryParams.append('type', params.type);
+        }
+      }
     }
 
     const url = `/savings/withdrawal${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
@@ -301,6 +310,21 @@ class SavingsService {
     }
   ): Promise<any> {
     return apiService.patch(`/savings/withdrawal/${withdrawalId}/status`, data);
+  }
+
+  /**
+   * Cancel a withdrawal request [MEMBER]
+   * This endpoint allows members to cancel their own pending withdrawal requests.
+   * Uses the status update endpoint with CANCELLED status.
+   *
+   * @param withdrawalId The ID of the withdrawal request to cancel
+   * @returns Updated withdrawal request with CANCELLED status
+   */
+  async cancelWithdrawalRequest(withdrawalId: string): Promise<any> {
+    return apiService.patch(`/savings/withdrawal/${withdrawalId}/status`, {
+      status: 'CANCELLED',
+      notes: 'Cancelled by member'
+    });
   }
 
   /**

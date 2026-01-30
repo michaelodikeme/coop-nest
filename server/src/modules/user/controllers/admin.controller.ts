@@ -9,7 +9,8 @@ import {
   verifyAdminOtpSchema,
   createAdminUserSchema,
   processAdminProfileSchema,
-  adminActionSchema
+  adminActionSchema,
+  changeUserPasswordSchema
 } from "../validations/admin.validations";
 
 export class AdminController {
@@ -227,6 +228,32 @@ export class AdminController {
         userId,
         req.user.id,
         validatedData.reason
+      );
+
+      res.json({
+        status: 'success',
+        data: result
+      });
+    } catch (error: unknown) {
+      next(error);
+    }
+  }
+
+  async changeUserPassword(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const approverLevel = req.user.approvalLevel || 0;
+
+      if (approverLevel < 2) {
+        throw new ApiError('Insufficient permissions to change user passwords', 403);
+      }
+
+      const { userId } = req.params;
+      const validatedData = changeUserPasswordSchema.parse(req.body);
+
+      const result = await this.adminService.changeUserPassword(
+        userId,
+        validatedData.newPassword,
+        req.user.id
       );
 
       res.json({

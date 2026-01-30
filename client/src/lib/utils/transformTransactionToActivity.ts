@@ -16,22 +16,34 @@ interface ActivityItem {
 
 export function transformTransactionToActivity(transaction: TransactionRecord): ActivityItem {
   // Map transaction types to activity types
-  const getActivityType = (transactionType: string): ActivityItem['type'] => {
-    if (transactionType.includes('DEPOSIT') || transactionType.includes('CREDIT')) {
+  const getActivityType = (transaction: TransactionRecord): ActivityItem['type'] => {
+    // Prioritize baseType for clear credit/debit actions
+    if (transaction.baseType === 'CREDIT') {
+      // Further refine based on transactionType for specific credit types
+      if (transaction.transactionType.includes('LOAN_REPAYMENT')) {
+        return 'LOAN_REPAYMENT';
+      }
+      if (transaction.transactionType.includes('SHARES_PURCHASE')) {
+        return 'SHARES_PURCHASE';
+      }
       return 'DEPOSIT';
     }
-    if (transactionType.includes('WITHDRAWAL') || transactionType.includes('DEBIT')) {
+    
+    if (transaction.baseType === 'DEBIT') {
+      // Further refine based on transactionType for specific debit types
+      if (transaction.transactionType.includes('LOAN_DISBURSEMENT')) {
+        return 'LOAN_DISBURSEMENT';
+      }
       return 'WITHDRAWAL';
     }
-    if (transactionType.includes('LOAN_DISBURSEMENT')) {
-      return 'LOAN_DISBURSEMENT';
-    }
-    if (transactionType.includes('LOAN_REPAYMENT')) {
-      return 'LOAN_REPAYMENT';
-    }
-    if (transactionType.includes('SHARES')) {
-      return 'SHARES_PURCHASE';
-    }
+
+    // Fallback for older data or transactions without a baseType
+    if (transaction.transactionType.includes('DEPOSIT')) return 'DEPOSIT';
+    if (transaction.transactionType.includes('WITHDRAWAL')) return 'WITHDRAWAL';
+    if (transaction.transactionType.includes('LOAN_DISBURSEMENT')) return 'LOAN_DISBURSEMENT';
+    if (transaction.transactionType.includes('LOAN_REPAYMENT')) return 'LOAN_REPAYMENT';
+    if (transaction.transactionType.includes('SHARES')) return 'SHARES_PURCHASE';
+    
     return 'DEPOSIT'; // Default fallback
   };
 
@@ -64,7 +76,7 @@ export function transformTransactionToActivity(transaction: TransactionRecord): 
 
   return {
     id: transaction.id,
-    type: getActivityType(transaction.transactionType),
+    type: getActivityType(transaction),
     title: generateTitle(transaction),
     description: transaction.description || `${transaction.transactionType.replace(/_/g, ' ')}`,
     amount: Number(transaction.amount),

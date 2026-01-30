@@ -107,9 +107,9 @@ export default function LoginForm({ initialError }: LoginFormProps) {
       )}
 
       {error && (
-        <Alert 
-          severity="error" 
-          sx={{ 
+        <Alert
+          severity="error"
+          sx={{
             mb: 2,
             borderRadius: 2,
             backgroundColor: alpha(theme.palette.error.main, 0.1),
@@ -121,22 +121,6 @@ export default function LoginForm({ initialError }: LoginFormProps) {
           {error}
         </Alert>
       )}
-
-      {error && (
-                <Alert 
-                    severity="error" 
-                    sx={{ 
-                        mb: 2,
-                        borderRadius: 2,
-                        backgroundColor: alpha(theme.palette.error.main, 0.1),
-                        '& .MuiAlert-icon': {
-                            color: theme.palette.error.main
-                        }
-                    }}
-                >
-                    {error}
-                </Alert>
-            )}
 
       <TextField
         margin="normal"

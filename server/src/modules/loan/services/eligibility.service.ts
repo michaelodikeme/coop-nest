@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { EligibilityCheckResult, LoanTypeConflictCheck } from '../interfaces/loan-calculation.interface';
 import { ApiError } from '../../../utils/apiError';
+import { prisma } from '../../../utils/prisma';
 
 interface FormattedResponse {
     success: boolean;
@@ -29,10 +30,10 @@ interface FormattedResponse {
 }
 
 export class EligibilityService {
-    private prisma: PrismaClient;
+
 
     constructor() {
-        this.prisma = new PrismaClient();
+
     }
 
     private async checkCrossLoanTypeRestrictions(
@@ -40,7 +41,7 @@ export class EligibilityService {
         loanTypeId: string
     ): Promise<LoanTypeConflictCheck> {
         // Get the requested loan type information
-        const requestedLoanType = await this.prisma.loanType.findUnique({
+        const requestedLoanType = await prisma.loanType.findUnique({
             where: { id: loanTypeId }
         });
 
@@ -49,7 +50,7 @@ export class EligibilityService {
         }
 
         // Fetch active loans for the member
-        const activeLoans = await this.prisma.loan.findMany({
+        const activeLoans = await prisma.loan.findMany({
             where: {
                 memberId: biodataId,
                 status: { in: ['ACTIVE', 'APPROVED', 'PENDING', 'DISBURSED'] }
@@ -162,7 +163,7 @@ export class EligibilityService {
         balance: Decimal;
         monthlyTarget: Decimal;
     }> {
-        const latestSavings = await this.prisma.savings.findFirst({
+        const latestSavings = await prisma.savings.findFirst({
             where: { 
                 memberId: biodataId,
                 status: 'ACTIVE'
@@ -211,7 +212,7 @@ export class EligibilityService {
         const isOneYearPlus = loanType.name.toLowerCase().includes('1 year plus');
         
         if (isSoftLoan) {
-            return loanType.interestRate.equals(new Decimal(0.10)); // 10% monthly
+            return loanType.interestRate.equals(new Decimal(0.075)); // 7.5% monthly
         }
         
         if (isOneYearPlus) {
@@ -264,7 +265,7 @@ export class EligibilityService {
         requestedAmount?: number,
         tenure?: number
     ): Promise<FormattedResponse> {
-        const loanType = await this.prisma.loanType.findUnique({
+        const loanType = await prisma.loanType.findUnique({
             where: { id: loanTypeId }
         });
         
@@ -335,7 +336,7 @@ export class EligibilityService {
         }
 
         // Check for defaulted loans
-        const hasDefaultedLoans = await this.prisma.loan.findFirst({
+        const hasDefaultedLoans = await prisma.loan.findFirst({
             where: {
                 memberId: biodataId,
                 status: 'DEFAULTED'

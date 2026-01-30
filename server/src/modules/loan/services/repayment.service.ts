@@ -11,7 +11,7 @@ import {
     MonthlyRepaymentSummary, 
     LoanTypeSummary 
 } from '../interfaces/repayment.interface';
-
+import { prisma } from '../../../utils/prisma';
 
 // Add total row
 interface Schedule {
@@ -51,15 +51,14 @@ interface RepaymentRow {
 }
 
 export class RepaymentService {
-    private prisma: PrismaClient;
     
     constructor() {
-        this.prisma = new PrismaClient();
+        
     }
     
     async processLoanRepayment(repaymentData: LoanRepaymentData): Promise<RepaymentResult> {
         // Process in transaction
-        return await this.prisma.$transaction(async (tx) => {
+        return await prisma.$transaction(async (tx) => {
             return await this.processLoanRepaymentInTransaction(tx, repaymentData);
         });
     }
@@ -201,7 +200,7 @@ async getRepaymentHistory(loanId: string) {
         throw new ApiError('Loan ID is required', 400);
     }
     
-    const loan = await this.prisma.loan.findUnique({
+    const loan = await prisma.loan.findUnique({
         where: { id: loanId },
         include: {
             repayments: {
@@ -229,7 +228,7 @@ async getRepaymentHistory(loanId: string) {
 }
 
 async getOutstandingLoans() {
-    return await this.prisma.loan.findMany({
+    return await prisma.loan.findMany({
         where: {
             status: {
                 in: ['ACTIVE', 'DISBURSED']
@@ -253,7 +252,7 @@ async getOutstandingLoans() {
 }
 
 async getMemberRepaymentHistory(erpId: string) {
-    const loans = await this.prisma.loan.findMany({
+    const loans = await prisma.loan.findMany({
         where: {
             erpId,
             status: {
@@ -281,7 +280,7 @@ async processBulkRepayments(file: Express.Multer.File, uploadedBy: string): Prom
     }
 
     // Create batch upload record OUTSIDE transaction (to preserve even if transaction fails)
-    const batchUpload = await this.prisma.bulkRepaymentUpload.create({
+    const batchUpload = await prisma.bulkRepaymentUpload.create({
         data: {
             uploadedBy,
             fileName: file.originalname,
@@ -311,7 +310,7 @@ async processBulkRepayments(file: Express.Multer.File, uploadedBy: string): Prom
     }
 
     // FIX #6: Process ALL repayments in a SINGLE transaction for data consistency
-    return await this.prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx) => {
         const results = {
             successful: Array<{
                 rowNumber: number;
@@ -512,7 +511,7 @@ async getDueRepaymentsForMonth(month: number, year: number) {
     
     console.log(`Fetching repayments for period: ${startDate.toISOString()} to ${endDate.toISOString()}`);
     
-    const schedules = await this.prisma.loanSchedule.findMany({
+    const schedules = await prisma.loanSchedule.findMany({
         where: {
             status: {
                 in: ['PENDING', 'PARTIAL']
@@ -812,7 +811,7 @@ private async updateBatchStatus(
     errorCount?: number,
     errors?: any[]
 ) {
-    return await this.prisma.bulkRepaymentUpload.update({
+    return await prisma.bulkRepaymentUpload.update({
         where: { id: batchId },
         data: {
             status: status as any,
@@ -835,7 +834,7 @@ async checkAndUpdateOverduePayments(): Promise<number> {
     const today = new Date();
     
     // Find all loans with schedules that are overdue but not marked as overdue
-    const overdueSchedules = await this.prisma.loanSchedule.findMany({
+    const overdueSchedules = await prisma.loanSchedule.findMany({
         where: {
             status: {
                 in: ['PENDING', 'PARTIAL']
@@ -852,7 +851,7 @@ async checkAndUpdateOverduePayments(): Promise<number> {
     let updatedCount = 0;
     
     // Update all overdue schedules and set loan status to DEFAULTED if needed
-    await this.prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
         for (const schedule of overdueSchedules) {
             // Calculate days overdue
             const daysOverdue = Math.floor(
@@ -906,7 +905,7 @@ async generateAgingReport(): Promise<any> {
     ];
     
     // Get all active/defaulted loans with their schedules
-    const loans = await this.prisma.loan.findMany({
+    const loans = await prisma.loan.findMany({
         where: {
             status: {
                 in: ['ACTIVE', 'DEFAULTED', 'DISBURSED']

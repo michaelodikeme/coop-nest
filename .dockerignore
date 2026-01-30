@@ -1,4 +1,28 @@
+# dependencies
 node_modules
-client/node_modules
-server/node_modules
+
+# build output
+dist
+build
+coverage
+.next
+
+# env
 .env
+.env.*
+*.env
+
+# git
+.git
+.gitignore
+
+# logs
+npm-debug.log
+
+# docker
+Dockerfile
+docker-compose.yml
+
+# misc
+README.md
+*.md

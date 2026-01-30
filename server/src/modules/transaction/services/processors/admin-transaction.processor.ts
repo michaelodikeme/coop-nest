@@ -10,16 +10,16 @@ import { TransactionProcessor } from '../../interfaces/transaction-processor.int
 import { CreateTransactionDto } from '../../dtos/create-transaction.dto';
 import { TransactionError, TransactionErrorCodes } from '../../errors/transaction.error';
 import logger from '../../../../utils/logger';
+import { prisma } from '../../../../utils/prisma';
 
 /**
  * Processor for admin-related transactions
  * Handles transactions like adjustments, fee collections, and interest accruals
  */
 export class AdminTransactionProcessor implements TransactionProcessor {
-  private prisma: PrismaClient;
+
 
   constructor() {
-    this.prisma = new PrismaClient();
   }
 
   /**
@@ -50,7 +50,7 @@ export class AdminTransactionProcessor implements TransactionProcessor {
         
         // Check if related entity exists
         if (data.relatedEntityType === 'BIODATA') {
-          const biodata = await this.prisma.biodata.findUnique({
+          const biodata = await prisma.biodata.findUnique({
             where: { id: data.relatedEntityId }
           });
           
@@ -112,24 +112,22 @@ export class AdminTransactionProcessor implements TransactionProcessor {
     try {
       logger.info(`Processing admin transaction: ${transaction.id}, type: ${transaction.transactionType}`);
       
-      const prisma = tx || this.prisma;
-      
       switch (transaction.transactionType) {
         case TransactionType.ADJUSTMENT:
-          await this.processAdjustment(transaction, prisma);
+          await this.processAdjustment(transaction);
           break;
           
         case TransactionType.FEE:
-          await this.processFeeCollection(transaction, prisma);
+          await this.processFeeCollection(transaction);
           break;
           
         case TransactionType.REVERSAL:
-          await this.processReversal(transaction, prisma);
+          await this.processReversal(transaction);
           break;
           
         case TransactionType.SAVINGS_INTEREST:
         case TransactionType.LOAN_INTEREST:
-          await this.processInterestAccrual(transaction, prisma);
+          await this.processInterestAccrual(transaction);
           break;
           
         default:
@@ -139,7 +137,7 @@ export class AdminTransactionProcessor implements TransactionProcessor {
       // Create notification for the related entity
       if (transaction.status === TransactionStatus.COMPLETED && 
          (transaction.savingsId || transaction.loanId || transaction.sharesId)) {
-        await this.createNotification(transaction, prisma);
+        await this.createNotification(transaction);
       }
     } catch (error) {
       logger.error(`Error processing admin transaction ${transaction.id}:`, error);
@@ -197,7 +195,7 @@ export class AdminTransactionProcessor implements TransactionProcessor {
    * @param transaction Adjustment transaction
    * @param prisma Prisma client instance
    */
-  private async processAdjustment(transaction: Transaction, prisma: any = this.prisma): Promise<void> {
+  private async processAdjustment(transaction: Transaction): Promise<void> {
     // Implementation depends on what's being adjusted
     const metadata = transaction.metadata as any || {};
     
@@ -253,7 +251,7 @@ export class AdminTransactionProcessor implements TransactionProcessor {
       }
       
       // Handle shares adjustment
-      await this.adjustShares(shares, transaction, prisma);
+      await this.adjustShares(shares, transaction);
     } else if (transaction.loanId && metadata?.adjustmentType === 'LOAN') {
       logger.info(`Processing loan adjustment for ${transaction.loanId}`);
       
@@ -278,9 +276,9 @@ export class AdminTransactionProcessor implements TransactionProcessor {
   /**
    * Adjust shares balance
    */
-  private async adjustShares(shares: any, transaction: any, prisma: any): Promise<void> {
+  private async adjustShares(shares: any, transaction: any): Promise<void> {
     // Get the current value per unit
-    const valuePerUnit = await this.getShareValuePerUnit(prisma);
+    const valuePerUnit = await this.getShareValuePerUnit();
     
     // Calculate units to add or remove
     const unitsChange = Math.floor(Math.abs(transaction.amount.toNumber()) / valuePerUnit.toNumber());
@@ -363,7 +361,7 @@ export class AdminTransactionProcessor implements TransactionProcessor {
    * @param transaction Fee collection transaction
    * @param prisma Prisma client instance
    */
-  private async processFeeCollection(transaction: Transaction, prisma: any = this.prisma): Promise<void> {
+  private async processFeeCollection(transaction: Transaction): Promise<void> {
     // Process fee collection
     const metadata = transaction.metadata as any || {};
     logger.info(`Processing fee collection: ${metadata.feeType}`);
@@ -402,7 +400,7 @@ export class AdminTransactionProcessor implements TransactionProcessor {
    * @param transaction Interest accrual transaction
    * @param prisma Prisma client instance
    */
-  private async processInterestAccrual(transaction: Transaction, prisma: any = this.prisma): Promise<void> {
+  private async processInterestAccrual(transaction: Transaction): Promise<void> {
     // Process interest accrual
     const metadata = transaction.metadata as any || {};
     logger.info(`Processing interest accrual at rate ${metadata.interestRate}%`);
@@ -445,7 +443,7 @@ export class AdminTransactionProcessor implements TransactionProcessor {
    * @param transaction Reversal transaction
    * @param prisma Prisma client instance
    */
-  public async processReversal(transaction: Transaction, prisma: any = this.prisma): Promise<void> {
+  public async processReversal(transaction: Transaction): Promise<void> {
     // Process reversal
     if (!transaction.parentTxnId) {
       logger.warn('Cannot process reversal: missing parent transaction ID');
@@ -505,7 +503,7 @@ export class AdminTransactionProcessor implements TransactionProcessor {
   /**
    * Get the current value per share unit from system settings
    */
-  private async getShareValuePerUnit(prisma: any = this.prisma): Promise<any> {
+  private async getShareValuePerUnit(): Promise<any> {
     try {
       const setting = await prisma.systemSettings.findUnique({
         where: { key: 'SHARE_VALUE_PER_UNIT' }
@@ -528,7 +526,7 @@ export class AdminTransactionProcessor implements TransactionProcessor {
    * @param transaction Transaction to create notification for
    * @param prisma Prisma client instance
    */
-  private async createNotification(transaction: Transaction, prisma: any = this.prisma): Promise<void> {
+  private async createNotification(transaction: Transaction): Promise<void> {
     try {
       let userId: string | undefined;
       let message = '';
@@ -540,7 +538,7 @@ export class AdminTransactionProcessor implements TransactionProcessor {
           include: { member: { include: { users: true } } }
         });
         
-        if (savings?.member?.users?.length > 0) {
+        if (savings?.member?.users && savings?.member?.users?.length > 0) {
           userId = savings.member.users[0].id;
         }
         
@@ -551,7 +549,7 @@ export class AdminTransactionProcessor implements TransactionProcessor {
           include: { member: { include: { users: true } } }
         });
         
-        if (shares?.member?.users?.length > 0) {
+        if (shares?.member?.users && shares?.member?.users?.length > 0) {
           userId = shares.member.users[0].id;
         }
         
@@ -562,7 +560,7 @@ export class AdminTransactionProcessor implements TransactionProcessor {
           include: { member: { include: { users: true } } }
         });
         
-        if (loan?.member?.users?.length > 0) {
+        if (loan?.member?.users && loan?.member?.users?.length > 0) {
           userId = loan.member.users[0].id;
         }
         

@@ -8,7 +8,7 @@ export const createSavingsSchema = z.object({
   erpId: z.string()
     .regex(/^ERP\d+$/, 'ERP ID must start with ERP followed by numbers'),
   monthlyTarget: z.number()
-    .min(3000, 'Gross amount must be at least ₦3,000 to cover shares contribution'),
+    .min(5000, 'Gross amount must be at least ₦5,000 to cover shares contribution'),
   month: z.number()
     .int('Month must be a whole number')
     .min(1, 'Month must be between 1 and 12')

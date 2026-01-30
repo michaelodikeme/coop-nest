@@ -6,15 +6,15 @@ import {
 } from '../interfaces/transaction.interface';
 import { TransactionError, TransactionErrorCodes } from '../errors/transaction.error';
 import logger from '../../../utils/logger';
-
+import { prisma } from '../../../utils/prisma';
 /**
  * Service for transaction reporting and analytics
  */
 export class TransactionReportingService {
-  private prisma: PrismaClient;
+
 
   constructor() {
-    this.prisma = new PrismaClient();
+
   }
 
   /**
@@ -31,7 +31,7 @@ export class TransactionReportingService {
       const whereClause = this.buildTransactionWhereClause(filters);
       
       // Get all transactions that match the filters
-      const transactions = await this.prisma.transaction.findMany({
+      const transactions = await prisma.transaction.findMany({
         where: whereClause,
         select: {
           id: true,
@@ -144,7 +144,7 @@ export class TransactionReportingService {
       
       // Get transactions
       const whereClause = this.buildTransactionWhereClause(searchFilters);
-      const transactions = await this.prisma.transaction.findMany({
+      const transactions = await prisma.transaction.findMany({
         where: whereClause,
         include: filters.includeDetails ? {
           initiator: {

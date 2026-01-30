@@ -61,17 +61,15 @@ const PersonalSavingsApprovalsPage = () => {
     undefined // Only undefined for withdrawals, which are handled separately
   );
   
-  // Fetch withdrawal requests
-  const { 
-    data: withdrawalRequests, 
+  // Fetch withdrawal requests - fetch all pending withdrawals when on withdrawals tab
+  const {
+    data: withdrawalRequests,
     isLoading: isWithdrawalLoading,
     error: withdrawalError
   } = useAdminPendingPersonalSavingsWithdrawals(
     page + 1,
     pageSize,
-    tabValue === 0 ? 'PENDING' : 
-    tabValue === 1 ? 'IN_REVIEW' : 
-    tabValue === 2 ? 'REVIEWED' : undefined
+    'PENDING' // Always show PENDING withdrawals in the approval queue
   );
   
   // Process request mutation
@@ -482,10 +480,11 @@ const PersonalSavingsApprovalsPage = () => {
   
   // Determine which data to show based on current tab
   const showingWithdrawals = tabValue === 3;
-  const currentData = Array.isArray(showingWithdrawals ? withdrawalRequests : creationRequests?.data)
-  ? (showingWithdrawals ? withdrawalRequests : creationRequests?.data)
-  : [];
-  console.log('Current Data:', currentData);
+  // Access data correctly from both response structures
+  const withdrawalData = withdrawalRequests?.data || [];
+  const creationData = creationRequests?.data || [];
+  const currentData = showingWithdrawals ? withdrawalData : creationData;
+  console.log('Current Data:', currentData, 'Withdrawal Requests:', withdrawalRequests);
   const currentColumns = showingWithdrawals ? 
   withdrawalColumns : 
   creationColumns;

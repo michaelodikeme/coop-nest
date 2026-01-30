@@ -2,8 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { IAdminProfileInput, ICreateAdminUserInput } from "../interfaces/admin.interface";
 import { ApiError } from '../../../utils/apiError';
 import { hash, compare } from 'bcrypt';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../../utils/prisma';
 
 // Type for Prisma transaction
 type PrismaTransaction = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
@@ -516,6 +515,66 @@ export class AdminService {
                 });
                 
                 return deletedUser;
+            });
+        }
+
+        async changeUserPassword(userId: string, newPassword: string, changedBy: string) {
+            console.log("change password was called")
+            const user = await prisma.user.findUnique({
+                where: { id: userId }
+            });
+
+            if (!user) {
+                throw new ApiError('User not found', 404);
+            }
+
+            return await prisma.$transaction(async (tx) => {
+                const hashedPassword = await hash(newPassword, 10);
+
+                // Update password
+                await tx.user.update({
+                    where: { id: userId },
+                    data: { password: hashedPassword }
+                });
+
+                // Invalidate all user sessions
+                await tx.session.updateMany({
+                    where: { userId, isActive: true },
+                    data: { isActive: false, isRevoked: true }
+                });
+
+                // Create audit record
+                await tx.request.create({
+                    data: {
+                        type: 'ACCOUNT_UPDATE',
+                        module: 'ACCOUNT',
+                        status: 'COMPLETED',
+                        priority: 'MEDIUM',
+                        initiatorId: changedBy,
+                        content: {
+                            type: 'PASSWORD_RESET_BY_ADMIN',
+                            userId
+                        },
+                        metadata: {
+                            action: 'PASSWORD_RESET',
+                            timestamp: new Date()
+                        },
+                        completedAt: new Date()
+                    }
+                });
+
+                // Notify user
+                await tx.notification.create({
+                    data: {
+                        userId,
+                        type: 'ACCOUNT_UPDATE',
+                        title: 'Password Changed',
+                        message: 'Your password has been changed by an administrator. Please login with your new password.',
+                        priority: 'HIGH'
+                    }
+                });
+
+                return { message: 'Password changed successfully' };
             });
         }
     }

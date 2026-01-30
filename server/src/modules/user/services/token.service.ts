@@ -1,13 +1,12 @@
 import { redisClient } from '../../../config/redis';
-import { Biodata, PrismaClient, Role, User, UserRole } from '@prisma/client';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import env from '../../../config/env';
 import logger from '../../../utils/logger';
 import crypto from 'crypto';
 import { TokenPayload, TokenPair, SessionMetadata } from '../interfaces/token.interface';
 import { hash, compare } from 'bcrypt';
+import { prisma } from '../../../utils/prisma';
 
-const prisma = new PrismaClient();
 
 class TokenService {
     // Read expiry times from environment variables

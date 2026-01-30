@@ -8,7 +8,7 @@ import { Transaction } from '@prisma/client';
 import { Decimal } from 'decimal.js';
 import { determineBaseType } from '../utils/transaction.utils';
 import { TransactionValidatorUtils } from '../utils/transaction-validator.utils';
-
+import { prisma } from '../../../utils/prisma';
 /**
 * Core service for transaction operations
 * 
@@ -36,13 +36,13 @@ export class TransactionService {
   /**
   * The Prisma client instance used for database operations
   */
-  private prisma: PrismaClient;
+
   
   /**
   * Create a new TransactionService instance
   */
   constructor() {
-    this.prisma = new PrismaClient();
+
   }
   
   /**
@@ -106,7 +106,7 @@ export class TransactionService {
       : TransactionStatus.PENDING;
       
       // Process in transaction to ensure atomicity
-      return await this.prisma.$transaction(async (tx) => {
+      return await prisma.$transaction(async (tx) => {
         // Create the transaction record
         const transaction = await tx.transaction.create({
           data: {
@@ -181,7 +181,7 @@ export class TransactionService {
   ): Promise<Transaction> {
     try {
       // Find existing transaction
-      const transaction = await this.prisma.transaction.findUnique({
+      const transaction = await prisma.transaction.findUnique({
         where: { id }
       });
       
@@ -199,7 +199,7 @@ export class TransactionService {
         // Get the processor to validate and process completion
         const processor = TransactionProcessorFactory.getProcessor(transaction.transactionType);
         
-        return await this.prisma.$transaction(async (tx) => {
+        return await prisma.$transaction(async (tx) => {
           // Update the transaction status
           const updatedTransaction = await tx.transaction.update({
             where: { id },
@@ -233,7 +233,7 @@ export class TransactionService {
         });
       } else {
         // For other status updates, just update the record
-        return await this.prisma.transaction.update({
+        return await prisma.transaction.update({
           where: { id },
           data: {
             status,
@@ -295,7 +295,7 @@ export class TransactionService {
     initiatedBy: string
   ): Promise<Transaction> {
     try {
-      const transaction = await this.prisma.transaction.findUnique({
+      const transaction = await prisma.transaction.findUnique({
         where: { id }
       });
       
@@ -328,7 +328,7 @@ export class TransactionService {
       const processor = TransactionProcessorFactory.getProcessor(transaction.transactionType);
       
       // Process in a transaction to ensure atomicity
-      return await this.prisma.$transaction(async (tx) => {
+      return await prisma.$transaction(async (tx) => {
         // 1. Create reversal transaction
         const reversalTransaction = await tx.transaction.create({
           data: {
@@ -444,7 +444,7 @@ export class TransactionService {
     }
     
     // Process all in a single transaction
-    return await this.prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx) => {
       const createdTransactions: Transaction[] = [];
       
       for (const txData of transactions) {
@@ -576,6 +576,10 @@ export class TransactionService {
           
           ...(data.relatedEntityType === 'SAVINGS' && data.relatedEntityId ? { 
             savings: { connect: { id: data.relatedEntityId } } 
+          } : {}),
+
+          ...(data.relatedEntityType === 'PERSONAL_SAVINGS' && data.relatedEntityId ? { 
+            personalSavings: { connect: { id: data.relatedEntityId } } 
           } : {}),
           
           ...(data.relatedEntityType === 'SHARES' && data.relatedEntityId ? { 

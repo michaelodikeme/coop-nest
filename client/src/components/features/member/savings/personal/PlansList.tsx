@@ -102,9 +102,9 @@ export function PlansList() {
   const { data, isLoading, error } = usePersonalSavingsPlans({
     page: page + 1, // API uses 1-indexed pagination
     limit: rowsPerPage,
-    includePending: viewFilter !== 'active', // Include pending requests based on filter
+    // includePending: viewFilter !== 'active', // Include pending requests based on filter
   });
-
+  console.log('PlansList data:', data);
   const requestWithdrawalMutation = useRequestWithdrawal();
 
   const handleChangePage = (_: unknown, newPage: number) => {

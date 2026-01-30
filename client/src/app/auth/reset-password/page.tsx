@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Box,
@@ -13,9 +13,11 @@ import {
   CircularProgress,
 } from '@mui/material';
 // import { apiService as authApi } from '@/lib/api/apiService';
+import { authApi } from '@/lib/api/services/authService';
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const [formData, setFormData] = useState({
+    currentPassword: '',
     password: '',
     confirmPassword: '',
   });
@@ -51,8 +53,11 @@ export default function ResetPasswordPage() {
     setError('');
 
     try {
-      // TODO: Implement forgot password functionality when backend is ready
-      // await authApi.resetPassword(token, formData.password, formData.confirmPassword);
+      await authApi.changePassword(
+          {
+              currentPassword: formData.currentPassword,
+              newPassword: formData.password,
+              confirmPassword: formData.confirmPassword});
       router.push('/login?reset=success');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Password reset failed. Please try again.');
@@ -97,6 +102,19 @@ export default function ResetPasswordPage() {
                 {error}
               </Alert>
             )}
+              <TextField
+                  margin="normal"
+                  required
+                  fullWidth
+                  name="currentPassword"
+                  label="Current Password"
+                  type="password"
+                  id="password"
+                  autoComplete="current-password"
+                  value={formData.currentPassword}
+                  onChange={handleChange}
+                  disabled={loading}
+              />
             
             <TextField
               margin="normal"
@@ -143,5 +161,26 @@ export default function ResetPasswordPage() {
         </Paper>
       </Box>
     </Container>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <Container maxWidth="sm">
+        <Box
+          sx={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <CircularProgress />
+        </Box>
+      </Container>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

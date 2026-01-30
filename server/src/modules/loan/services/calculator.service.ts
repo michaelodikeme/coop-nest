@@ -2,12 +2,12 @@ import { PrismaClient } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { LoanCalculationResult, PaymentScheduleEntry } from '../interfaces/loan-calculation.interface';
 import { ApiError } from '../../../utils/apiError';
+import { prisma } from '../../../utils/prisma';
 
 export class CalculatorService {
-    private prisma: PrismaClient;
+
 
     constructor() {
-        this.prisma = new PrismaClient();
     }
 
     async calculateLoan(
@@ -18,7 +18,7 @@ export class CalculatorService {
     ): Promise<LoanCalculationResult> {
 
 
-        const loanType = await this.prisma.loanType.findUnique({
+        const loanType = await prisma.loanType.findUnique({
             where: { id: loanTypeId }
         });
 
@@ -89,7 +89,8 @@ export class CalculatorService {
             // For regular loans: compound interest using PMT
             // monthlyPayment = this.calculatePMT(loanAmount, monthlyInterestRate, tenure);
             totalInterest = loanAmount.mul(interestRate);
-            monthlyPayment = loanAmount.add(totalInterest).div(tenure);
+            // monthlyPayment = loanAmount.add(totalInterest).div(tenure);
+            monthlyPayment = loanAmount.div(tenure);
 
             // Total interest is calculated later based on actual payments
         }
@@ -146,7 +147,7 @@ export class CalculatorService {
             loanAmount,
             interestRate,
             totalInterest,
-            totalRepayment: loanAmount.add(totalInterest),
+            totalRepayment: isSoftLoan ? loanAmount.add(totalInterest) : loanAmount,
             monthlyPayment,
             tenure,
             schedule,
@@ -221,7 +222,7 @@ export class CalculatorService {
         }
 
         // For regular loans, get total savings amount
-        const latestSavings = await this.prisma.savings.findFirst({
+        const latestSavings = await prisma.savings.findFirst({
             where: { 
                 memberId: biodataId,
                 status: 'ACTIVE'
