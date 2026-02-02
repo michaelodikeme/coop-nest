@@ -1,17 +1,20 @@
 services:
   postgres:
     image: postgres:17
-    restart: always
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: rootuser
-      # POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rootuser}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
     volumes:
-      - postgres_17_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+      - coop-nest-app_postgres_data:/var/lib/postgresql/data
     networks:
       - coop-nest-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7
@@ -20,75 +23,71 @@ services:
       - "6379:6379"
     networks:
       - coop-nest-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   server:
     build:
       context: ./server
       dockerfile: Dockerfile
+    restart: unless-stopped
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - ./server/.env
     ports:
-      - "5001:5001"
+      - "5000:5000"
     working_dir: /app
     command: >
       sh -c "
-        npm install &&
         npx prisma generate &&
         npx prisma migrate deploy --schema=prisma/schema.prisma &&
         npm run dev
       "
     volumes:
       - ./server:/app
-      - /app/node_modules
+      - server_node_modules:/app/node_modules
     networks:
       - coop-nest-network
     environment:
-      DATABASE_URL: postgresql://postgres:rootuser@postgres:5432/postgres?schema=coop-nest_db
-      # DATABASE_URL: "postgresql://user:password@postgres:5432/postgres?schema=coop-nest_db"
-      PORT: 5001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-rootuser}@postgres:5432/${POSTGRES_DB:-postgres}?schema=coop-nest_db
+      PORT: 5000
       NODE_ENV: development
-      APPLICATION_URL: http://localhost
-      JWT_SECRET: 7af19f5e38a50342c505a1677a5fb8a608d5f869a81e504d78533afeef40692e769fb583d929755b80a87b709bbded0bc284a41b246e83401fa1b58c9bede822
-      JWT_REFRESH_SECRET: 05d1ebb915b8f5f1257546c7ed67fcf925875f3811b68a83830d750cfbd89fd15011327f3ebe91e67d9e29f7b1c56fceb377d2bea4606dbcb1a7024cffa499d2
-      JWT_ACCESS_EXPIRY: 1h
-      JWT_REFRESH_EXPIRY: 7d
       REDIS_URL: redis://redis:6379
-      TWILIO_PHONE_NUMBER: +2347061539439
-      TWILIO_ACCOUNT_SID: AC336255bba9e9087577584becb434536c
-      TWILIO_AUTH_TOKEN: 5fa22c0735717fa6e0464ce188b4762d
-      TWILIO_VERIFICATION_SERVICE_SID: VA97a07c1bbd059bf9deea7914610b3873
-      OTP_EXPIRY_TIME: 600000
-      BANK_VERIFICATION_API_URL: https://nubapi.com/api/verify
-      BANK_VERIFICATION_TOKEN: UG52wNFSq3UEMtWP1rrMy79JQQsz8ShiKrs7RZzXeb7b84f7
 
   client:
     build:
       context: ./client
       dockerfile: Dockerfile
+    restart: unless-stopped
     depends_on:
       - server
     ports:
       - "3000:3000"
     working_dir: /app
-    command: >
-      sh -c "
-        npm install &&
-        npm run dev
-      "
+    command: npm run dev
     volumes:
       - ./client:/app
-      - /app/node_modules
-      - /app/.next
+      - client_node_modules:/app/node_modules
+      - client_next:/app/.next
     networks:
       - coop-nest-network
     environment:
       - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:5000
 
 volumes:
-  postgres_17_data:
+  coop-nest-app_postgres_data:
+    external: true
+  server_node_modules:
+  client_node_modules:
+  client_next:
 
 networks:
   coop-nest-network:
