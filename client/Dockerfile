@@ -1,46 +1,25 @@
-# FROM node:alpine
+# -------- Development stage --------
+FROM node:20-alpine AS development
 
-# WORKDIR /app
+WORKDIR /app
 
-# COPY package*.json ./
+# Install system deps required by Next.js / native packages
+RUN apk add --no-cache libc6-compat openssl
 
-# RUN npm install
+# Copy dependency files first for better layer caching
+COPY package*.json ./
 
-# COPY . .
+# Install all dependencies
+RUN npm install --legacy-peer-deps
 
-# EXPOSE 3000
+# Copy the rest of the app
+COPY . .
 
-# CMD [ "npm", "run", "dev" ]
+# Next.js dev server port
+EXPOSE 3000
 
-# FROM node:20-alpine
-
-# WORKDIR /app
-
-# # System deps required by Next / native packages
-# RUN apk add --no-cache \
-#   libc6-compat \
-#   openssl
-
-# # Copy dependency files first (better cache)
-# COPY package*.json ./
-
-# # Avoid npm network issues inside Docker
-# RUN npm config set registry https://registry.npmjs.org/ \
-#   && npm config set fetch-retries 5 \
-#   && npm config set fetch-retry-factor 2 \
-#   && npm config set fetch-retry-mintimeout 20000 \
-#   && npm config set fetch-retry-maxtimeout 120000
-
-# # Install deps
-# RUN npm install --legacy-peer-deps --no-audit --no-fund
-
-# # Copy rest of app
-# COPY . .
-
-# # Next dev server port
-# EXPOSE 3000
-
-# CMD ["npm", "run", "dev"]
+# Default command for development
+CMD ["npm", "run", "dev"]
 
 # -------- Build stage --------
 FROM node:20-alpine AS builder
@@ -54,7 +33,7 @@ RUN apk add --no-cache libc6-compat openssl
 COPY package*.json ./
 
 # Install dependencies (all for build)
-RUN npm install --legacy-peer-deps --no-audit --no-fund
+RUN npm install --legacy-peer-deps
 
 # Copy app source
 COPY . .
@@ -62,21 +41,25 @@ COPY . .
 # Build Next.js production app
 RUN npm run build
 
-# -------- Runtime stage --------
-FROM node:20-alpine
+# -------- Production stage --------
+FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Install only production dependencies
-COPY package*.json ./
-RUN npm install --omit=dev
+# Install system deps
+RUN apk add --no-cache libc6-compat openssl
 
-# Copy built Next.js output
+# Set environment
+ENV NODE_ENV=production
+
+# Copy package files and install only production dependencies
+COPY package*.json ./
+RUN npm install --omit=dev --legacy-peer-deps
+
+# Copy built Next.js output and necessary files
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/next.config.js ./next.config.js
-COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/next.config.* ./
 
 # Expose production port
 EXPOSE 3000
