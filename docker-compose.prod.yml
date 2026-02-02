@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    volumes:
+      - coop-nest-app_postgres_data:/var/lib/postgresql/data
+    networks:
+      - coop-nest-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    networks:
+      - coop-nest-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: michaelodikeme/coop-nest:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+      - "5000:5000"
+    networks:
+      - coop-nest-network
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-postgres}?schema=coop-nest_db
+      PORT: 5000
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      APPLICATION_URL: ${APPLICATION_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_EXPIRY: ${JWT_ACCESS_EXPIRY:-1h}
+      JWT_REFRESH_EXPIRY: ${JWT_REFRESH_EXPIRY:-7d}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_VERIFICATION_SERVICE_SID: ${TWILIO_VERIFICATION_SERVICE_SID}
+      OTP_EXPIRY_TIME: ${OTP_EXPIRY_TIME:-600000}
+      BANK_VERIFICATION_API_URL: ${BANK_VERIFICATION_API_URL}
+      BANK_VERIFICATION_TOKEN: ${BANK_VERIFICATION_TOKEN}
+
+volumes:
+  coop-nest-app_postgres_data:
+    external: true
+
+networks:
+  coop-nest-network:
+    driver: bridge

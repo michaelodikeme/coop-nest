@@ -1,5 +1,5 @@
 # .github/workflows/deploy.yml
-name: 🚀 Build and Deploy CoopNest to Production
+name: Build and Deploy CoopNest to Production
 
 on:
   push:
@@ -8,112 +8,124 @@ on:
 
 env:
   DOCKER_IMAGE: michaelodikeme/coop-nest
-  DOCKER_TAG: coop-nest-app
+  DOCKER_TAG: latest
 
 jobs:
   build-and-push:
-    name: 🏗️ Build and Push Docker Image
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: 📥 Checkout Code
+    - name: Checkout Code
       uses: actions/checkout@v4
-      
-    - name: 🔧 Set up Docker Buildx
+
+    - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      
-    - name: 🔑 Login to Docker Hub
+
+    - name: Login to Docker Hub
       uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-    
-    - name: 🏗️ Build and Push Docker Image
+
+    - name: Build and Push Docker Image
       uses: docker/build-push-action@v5
       with:
         context: .
         push: true
         tags: |
           ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
-          ${{ env.DOCKER_IMAGE }}:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        
-    - name: 📋 Image Info
+
+    - name: Image Info
       run: |
-        echo "🐳 Docker Image: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}"
-        echo "🔗 Docker Hub: https://hub.docker.com/r/${{ env.DOCKER_IMAGE }}"
+        echo "Docker Image: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}"
+        echo "Docker Hub: https://hub.docker.com/r/${{ env.DOCKER_IMAGE }}"
 
   deploy:
-    name: 🚀 Deploy to Server
+    name: Deploy to Server
     needs: build-and-push
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: 📥 Checkout Code (for docker-compose.yml)
+    - name: Checkout Code (for docker-compose files)
       uses: actions/checkout@v4
-      
-    - name: 🚀 Deploy to Production Server
+
+    - name: Deploy to Production Server
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SERVER_SSH_KEY }}
-        port: ${{ secrets.SERVER_PORT || 22 }}
+        port: ${{ secrets.SERVER_PORT }}
         script: |
-          echo "🔄 Starting deployment process..."
-          
+          echo "Starting deployment process..."
+
           # Navigate to project directory
           cd /opt/coop-nest-app
-          
-          # Pull latest images
-          echo "📥 Pulling latest Docker images..."
-          docker compose --env-file .env.docker pull app
-          
-          # Create backup before deployment
-          echo "💾 Creating database backup..."
+
+          # Pull latest app image
+          echo "Pulling latest Docker images..."
+          docker compose -f docker-compose.prod.yml --env-file .env.docker pull app
+
+          # Ensure postgres and redis are running first
+          echo "Starting database services..."
+          docker compose -f docker-compose.prod.yml --env-file .env.docker up -d postgres redis
+
+          # Wait for postgres to be healthy
+          echo "Waiting for postgres to be ready..."
+          sleep 15
+
+          # Create backup before deployment (only if postgres is ready)
+          echo "Creating database backup..."
           mkdir -p ~/backups
-          docker compose --env-file .env.docker exec -T postgres pg_dump -U postgres postgres > ~/backups/backup_$(date +%Y%m%d_%H%M%S).sql
-          
-          # Deploy with zero downtime
-          echo "🚀 Deploying new version..."
-          docker compose --env-file .env.docker up -d --no-deps app
-          
-          # Wait for health check
-          echo "🏥 Waiting for health check..."
-          sleep 30
-          
-          # Verify deployment
-          if docker compose --env-file .env.docker ps | grep -q "Up.*healthy"; then
-            echo "✅ Deployment successful!"
-            docker compose --env-file .env.docker ps
+          if docker compose -f docker-compose.prod.yml --env-file .env.docker exec -T postgres pg_isready -U postgres; then
+            docker compose -f docker-compose.prod.yml --env-file .env.docker exec -T postgres pg_dump -U postgres postgres > ~/backups/backup_$(date +%Y%m%d_%H%M%S).sql
+            echo "Backup created successfully"
           else
-            echo "❌ Deployment failed! Rolling back..."
-            docker compose --env-file .env.docker logs app
+            echo "Warning: Postgres not ready, skipping backup"
+          fi
+
+          # Deploy the app
+          echo "Deploying new version..."
+          docker compose -f docker-compose.prod.yml --env-file .env.docker up -d app
+
+          # Wait for health check
+          echo "Waiting for health check..."
+          sleep 30
+
+          # Verify deployment
+          if docker compose -f docker-compose.prod.yml --env-file .env.docker ps | grep -q "Up"; then
+            echo "Deployment successful!"
+            docker compose -f docker-compose.prod.yml --env-file .env.docker ps
+          else
+            echo "Deployment failed!"
+            docker compose -f docker-compose.prod.yml --env-file .env.docker logs app
             exit 1
           fi
-          
+
           # Cleanup old images
-          echo "🧹 Cleaning up old images..."
+          echo "Cleaning up old images..."
           docker image prune -f
-          
-          echo "🎉 Deployment completed successfully!"
+
+          echo "Deployment completed successfully!"
 
   notify:
-    name: 📢 Notify Deployment Status
+    name: Notify Deployment Status
     needs: [build-and-push, deploy]
     runs-on: ubuntu-latest
     if: always()
-    
+
     steps:
-    - name: 📢 Deployment Success Notification
+    - name: Deployment Success Notification
       if: needs.deploy.result == 'success'
       run: |
-        echo "🎉 Deployment to production was successful!"
-        echo "🔗 Application URL: http://${{ secrets.SERVER_HOST }}:5000"
-        
-    - name: 📢 Deployment Failure Notification  
+        echo "Deployment to production was successful!"
+        echo "Application URL: http://${{ secrets.SERVER_HOST }}:5000"
+
+    - name: Deployment Failure Notification
       if: needs.deploy.result == 'failure'
       run: |
-        echo "❌ Deployment to production failed!"
+        echo "Deployment to production failed!"
         echo "Please check the logs and fix the issues."
