@@ -90,7 +90,8 @@ class PersonalSavingsService {
 
   async getPersonalSavingsPlan(planId: string): Promise<PersonalSavingsResponse> {
     const url = `/personal-savings/${planId}`;
-    return apiService.get<PersonalSavingsResponse>(url);
+    const response = await apiService.get<ApiResponse<PersonalSavingsResponse>>(url);
+    return response.data;
   }
 
   // Get available personal savings plan types
