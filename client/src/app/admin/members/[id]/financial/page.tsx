@@ -96,12 +96,7 @@ export default function MemberFinancialPage() {
     enabled: !!memberErpId && tabIndex === 2,
   });
 
-  // Fetch transactions data - use erpId for filtering
-  const { data: transactionsData, isLoading: isTransactionsLoading } = useQuery<any>({
-    queryKey: ['member-transactions', memberErpId, transactionsPage, pageSize],
-    queryFn: () => apiService.get(`/transactions?erpId=${memberErpId}&page=${transactionsPage}&limit=${pageSize}`),
-    enabled: !!memberErpId && tabIndex === 3,
-  });
+  // Note: Transactions are extracted from savings records, not from a separate endpoint
 
   // Compute financial summary from savings data
   const financialSummary = useMemo(() => {
@@ -112,10 +107,12 @@ export default function MemberFinancialPage() {
     // Get the latest savings record (most recent month/year)
     const latestSavings = savingsData.data[0];
     const totalSavings = Number(latestSavings?.totalSavingsAmount || latestSavings?.balance || 0);
-    const sharesValue = Number(latestSavings?.shares?.totalSharesAmount || latestSavings?.sharesAmount || 0);
+    // Shares is an array in the response - get from first item
+    const sharesValue = Number(latestSavings?.shares?.[0]?.totalSharesAmount || 0);
 
     // Get outstanding loans from loans data if available
-    const outstandingLoans = loansData?.data?.reduce((sum: number, loan: any) => {
+    const loansArray = loansData?.data?.data || [];
+    const outstandingLoans = loansArray.reduce((sum: number, loan: any) => {
       if (loan.status === 'ACTIVE' || loan.status === 'DISBURSED') {
         return sum + Number(loan.remainingBalance || 0);
       }
@@ -137,26 +134,30 @@ export default function MemberFinancialPage() {
   // Prepare columns for each data type
   const savingsColumns: DataTableColumn<SavingsRecord>[] = [
     {
-      id: 'createdAt',
-      label: 'Date',
-      accessor: 'createdAt',
-      Cell: ({ value }: { value: any }) => new Date(value).toLocaleDateString(),
+      id: 'period',
+      label: 'Period',
+      accessor: (row: any) => `${row.month}/${row.year}`,
+      Cell: ({ row }: { row: any }) => {
+        const month = row.original?.month;
+        const year = row.original?.year;
+        if (month && year) {
+          const date = new Date(year, month - 1);
+          return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        }
+        return '-';
+      },
     },
     {
-      id: 'type',
-      label: 'Type',
-      accessor: (row: any) => row.type || 'SAVINGS',
-    },
-    {
-      id: 'amount',
-      label: 'Amount',
-      accessor: (row: any) => row.amount || row.totalSavingsAmount || 0,
+      id: 'balance',
+      label: 'Monthly Amount',
+      accessor: (row: any) => row.balance || 0,
       Cell: ({ value }: { value: any }) => formatCurrency(value),
     },
     {
-      id: 'reference',
-      label: 'Reference',
-      accessor: (row: any) => row.reference || row.id || '-',
+      id: 'totalSavingsAmount',
+      label: 'Total Savings',
+      accessor: (row: any) => row.totalSavingsAmount || 0,
+      Cell: ({ value }: { value: any }) => formatCurrency(value),
     },
     {
       id: 'status',
@@ -164,8 +165,8 @@ export default function MemberFinancialPage() {
       accessor: 'status',
       Cell: ({ value }: { value: any }) => (
         <Chip
-          label={value || 'COMPLETED'}
-          color={value === 'COMPLETED' ? 'success' : 'default'}
+          label={value || 'ACTIVE'}
+          color={value === 'ACTIVE' ? 'success' : 'default'}
           size="small"
         />
       ),
@@ -233,56 +234,77 @@ export default function MemberFinancialPage() {
     },
   ];
 
+  // Shares columns - shares are embedded in savings records
   const sharesColumns: DataTableColumn<any>[] = [
     {
-      id: 'createdAt',
-      label: 'Date',
-      accessor: 'createdAt',
-      Cell: ({ value }: { value: any }) => new Date(value).toLocaleDateString(),
+      id: 'period',
+      label: 'Period',
+      accessor: (row: any) => `${row.month}/${row.year}`,
+      Cell: ({ row }: { row: any }) => {
+        const month = row.original?.month;
+        const year = row.original?.year;
+        if (month && year) {
+          const date = new Date(year, month - 1);
+          return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        }
+        return '-';
+      },
     },
     {
-      id: 'quantity',
-      label: 'Quantity',
-      accessor: 'quantity',
-      Cell: ({ value }: { value: any }) => value || 1,
-    },
-    {
-      id: 'shareValue',
-      label: 'Value per Share',
-      accessor: 'shareValue',
-      Cell: ({ value }: { value: any }) => formatCurrency(value || 5000),
-    },
-    {
-      id: 'amount',
-      label: 'Total Value',
-      accessor: 'amount',
+      id: 'monthlyAmount',
+      label: 'Monthly Amount',
+      accessor: (row: any) => row.shares?.[0]?.monthlyAmount || 0,
       Cell: ({ value }: { value: any }) => formatCurrency(value),
     },
     {
-      id: 'reference',
-      label: 'Reference',
-      accessor: 'reference',
+      id: 'totalSharesAmount',
+      label: 'Total Shares Value',
+      accessor: (row: any) => row.shares?.[0]?.totalSharesAmount || 0,
+      Cell: ({ value }: { value: any }) => formatCurrency(value),
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      accessor: 'status',
+      Cell: ({ value }: { value: any }) => (
+        <Chip
+          label={value || 'ACTIVE'}
+          color={value === 'ACTIVE' ? 'success' : 'default'}
+          size="small"
+        />
+      ),
     },
   ];
+
+  // Extract all transactions from savings records for the transactions tab
+  const allTransactions = useMemo(() => {
+    if (!savingsData?.data) return [];
+    return savingsData.data.flatMap((savings: any) =>
+      (savings.transactions || []).map((tx: any) => ({
+        ...tx,
+        savingsPeriod: `${savings.month}/${savings.year}`,
+      }))
+    ).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [savingsData]);
 
   const transactionsColumns: DataTableColumn<Transaction>[] = [
     {
       id: 'createdAt',
       label: 'Date',
       accessor: 'createdAt',
-      Cell: ({ value }: { value: any }) => new Date(value).toLocaleDateString(),
+      Cell: ({ value }: { value: any }) => value ? new Date(value).toLocaleDateString() : '-',
     },
     {
-      id: 'type',
+      id: 'transactionType',
       label: 'Type',
-      accessor: (row: any) => row.type || 'TRANSACTION',
+      accessor: 'transactionType',
       Cell: ({ value }: { value: any }) => (
         <Chip
-          label={value}
+          label={value?.replace(/_/g, ' ') || 'TRANSACTION'}
           color={
-            value === 'DEPOSIT' ? 'success' :
-            value === 'WITHDRAWAL' ? 'warning' :
-            value === 'LOAN_REPAYMENT' ? 'info' :
+            value?.includes('DEPOSIT') || value?.includes('CREDIT') ? 'success' :
+            value?.includes('WITHDRAWAL') || value?.includes('DEBIT') ? 'warning' :
+            value?.includes('SHARES') ? 'info' :
             'default'
           }
           size="small"
@@ -296,9 +318,10 @@ export default function MemberFinancialPage() {
       Cell: ({ value }: { value: any }) => formatCurrency(value),
     },
     {
-      id: 'reference',
-      label: 'Reference',
-      accessor: (row: any) => row.reference || row.id || '-',
+      id: 'description',
+      label: 'Description',
+      accessor: 'description',
+      Cell: ({ value }: { value: any }) => value || '-',
     },
     {
       id: 'status',
@@ -473,12 +496,12 @@ export default function MemberFinancialPage() {
 
             <DataTable
               columns={loansColumns}
-              data={loansData?.data || []}
+              data={loansData?.data?.data || []}
               pagination={{
                 pageIndex: loansPage - 1,
                 pageSize: pageSize,
-                pageCount: loansData?.meta?.totalPages || 1,
-                totalRecords: loansData?.meta?.total || 0,
+                pageCount: loansData?.data?.meta?.totalPages || 1,
+                totalRecords: loansData?.data?.meta?.total || 0,
               }}
               onPageChange={(newPage) => setLoansPage(newPage + 1)}
               loading={isLoansLoading}
@@ -502,12 +525,12 @@ export default function MemberFinancialPage() {
 
             <DataTable
               columns={sharesColumns}
-              data={sharesData?.data || []}
+              data={sharesData?.data?.data || []}
               pagination={{
                 pageIndex: sharesPage - 1,
                 pageSize: pageSize,
-                pageCount: sharesData?.meta?.totalPages || 1,
-                totalRecords: sharesData?.meta?.total || 0,
+                pageCount: sharesData?.data?.meta?.totalPages || 1,
+                totalRecords: sharesData?.data?.meta?.total || 0,
               }}
               onPageChange={(newPage) => setSharesPage(newPage + 1)}
               loading={isSharesLoading}
@@ -521,15 +544,15 @@ export default function MemberFinancialPage() {
           <PermissionGate permissions={['VIEW_TRANSACTIONS']} module={Module.TRANSACTION}>
             <DataTable
               columns={transactionsColumns}
-              data={transactionsData?.data || []}
+              data={allTransactions.slice((transactionsPage - 1) * pageSize, transactionsPage * pageSize)}
               pagination={{
                 pageIndex: transactionsPage - 1,
                 pageSize: pageSize,
-                pageCount: transactionsData?.meta?.totalPages || 1,
-                totalRecords: transactionsData?.meta?.total || 0,
+                pageCount: Math.ceil(allTransactions.length / pageSize) || 1,
+                totalRecords: allTransactions.length,
               }}
               onPageChange={(newPage) => setTransactionsPage(newPage + 1)}
-              loading={isTransactionsLoading}
+              loading={isSavingsLoading}
               noDataMessage="No transactions found"
             />
           </PermissionGate>

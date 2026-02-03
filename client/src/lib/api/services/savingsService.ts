@@ -1,6 +1,6 @@
 import { apiService } from '@/lib/api/apiService';
 import { SavingsSummary, SavingsRecord, MemberSavingsSummary } from '@/types/financial.types';
-import { RequestStatus } from '@/types/request.types';
+import { RequestStatus, RequestType } from '@/types/request.types';
 import { ApiResponse, PaginatedResponse, PaginatedData } from '@/types/types';
 
 /**
@@ -244,7 +244,7 @@ class SavingsService {
    */
   async getWithdrawalRequests(params?: {
     status?: RequestStatus;
-    type?: RequestStatus | RequestStatus[];
+    type?: RequestType | RequestType[];
     page?: number;
     limit?: number;
     startDate?: string;
@@ -404,6 +404,16 @@ class SavingsService {
     });
   }
 
+
+  /**
+   * Get savings statistics for a year [ADMIN ONLY]
+   * This endpoint retrieves savings statistics for a specific year.
+   * GET /savings/stats/:year
+   */
+  async getSavingsStats(year: number): Promise<any> {
+    const response = await apiService.get<ApiResponse<any>>(`/savings/stats/${year}`);
+    return response.data;
+  }
 
   /**
    * Get members savings summary - optimized member-centric view

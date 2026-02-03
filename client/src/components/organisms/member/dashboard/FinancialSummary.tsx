@@ -25,7 +25,7 @@ const FinancialSummary = ({ timeFrame = 'month' }: FinancialSummaryProps) => {
 
   // Get loan summary
   const {
-    data: loanSummary.data?.data,
+    data: loanSummary,
     isLoading: loansLoading
   } = useQueryWithToast(
     ['loan-summary'],
