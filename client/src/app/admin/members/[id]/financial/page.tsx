@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import {
@@ -72,40 +72,62 @@ export default function MemberFinancialPage() {
     enabled: !!memberId,
   });
 
-  // Fetch savings data
+  // Get the member's erpId for filtering (available after member loads)
+  const memberErpId = member?.erpId;
+
+  // Fetch savings data - use erpId for filtering
   const { data: savingsData, isLoading: isSavingsLoading } = useQuery({
-    queryKey: ['member-savings', memberId, savingsPage, pageSize],
-    queryFn: () => savingsService.getAllSavings(savingsPage, pageSize, { biodataId: memberId }),
-    enabled: !!memberId && tabIndex === 0,
+    queryKey: ['member-savings', memberErpId, savingsPage, pageSize],
+    queryFn: () => savingsService.getAllSavings(savingsPage, pageSize, { erpId: memberErpId }),
+    enabled: !!memberErpId && tabIndex === 0,
   });
 
-  // Fetch loans data
+  // Fetch loans data - use erpId for filtering
   const { data: loansData, isLoading: isLoansLoading } = useQuery<any>({
-    queryKey: ['member-loans', memberId, loansPage, pageSize],
-    queryFn: () => apiService.get(`/loans?biodataId=${memberId}&page=${loansPage}&limit=${pageSize}`),
-    enabled: !!memberId && tabIndex === 1,
+    queryKey: ['member-loans', memberErpId, loansPage, pageSize],
+    queryFn: () => apiService.get(`/loans?erpId=${memberErpId}&page=${loansPage}&limit=${pageSize}`),
+    enabled: !!memberErpId && tabIndex === 1,
   });
 
-  // Fetch shares data
+  // Fetch shares data - shares are embedded in savings records, so fetch savings with erpId
   const { data: sharesData, isLoading: isSharesLoading } = useQuery<any>({
-    queryKey: ['member-shares', memberId, sharesPage, pageSize],
-    queryFn: () => apiService.get(`/savings?biodataId=${memberId}&type=SHARE&page=${sharesPage}&limit=${pageSize}`),
-    enabled: !!memberId && tabIndex === 2,
+    queryKey: ['member-shares', memberErpId, sharesPage, pageSize],
+    queryFn: () => apiService.get(`/savings?erpId=${memberErpId}&page=${sharesPage}&limit=${pageSize}`),
+    enabled: !!memberErpId && tabIndex === 2,
   });
 
-  // Fetch transactions data
+  // Fetch transactions data - use erpId for filtering
   const { data: transactionsData, isLoading: isTransactionsLoading } = useQuery<any>({
-    queryKey: ['member-transactions', memberId, transactionsPage, pageSize],
-    queryFn: () => apiService.get(`/transactions/member/${memberId}?page=${transactionsPage}&limit=${pageSize}`),
-    enabled: !!memberId && tabIndex === 3,
+    queryKey: ['member-transactions', memberErpId, transactionsPage, pageSize],
+    queryFn: () => apiService.get(`/transactions?erpId=${memberErpId}&page=${transactionsPage}&limit=${pageSize}`),
+    enabled: !!memberErpId && tabIndex === 3,
   });
 
-  // Fetch financial summary
-  const { data: financialSummary, isLoading: isSummaryLoading } = useQuery<any>({
-    queryKey: ['member-financial-summary', memberId],
-    queryFn: () => apiService.get(`/biodata/${memberId}/financial-summary`),
-    enabled: !!memberId,
-  });
+  // Compute financial summary from savings data
+  const financialSummary = useMemo(() => {
+    if (!savingsData?.data || savingsData.data.length === 0) {
+      return { totalSavings: 0, outstandingLoans: 0, sharesValue: 0, netPosition: 0 };
+    }
+
+    // Get the latest savings record (most recent month/year)
+    const latestSavings = savingsData.data[0];
+    const totalSavings = Number(latestSavings?.totalSavingsAmount || latestSavings?.balance || 0);
+    const sharesValue = Number(latestSavings?.shares?.totalSharesAmount || latestSavings?.sharesAmount || 0);
+
+    // Get outstanding loans from loans data if available
+    const outstandingLoans = loansData?.data?.reduce((sum: number, loan: any) => {
+      if (loan.status === 'ACTIVE' || loan.status === 'DISBURSED') {
+        return sum + Number(loan.remainingBalance || 0);
+      }
+      return sum;
+    }, 0) || 0;
+
+    const netPosition = totalSavings + sharesValue - outstandingLoans;
+
+    return { totalSavings, outstandingLoans, sharesValue, netPosition };
+  }, [savingsData, loansData]);
+
+  const isSummaryLoading = isSavingsLoading || isLoansLoading;
 
   // Handle tab change
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {

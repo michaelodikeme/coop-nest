@@ -309,7 +309,14 @@ const PersonalSavingsAdminPage = () => {
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
           headerBackgroundColor={theme => theme.palette.mode === 'dark' ? '#333' : '#f5f5f5'}
-          onRowClick={(row) => router.push(`/admin/financial/personal-savings/${row.id}`)}
+          onRowClick={(row) => {
+            // Check if it's a pending request (has requestId but no id)
+            if (row.requestId && !row.id) {
+              router.push(`/admin/approvals/personal-savings/${row.requestId}`);
+            } else if (row.id) {
+              router.push(`/admin/financial/personal-savings/${row.id}`);
+            }
+          }}
           noDataMessage="No personal savings plans found"
         />
       </Paper>

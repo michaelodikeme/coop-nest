@@ -36,7 +36,7 @@ export function useAdminPersonalSavingsPlans(params?: {
 export function useAdminPersonalSavingsPlan(id?: string) {
   return useQuery({
     queryKey: ['adminPersonalSavingsPlan', id],
-    queryFn: () => personalSavingsService.getPersonalSavingsPlanById(id!),
+    queryFn: () => personalSavingsService.getPersonalSavingsPlan(id!),
     enabled: !!id,
   });
 }

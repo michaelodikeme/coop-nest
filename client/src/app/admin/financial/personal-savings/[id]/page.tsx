@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { 
   Box, 
   Typography, 
@@ -60,12 +60,12 @@ import LoadingScreen from '@/components/atoms/LoadingScreen';
 import ErrorIcon from '@mui/icons-material/Error';
 import { Controller, useForm } from 'react-hook-form';
 
-export default async function PersonalSavingsPlanDetailPage({
+export default function PersonalSavingsPlanDetailPage({
   params
 }: {
   params: Promise<{ id: string }>
 }) {
-  const resolvedParams = await params;
+  const resolvedParams = use(params);
   const planId = resolvedParams.id;
 
   return <PersonalSavingsPlanDetailPageClient planId={planId} />;
