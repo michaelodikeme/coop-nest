@@ -1,3 +1,4 @@
+version: "3.9"
 services:
   postgres:
     image: postgres:17
@@ -42,8 +43,9 @@ services:
       - coop-nest-network
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-rootuser}@postgres:5432/${POSTGRES_DB:-postgres}?schema=coop-nest_db
-      PORT: 5000
+      SERVER_PORT: 5000
       NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
       REDIS_URL: redis://redis:6379
       APPLICATION_URL: ${APPLICATION_URL}
       JWT_SECRET: ${JWT_SECRET}
