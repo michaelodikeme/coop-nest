@@ -6,7 +6,7 @@ import { apiService } from '@/lib/api/apiService';
 import { useToast } from '@/components/molecules/Toast';
 import { Loan, LoanSummary } from '@/types/loan.types';
 import { SavingsRecord, WithdrawalStatus } from '@/types/financial.types';
-import { RequestStatus } from '@/types/request.types';
+import { RequestStatus, RequestType } from '@/types/request.types';
 
 // Enhanced hook for all savings with better filtering
 export function useAdminSavings(page = 1, limit = 10, filters = {}) {

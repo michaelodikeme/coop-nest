@@ -33,9 +33,10 @@ export interface PaginatedResponse<T> {
     page: number;
     limit: number;
     totalPages: number;
-    activeCount: number;
-    pendingCreationCount: number;
-    closedCount: number;
+    // These are optional since not all endpoints return them
+    activeCount?: number;
+    pendingCreationCount?: number;
+    closedCount?: number;
   };
 }
 
