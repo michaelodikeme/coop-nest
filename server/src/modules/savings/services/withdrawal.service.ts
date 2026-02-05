@@ -118,7 +118,8 @@ class SavingsWithdrawalService {
           );
         }
 
-        balance = latestSavings.balance;
+        // Use totalSavingsAmount for withdrawal validation (cumulative total, not monthly balance)
+        balance = latestSavings.totalSavingsAmount;
         recordType = "savings";
       }
 
@@ -262,7 +263,8 @@ class SavingsWithdrawalService {
 
         savingsData = latestSavings;
         savingsRecordId = latestSavings.id;
-        balance = latestSavings.balance;
+        // Use totalSavingsAmount for withdrawal (cumulative total, not monthly balance)
+        balance = latestSavings.totalSavingsAmount;
       }
 
       const withdrawalRequest = await prisma.$transaction(async (tx) => {
@@ -670,7 +672,8 @@ class SavingsWithdrawalService {
       transactionType = TransactionType.PERSONAL_SAVINGS_WITHDRAWAL;
       relatedEntityType = "PERSONAL_SAVINGS";
     } else if (request.savingsId && request.savings) {
-      currentBalance = request.savings.balance;
+      // Use totalSavingsAmount for withdrawal (cumulative total, not monthly balance)
+      currentBalance = request.savings.totalSavingsAmount;
       savingsRecordId = request.savings.id;
       transactionType = TransactionType.SAVINGS_WITHDRAWAL;
       relatedEntityType = "SAVINGS";
@@ -1020,8 +1023,10 @@ class SavingsWithdrawalService {
         ) {
           const savings = (request as any).savings;
           const currentBalanceNum = Number(savings.balance);
+          const totalSavingsNum = Number(savings.totalSavingsAmount);
           const withdrawalAmount = Number(content.amount || 0);
-          const remainingBalanceNum = currentBalanceNum - withdrawalAmount;
+          // Calculate remaining from totalSavingsAmount (cumulative total), not monthly balance
+          const remainingBalanceNum = totalSavingsNum - withdrawalAmount;
 
           savingsInfo = {
             type: "regular",
@@ -1030,8 +1035,8 @@ class SavingsWithdrawalService {
               raw: currentBalanceNum
             },
             totalSavings: {
-              formatted: formatCurrency(Number(savings.totalSavingsAmount)),
-              raw: Number(savings.totalSavingsAmount)
+              formatted: formatCurrency(totalSavingsNum),
+              raw: totalSavingsNum
             },
             remainingBalance: {
               formatted: formatCurrency(remainingBalanceNum),
@@ -1350,8 +1355,10 @@ class SavingsWithdrawalService {
       } else if (request.type === RequestType.SAVINGS_WITHDRAWAL && requestWithRelations.savings) {
         const savings = requestWithRelations.savings;
         const currentBalanceNum = Number(savings.balance);
+        const totalSavingsNum = Number(savings.totalSavingsAmount);
         const withdrawalAmount = Number(content.amount || 0);
-        const remainingBalanceNum = currentBalanceNum - withdrawalAmount;
+        // Calculate remaining from totalSavingsAmount (cumulative total), not monthly balance
+        const remainingBalanceNum = totalSavingsNum - withdrawalAmount;
 
         savingsInfo = {
           type: 'regular',
@@ -1361,8 +1368,8 @@ class SavingsWithdrawalService {
             raw: currentBalanceNum
           },
           totalSavings: {
-            formatted: formatCurrency(Number(savings.totalSavingsAmount)),
-            raw: Number(savings.totalSavingsAmount)
+            formatted: formatCurrency(totalSavingsNum),
+            raw: totalSavingsNum
           },
           monthlyTarget: {
             formatted: formatCurrency(Number(savings.monthlyTarget)),
