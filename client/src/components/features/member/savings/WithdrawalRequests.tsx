@@ -172,7 +172,7 @@ const WithdrawalRequests: React.FC<WithdrawalRequestsProps> = ({
                               Current Balance
                             </Typography>
                             <Typography>
-                              {request.savings.currentBalance.formatted}
+                              {request.savings.totalSavings.formatted}
                             </Typography>
                           </Grid>
 

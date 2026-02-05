@@ -4,11 +4,16 @@ import { PersonalSavingsStatus, TransactionType, TransactionModule, TransactionS
 // Create personal savings schema
 export const createPersonalSavingsSchema = z.object({
   erpId: z.string()
-    .regex(/^ERP\d+$/, 'ERP ID must start with ERP followed by numbers'),
+    .regex(
+      /^(ERP\d+|FUO-ADM-\d+)$/i, // 'i' flag makes it case-insensitive
+      'ERP ID must be either "ERP" or "FUO-ADM-" format followed by numbers (case insensitive)'
+    ),
+  
   planName: z.string()
     .min(3, 'Plan name must be at least 3 characters')
     .max(50, 'Plan name cannot exceed 50 characters')
     .optional(),
+    
   targetAmount: z.number()
     .positive('Target amount must be positive')
     .optional(),

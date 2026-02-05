@@ -51,8 +51,7 @@ interface PlanDetailsProps {
 }
 
 export function PlanDetails({ id }: PlanDetailsProps) {
-  const { data: response, isLoading } = usePersonalSavingsPlan(id);
-  const plan = response?.data;
+  const { data: plan, isLoading } = usePersonalSavingsPlan(id);
   const [tabValue, setTabValue] = useState(0);
   const [isWithdrawalOpen, setIsWithdrawalOpen] = useState(false);
   const withdrawalMutation = useRequestWithdrawal();
@@ -148,7 +147,7 @@ export function PlanDetails({ id }: PlanDetailsProps) {
             <CardHeader title="Current Balance" sx={{ pb: 0 }} />
             <CardContent>
               <Typography variant="h4" fontWeight="bold">
-                {formatCurrency(parseFloat(plan.currentBalance) || 0)}
+                {formatCurrency(plan.currentBalance || 0)}
               </Typography>
             </CardContent>
           </Card>
@@ -175,7 +174,7 @@ export function PlanDetails({ id }: PlanDetailsProps) {
             <CardContent>
               <Typography variant="h4" fontWeight="bold">
                 {plan.targetAmount
-                  ? formatCurrency(parseFloat(plan.targetAmount))
+                  ? formatCurrency(plan.targetAmount)
                   : "N/A"}
               </Typography>
             </CardContent>
@@ -300,7 +299,7 @@ export function PlanDetails({ id }: PlanDetailsProps) {
             />
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               Current Balance:{" "}
-              {formatCurrency(parseFloat(plan?.currentBalance || "0"))}
+              {formatCurrency(plan?.currentBalance || 0)}
             </Typography>
 
             <TextField

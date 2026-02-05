@@ -202,9 +202,9 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
         return false;
       }
       
-      // If savings balance is less than withdrawal amount, reject
-      if (savings.balance.lessThan(amount)) {
-        logger.error(`Insufficient balance for withdrawal: ${savings.balance.toString()} < ${amount.toString()}`);
+      // If totalSavingsAmount is less than withdrawal amount, reject
+      if (savings.totalSavingsAmount.lessThan(amount)) {
+        logger.error(`Insufficient balance for withdrawal: ${savings.totalSavingsAmount.toString()} < ${amount.toString()}`);
         return false;
       }
     }
@@ -299,8 +299,8 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
       );
     }
 
-    // Check if there are sufficient funds
-    if (savings.balance.lessThan(withdrawalAmount)) {
+    // Check if there are sufficient funds (use totalSavingsAmount for withdrawal validation)
+    if (savings.totalSavingsAmount.lessThan(withdrawalAmount)) {
       throw new TransactionError(
         'Insufficient savings balance for withdrawal',
         TransactionErrorCodes.INSUFFICIENT_FUNDS,
@@ -308,21 +308,22 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
       );
     }
 
-    // Update the savings balance
-    const newBalance = savings.balance.minus(withdrawalAmount);
+    // Calculate new total savings amount (withdrawals come from cumulative total, not monthly balance)
+    const newTotalSavingsAmount = savings.totalSavingsAmount.minus(withdrawalAmount);
+
+    // Update only totalSavingsAmount - monthly balance remains unchanged
     await db.savings.update({
       where: { id: savings.id },
       data: {
-        balance: newBalance,
-        totalSavingsAmount: savings.totalSavingsAmount.minus(withdrawalAmount)
+        totalSavingsAmount: newTotalSavingsAmount
       }
     });
 
-    // Update the transaction's balanceAfter field
+    // Update the transaction's balanceAfter field to reflect total savings after withdrawal
     await db.transaction.update({
       where: { id: transaction.id },
       data: {
-        balanceAfter: newBalance
+        balanceAfter: newTotalSavingsAmount
       }
     });
   }
@@ -422,24 +423,23 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
       });
     }
     
-    // If this is a withdrawal reversal, we need to add back to savings
+    // If this is a withdrawal reversal, we need to add back to totalSavingsAmount only
     else if (originalTx.transactionType === TransactionType.SAVINGS_WITHDRAWAL) {
       const amountToRestore = originalTx.amount.abs(); // Get positive value
-      const newBalance = savings.balance.plus(amountToRestore);
-      
+      const newTotalSavingsAmount = savings.totalSavingsAmount.plus(amountToRestore);
+
       await db.savings.update({
         where: { id: savings.id },
         data: {
-          balance: newBalance,
-          totalSavingsAmount: savings.totalSavingsAmount.plus(amountToRestore)
+          totalSavingsAmount: newTotalSavingsAmount
         }
       });
-      
-      // Update the transaction's balanceAfter field
+
+      // Update the transaction's balanceAfter field to reflect total savings
       await db.transaction.update({
         where: { id: transaction.id },
         data: {
-          balanceAfter: newBalance
+          balanceAfter: newTotalSavingsAmount
         }
       });
     }
