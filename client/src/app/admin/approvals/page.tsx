@@ -182,11 +182,17 @@ export default function ApprovalsPage() {
         router.push(`/admin/approvals/withdrawals/${row.id}`);
         break;
       case 'BIODATA_APPROVAL':
+      case 'ACCOUNT_CREATION':
+      case 'ACCOUNT_UPDATE':
         router.push(`/admin/approvals/members/${row.id}`);
         break;
+      case 'PERSONAL_SAVINGS_CREATION':
+      case 'PERSONAL_SAVINGS_WITHDRAWAL':
+        router.push(`/admin/approvals/personal-savings/${row.id}`);
+        break;
       default:
-        // Generic request view
-        router.push(`/admin/approvals/${row.id}`);
+        // Generic request view - fallback to members route since most requests are member-related
+        router.push(`/admin/approvals/members/${row.id}`);
     }
   };
   
