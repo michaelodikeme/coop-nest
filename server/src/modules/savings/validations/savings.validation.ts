@@ -64,7 +64,10 @@ export const listSavingsQuerySchema = z.object({
   sort: z.enum(["asc", "desc"] as const).default("desc"),
   erpId: z
     .string()
-    .regex(/^ERP\d+$/, "Invalid ERP ID format")
+    .regex(
+      /^(ERP\d+|FUO-ADM-\d+)$/i, // 'i' flag makes it case-insensitive
+      'ERP ID must be either "ERP" or "FUO-ADM-" format followed by numbers (case insensitive)'
+    )
     .optional(),
   department: z.string().trim().optional(),
 });
@@ -135,9 +138,10 @@ export const transactionQuerySchema = z.object({
 
 // Monthly savings params schema
 export const monthlySavingsParamsSchema = z.object({
-  erpId: z
-    .string()
-    .regex(/^ERP\d+$/, "ERP ID must start with ERP followed by numbers"),
+  erpId: z.string().regex(
+    /^(ERP\d+|FUO-ADM-\d+)$/i, // 'i' flag makes it case-insensitive
+    'ERP ID must be either "ERP" or "FUO-ADM-" format followed by numbers (case insensitive)'
+  ),
   year: z
     .number()
     .int("Year must be a whole number")
