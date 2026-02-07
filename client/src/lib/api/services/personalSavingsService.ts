@@ -142,6 +142,18 @@ class PersonalSavingsService {
     const url = `/requests/${requestId}`;
     return apiService.get(url);
   }
+
+  // Process a deposit to a personal savings plan (Admin/Treasurer only)
+  async processDeposit(planId: string, data: { amount: number; description?: string }) {
+    const url = `/personal-savings/${planId}/deposit`;
+    return apiService.post(url, data);
+  }
+
+  // Close a personal savings plan (Admin only)
+  async closePlan(planId: string) {
+    const url = `/personal-savings/${planId}/close`;
+    return apiService.patch(url, {});
+  }
 }
 
 export const personalSavingsService = new PersonalSavingsService();
