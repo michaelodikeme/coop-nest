@@ -26,6 +26,7 @@ export interface IPaginatedRequestResponse {
         page: number;
         limit: number;
         totalPages: number;
+        statusCounts?: Record<string, number>;
     }
 }
 

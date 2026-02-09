@@ -32,7 +32,7 @@ export function useApprovals(type?: RequestType | string, page: number = 1, limi
         };
         
         const response = await requestService.getAllRequests(params);
-        
+
         // Ensure we return a consistent structure that matches API response
         return {
           data: response.data || response?.data?.data || [],
@@ -40,7 +40,8 @@ export function useApprovals(type?: RequestType | string, page: number = 1, limi
             total: response.meta?.total || 0,
             page: response.meta?.page || page,
             limit: response.meta?.limit || limit,
-            totalPages: response.meta?.totalPages || 0
+            totalPages: response.meta?.totalPages || 0,
+            statusCounts: response.meta?.statusCounts || {}
           }
         };
       } catch (error) {
@@ -107,22 +108,24 @@ export function useApprovalDetails(requestId: string | undefined) {
 }
 
 /**
-* Review a loan request (first approval level - Admin)
+* Review a loan request (first approval level - Treasurer)
 * Changes status from PENDING to IN_REVIEW
 */
 export function useReviewRequest() {
   const queryClient = useQueryClient();
   const showToast = useToast();
-  
+
   return useMutation({
     mutationFn: async (data: { requestId: string; notes?: string }) => {
       // Check if this is a loan request
       const request = await requestService.getRequestById(data.requestId);
-      
+
       if (request.type === 'LOAN_APPLICATION' && request.loanId) {
-        await loanService.updateLoanStatus(request.loanId, LoanStatus.IN_REVIEW, data.notes);
+        // Only call loanService - it updates both the loan AND request status
+        return loanService.updateLoanStatus(request.loanId, LoanStatus.IN_REVIEW, data.notes);
       }
-      
+
+      // For non-loan requests, use the request service
       return requestService.updateRequestStatus(data.requestId, RequestStatus.IN_REVIEW, data.notes);
     },
     onSuccess: () => {
@@ -138,21 +141,24 @@ export function useReviewRequest() {
 }
 
 /**
-* Mark a loan as reviewed (second approval level - Treasurer)
+* Mark a loan as reviewed (second approval level - Chairman)
 * Changes status from IN_REVIEW to REVIEWED
 */
 export function useMarkReviewed() {
   const queryClient = useQueryClient();
   const toast = useToast();
-  
+
   return useMutation({
     mutationFn: async (data: { requestId: string; notes?: string }) => {
       // Check if this is a loan request
       const request = await requestService.getRequestById(data.requestId);
-      
+
       if (request.type === 'LOAN_APPLICATION' && request.loanId) {
-        await loanService.updateLoanStatus(request.loanId, LoanStatus.REVIEWED, data.notes);
+        // Only call loanService - it updates both the loan AND request status
+        return loanService.updateLoanStatus(request.loanId, LoanStatus.REVIEWED, data.notes);
       }
+
+      // For non-loan requests, use the request service
       return requestService.updateRequestStatus(data.requestId, RequestStatus.REVIEWED, data.notes);
     },
     onSuccess: () => {
@@ -168,21 +174,24 @@ export function useMarkReviewed() {
 }
 
 /**
-* Approve a loan (third approval level - Chairman)
+* Approve a loan (third approval level - Treasurer for disbursement)
 * Changes status from REVIEWED to APPROVED
 */
 export function useApproveRequest() {
   const queryClient = useQueryClient();
   const showToast = useToast();
-  
+
   return useMutation({
     mutationFn: async (data: { requestId: string; notes?: string }) => {
       // Check if this is a loan request
       const request = await requestService.getRequestById(data.requestId);
-      
+
       if (request.type === 'LOAN_APPLICATION' && request.loanId) {
-        await loanService.updateLoanStatus(request.loanId, LoanStatus.APPROVED, data.notes);
+        // Only call loanService - it updates both the loan AND request status
+        return loanService.updateLoanStatus(request.loanId, LoanStatus.APPROVED, data.notes);
       }
+
+      // For non-loan requests, use the request service
       return requestService.updateRequestStatus(data.requestId, RequestStatus.APPROVED, data.notes);
     },
     onSuccess: () => {
@@ -203,15 +212,19 @@ export function useApproveRequest() {
 export function useRejectRequest() {
   const queryClient = useQueryClient();
   const toast = useToast();
-  
+
   return useMutation({
     mutationFn: async (data: { requestId: string; reason: string }) => {
       // Check if this is a loan request
       const request = await requestService.getRequestById(data.requestId);
-      
+
       if (request.type === 'LOAN_APPLICATION' && request.loanId) {
-        await loanService.updateLoanStatus(request.loanId, LoanStatus.REJECTED, data.reason);
+        // Only call loanService - it updates both the loan AND request status
+        return loanService.updateLoanStatus(request.loanId, LoanStatus.REJECTED, data.reason);
       }
+
+      // For non-loan requests, use the request service
+      return requestService.updateRequestStatus(data.requestId, RequestStatus.REJECTED, data.reason);
     },
     onSuccess: () => {
       toast.success('Request rejected');
@@ -232,12 +245,10 @@ export function useRejectRequest() {
 export function useDisburseLoan() {
   const queryClient = useQueryClient();
   const toast = useToast();
-  
+
   return useMutation({
     mutationFn: async (data: { requestId: string; loanId: string; notes?: string }) => {
-      await loanService.updateLoanStatus(data.loanId, LoanStatus.DISBURSED, data.notes);
-      
-      // Mark the request as COMPLETED (not DISBURSED, since that's not a valid request status)
+      // Single call - backend handles both loan status (DISBURSED) and request status (COMPLETED)
       await loanService.updateLoanStatus(data.loanId, LoanStatus.DISBURSED, data.notes);
     },
     onSuccess: () => {

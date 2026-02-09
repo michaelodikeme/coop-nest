@@ -284,8 +284,9 @@ export default function LoansPage() {
     loan.status.toUpperCase() === 'REVIEWED'
   ) || [];
 
-  const completedLoans = loansData?.filter((loan: { status: string; }) => 
-    loan.status.toUpperCase() === 'COMPLETED'
+  const completedLoans = loansData?.filter((loan: { status: string; }) =>
+    loan.status.toUpperCase() === 'COMPLETED' ||
+    loan.status.toUpperCase() === 'REJECTED' || loan.status.toUpperCase() === 'DISBURSED'
   ) || [];
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {

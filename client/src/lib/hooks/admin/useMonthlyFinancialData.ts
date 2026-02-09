@@ -46,7 +46,7 @@ export function useMonthlyFinancialData(year: number = new Date().getFullYear())
           // FIXED: Get more transactions and use the correct response structure
           transactionService.getAllTransactions({
             page: 1,
-            limit: 5000, // Increased to capture more data
+            limit: 200, // Increased to capture more data
           })
         ]);
 

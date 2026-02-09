@@ -443,19 +443,24 @@ export class TransactionController {
 
   /**
    * Get all transactions (admin only)
-   * @route GET /api/transactions/all
+   * @route GET /api/transactions
    * @access Admin
    */
   public getAllTransactions = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      // Validate pagination params
-      const pagination = await z.object({
+      // Validate pagination and filter params
+      const queryParams = await z.object({
         page: z.coerce.number().int().positive().optional().default(1),
-        limit: z.coerce.number().int().positive().max(9000).optional().default(20)
+        limit: z.coerce.number().int().positive().max(9000).optional().default(20),
+        sort: z.string().optional().default('createdAt:desc'),
+        // Filter params
+        transactionType: z.string().optional(),
+        status: z.string().optional(),
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+        search: z.string().optional(),
+        module: z.string().optional(),
       }).parseAsync(req.query);
-
-      // Optionally support sorting
-      const sort = typeof req.query.sort === 'string' ? req.query.sort : 'createdAt:desc';
 
       // Only admins can access all transactions
       if (!req.user?.isAdmin) {
@@ -463,8 +468,16 @@ export class TransactionController {
       }
 
       const transactions = await this.queryService.getAllTransactions({
-        ...pagination,
-        sort,
+        page: queryParams.page,
+        limit: queryParams.limit,
+        sort: queryParams.sort,
+        // Pass filter params
+        transactionType: queryParams.transactionType,
+        status: queryParams.status,
+        startDate: queryParams.startDate,
+        endDate: queryParams.endDate,
+        search: queryParams.search,
+        module: queryParams.module,
       });
 
       return ApiResponse.success(

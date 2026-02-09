@@ -42,12 +42,14 @@ export default function LoanApprovalsPage() {
   );
   
   // Safely access the nested data structure from useApprovals hook
-  // The hook returns { data: [...], meta: { total, page, limit, totalPages } }
-  const approvals = approvalsResponse as { data: Request[]; meta: { total: number; page: number; limit: number; totalPages: number } } | undefined;
-  const meta = approvals?.meta || { total: 0, page: 1, limit: 10, totalPages: 0 };
+  // The hook returns { data: [...], meta: { total, page, limit, totalPages, statusCounts } }
+  const approvals = approvalsResponse as { data: Request[]; meta: { total: number; page: number; limit: number; totalPages: number; statusCounts?: Record<string, number> } } | undefined;
+  const meta = approvals?.meta || { total: 0, page: 1, limit: 10, totalPages: 0, statusCounts: {} };
   const requests = Array.isArray(approvals?.data) ? approvals.data : [];
+  const statusCounts = meta.statusCounts || {};
   console.log('LoanApprovalPage Approvals data structure:', approvals);
   console.log('Meta data:', meta);
+  console.log('Status counts from API:', statusCounts);
   console.log('Requests array:', requests);
   console.log('Requests length:', requests.length);
 
@@ -132,34 +134,20 @@ export default function LoanApprovalsPage() {
   //     ? requests.filter((item: Request) => item.status === status).length 
   //     : 0;
   // };
-// Fix 4: Enhanced statistics calculation with debugging
+// Use status counts from API meta instead of counting from paginated data
   const statistics = {
-    pending: countStatus('PENDING'),
-    inReview: countStatus('IN_REVIEW'),
-    reviewed: countStatus('REVIEWED'),
-    approved: countStatus('APPROVED'),
-    disbursed: countStatus('DISBURSED'),
-    active: countStatus('ACTIVE'),
-    completed: countStatus('COMPLETED'),
-    rejected: countStatus('REJECTED'),
-    total: requests.length // Add total for validation
+    pending: statusCounts['PENDING'] || 0,
+    inReview: statusCounts['IN_REVIEW'] || 0,
+    reviewed: statusCounts['REVIEWED'] || 0,
+    approved: statusCounts['APPROVED'] || 0,
+    disbursed: statusCounts['DISBURSED'] || 0,
+    active: statusCounts['ACTIVE'] || 0,
+    completed: statusCounts['COMPLETED'] || 0,
+    rejected: statusCounts['REJECTED'] || 0,
+    total: meta.total || 0
   };
 
-  console.log('All statuses in requests:', requests.map(r => r?.status));
-  console.log('Statistics calculated:', statistics);
-
-  // const statistics = {
-  //   pending: countStatus('PENDING'),
-  //   inReview: countStatus('IN_REVIEW'),
-  //   reviewed: countStatus('REVIEWED'),
-  //   approved: countStatus('APPROVED'),
-  //   disbursed: countStatus('DISBURSED'),
-  //   active: countStatus('ACTIVE'),
-  //   completed: countStatus('COMPLETED'),
-  //   rejected: countStatus('REJECTED')
-  // };
-  
-  console.log('Statistics:', statistics);
+  console.log('Statistics from API:', statistics);
   // Get button text based on status and user role
   const getActionButtonText = (status: string) => {
     if (status === 'PENDING' && checkApprovalLevel(1)) return 'Review';

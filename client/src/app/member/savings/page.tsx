@@ -369,15 +369,15 @@ export default function SavingsPage() {
         <Alert
           severity="info"
           sx={{ mb: 3, borderRadius: 2 }}
-          action={
-            <Button
-              color="inherit"
-              size="small"
-              onClick={() => setActiveTab(2)}
-            >
-              View Details
-            </Button>
-          }
+          // action={
+          //   <Button
+          //     color="inherit"
+          //     size="small"
+          //     onClick={() => setActiveTab(2)}
+          //   >
+          //     View Details
+          //   </Button>
+          // }
         >
           <AlertTitle>Pending Withdrawal Request</AlertTitle>
           You have {withdrawalRequestsData?.data?.length || 0} pending

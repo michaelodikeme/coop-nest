@@ -196,14 +196,14 @@ export function useRecentTransactions(limit = 10) {
     queryFn: async () => {
       try {
         // Get recent transactions with minimal pagination
+        // Backend expects sort in format 'field:order' (e.g., 'createdAt:desc')
         const response = await transactionService.getAllTransactions({
           page: 1,
           limit: limit,
-          // Sort by most recent first
-          sort: 'createdAt',
-          sortOrder: 'desc'
+          // Sort by most recent first - combined format for backend
+          sort: 'createdAt:desc'
         });
-        
+
         console.log('Recent transactions for activity feed:', response);
         return response.data || [];
       } catch (error) {

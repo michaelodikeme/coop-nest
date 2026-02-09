@@ -739,21 +739,78 @@ export class TransactionQueryService {
   }
 
   /**
-   * Get all transactions with optional pagination and sorting
-   * @param param0 Pagination and sorting options
+   * Get all transactions with optional pagination, sorting, and filtering
+   * @param options Pagination, sorting, and filter options
    * @returns Paginated transaction results
    */
-  async getAllTransactions({ page = 1, limit = 20, sort = 'createdAt:desc' }) {
+  async getAllTransactions({
+    page = 1,
+    limit = 20,
+    sort = 'createdAt:desc',
+    transactionType,
+    status,
+    startDate,
+    endDate,
+    search,
+    module,
+  }: {
+    page?: number;
+    limit?: number;
+    sort?: string;
+    transactionType?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+    module?: string;
+  }) {
     const [sortField, sortOrder] = sort.split(':');
     const skip = (page - 1) * limit;
 
+    // Build where clause with filters
+    const whereClause: Prisma.TransactionWhereInput = {};
+
+    if (transactionType) {
+      whereClause.transactionType = transactionType as any;
+    }
+
+    if (status) {
+      whereClause.status = status as any;
+    }
+
+    if (module) {
+      whereClause.module = module as any;
+    }
+
+    if (startDate || endDate) {
+      whereClause.createdAt = {};
+      if (startDate) {
+        whereClause.createdAt.gte = new Date(startDate);
+      }
+      if (endDate) {
+        // Add one day to include the end date fully
+        const endDateTime = new Date(endDate);
+        endDateTime.setDate(endDateTime.getDate() + 1);
+        whereClause.createdAt.lte = endDateTime;
+      }
+    }
+
+    if (search) {
+      whereClause.OR = [
+        { description: { contains: search, mode: 'insensitive' } },
+        // Check if search looks like a UUID and search by exact ID
+        ...(search.length >= 8 ? [{ id: { equals: search } }] : []),
+      ];
+    }
+
     const [data, total] = await Promise.all([
       prisma.transaction.findMany({
+        where: whereClause,
         orderBy: { [sortField]: sortOrder === 'desc' ? 'desc' : 'asc' },
         skip,
         take: limit,
       }),
-      prisma.transaction.count(),
+      prisma.transaction.count({ where: whereClause }),
     ]);
 
     return { data, total, page, limit };

@@ -64,8 +64,12 @@ export class LoanService {
   * GET /loans
   * @param filters Filter parameters for loans
   */
-  async getLoans(p0: number, p1: number, filters: LoanQueryParams = {}): Promise<PaginatedResponse<Loan>> {
+  async getLoans(page: number, limit: number, filters: LoanQueryParams = {}): Promise<PaginatedResponse<Loan>> {
     const params = new URLSearchParams();
+
+    // Add page and limit
+    params.append('page', String(page));
+    params.append('limit', String(limit));
 
     // Add all filters to URL params
     Object.entries(filters).forEach(([key, value]) => {
@@ -80,8 +84,20 @@ export class LoanService {
     });
 
     const queryString = params.toString();
-    const response = await apiService.get<ApiResponse<PaginatedData<Loan>>>(`/loan${queryString ? `?${queryString}` : ''}`);
-    return response.data; // Unwrap the API response
+    const response = await apiService.get<ApiResponse<PaginatedData<Loan>>>(`/loan?${queryString}`);
+
+    // Normalize the response to match expected structure
+    const data = response.data;
+    const meta = data.meta as any; // Handle different meta structures
+    return {
+      data: data.data,
+      meta: {
+        total: meta?.totalCount || meta?.total || 0,
+        page: meta?.page || page,
+        limit: meta?.limit || limit,
+        totalPages: meta?.totalPages || 1
+      }
+    };
   }
   
   /**
@@ -170,15 +186,17 @@ export class LoanService {
   
   /**
   * Get enhanced loan summary with trends
-  * GET /loans/summary?includeTrends=true
+  * GET /loan/summary/enhanced
   */
   async getLoansSummaryWithTrends(startDate?: string, endDate?: string): Promise<LoanSummary & { trends: any }> {
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
     params.append('includeTrends', 'true');
-    
-    return apiService.get(`/loan/summary?${params.toString()}`);
+    params.append('includeMonthlyBreakdown', 'true');
+
+    const queryString = params.toString();
+    return apiService.get(`/loan/summary/enhanced${queryString ? `?${queryString}` : ''}`);
   }
   
   /**

@@ -86,59 +86,39 @@ export class CalculatorService {
             monthlyPayment = loanAmount.add(totalInterest).div(tenure);
             console.log("monthlyPayment", monthlyPayment);
         } else {
-            // For regular loans: compound interest using PMT
-            // monthlyPayment = this.calculatePMT(loanAmount, monthlyInterestRate, tenure);
+            // For regular loans: annual interest rate applied once
+            // Total interest = Principal × Annual Rate
             totalInterest = loanAmount.mul(interestRate);
-            // monthlyPayment = loanAmount.add(totalInterest).div(tenure);
-            monthlyPayment = loanAmount.div(tenure);
-
-            // Total interest is calculated later based on actual payments
+            // Monthly payment = (Principal + Total Interest) / Tenure
+            monthlyPayment = loanAmount.add(totalInterest).div(tenure);
         }
 
         // Generate amortization schedule
         const schedule: PaymentScheduleEntry[] = [];
         let remainingBalance = loanAmount;
-        // totalInterest = new Decimal(0); // Reset totalInterest
+
+        // Calculate monthly principal and interest for the schedule
+        const monthlyPrincipal = loanAmount.div(tenure);
+        const monthlyInterest = totalInterest.div(tenure);
 
         for (let month = 1; month <= tenure; month++) {
-            // let principalPayment: Decimal;
-            // let interestPayment: Decimal;
-            //
-            // if (isSoftLoan) {
-            //     // For soft loans: equal principal payments + monthly interest
-            //     principalPayment = loanAmount.div(tenure);
-            //     interestPayment = remainingBalance.mul(monthlyInterestRate);
-            // } else {
-            //     // For regular loans: amortized payment schedule
-            //     interestPayment = remainingBalance.mul(monthlyInterestRate);
-            //     principalPayment = monthlyPayment.minus(interestPayment);
-            // }
-            //
-            // totalInterest = totalInterest.add(interestPayment);
-            // remainingBalance = remainingBalance.minus(principalPayment);
+            let principalPayment = monthlyPrincipal;
+            let interestPayment = monthlyInterest;
 
             // Adjust final payment for rounding
-            // if (month === tenure) {
-            //     if (remainingBalance.gt(0)) {
-            //         principalPayment = principalPayment.add(remainingBalance);
-            //         remainingBalance = new Decimal(0);
-            //     }
-            // }
+            if (month === tenure) {
+                // Ensure the final payment clears the remaining balance
+                principalPayment = remainingBalance;
+            }
 
-            // schedule.push({
-            //     paymentNumber: month,
-            //     paymentDate: this.calculatePaymentDate(month),
-            //     principalAmount: principalPayment,
-            //     interestAmount: interestPayment,
-            //     totalPayment: principalPayment.add(interestPayment),
-            //     remainingBalance: remainingBalance.lt(0) ? new Decimal(0) : remainingBalance
-            // });
+            remainingBalance = remainingBalance.minus(principalPayment);
+
             schedule.push({
                 paymentNumber: month,
                 paymentDate: this.calculatePaymentDate(month),
-                principalAmount: loanAmount,
-                interestAmount: totalInterest,
-                totalPayment: loanAmount.add(totalInterest),
+                principalAmount: principalPayment,
+                interestAmount: interestPayment,
+                totalPayment: principalPayment.add(interestPayment),
                 remainingBalance: remainingBalance.lt(0) ? new Decimal(0) : remainingBalance
             });
         }
@@ -147,7 +127,7 @@ export class CalculatorService {
             loanAmount,
             interestRate,
             totalInterest,
-            totalRepayment: isSoftLoan ? loanAmount.add(totalInterest) : loanAmount,
+            totalRepayment: loanAmount.add(totalInterest),
             monthlyPayment,
             tenure,
             schedule,

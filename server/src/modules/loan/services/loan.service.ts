@@ -254,31 +254,25 @@ export class LoanService {
             )
         );
         
-        // Approval steps configuration
+        // Approval steps configuration (3 levels: Treasurer -> Chairman -> Treasurer)
         const approvalSteps = [
             {
                 level: 1,
                 status: ApprovalStatus.PENDING,
-                approverRole: 'ADMIN',
+                approverRole: 'TREASURER',
                 notes: 'Initial loan application review'
             },
             {
                 level: 2,
                 status: ApprovalStatus.PENDING,
-                approverRole: 'TREASURER',
-                notes: 'Financial review and assessment'
+                approverRole: 'CHAIRMAN',
+                notes: 'Final loan approval'
             },
             {
                 level: 3,
                 status: ApprovalStatus.PENDING,
-                approverRole: 'CHAIRMAN',
-                notes: 'Final approval required'
-            },
-            {
-                level: 4,
-                status: ApprovalStatus.PENDING,
                 approverRole: 'TREASURER',
-                notes: 'Loan disbursement approval'
+                notes: 'Loan disbursement processing'
             }
         ];
         
@@ -404,13 +398,17 @@ async updateLoanStatus(
     const currentApprovalStep = currentRequest.approvalSteps.find(
         step => step.status === 'PENDING'
     );
-    
-    if (!currentApprovalStep) {
+
+    // Disbursement (APPROVED -> DISBURSED) doesn't require a pending approval step
+    // since all 3 approval levels are already completed
+    const isDisbursement = loan.status === 'APPROVED' && status === 'DISBURSED';
+
+    if (!currentApprovalStep && !isDisbursement) {
         throw new ApiError('No pending approval step found', 400);
     }
-    
-    // Validate approval level
-    if (currentRequest.nextApprovalLevel !== currentApprovalStep.level) {
+
+    // Validate approval level (skip for disbursement)
+    if (!isDisbursement && currentRequest.nextApprovalLevel !== currentApprovalStep?.level) {
         throw new ApiError(
             `Invalid approval level. Expected level ${currentRequest.nextApprovalLevel}`,
             400
@@ -462,18 +460,21 @@ async updateLoanStatus(
         });
         
         // 2. Update request status
+        // For disbursement, don't increment nextApprovalLevel (all approvals are done)
         await tx.request.update({
             where: { id: currentRequest.id },
             data: {
                 status: requestStatus,
-                nextApprovalLevel: currentRequest.nextApprovalLevel + 1,
-                completedAt: ['APPROVED', 'REJECTED', 'COMPLETED'].includes(requestStatus) 
-                    ? new Date() 
+                nextApprovalLevel: isDisbursement
+                    ? currentRequest.nextApprovalLevel
+                    : currentRequest.nextApprovalLevel + 1,
+                completedAt: ['APPROVED', 'REJECTED', 'COMPLETED'].includes(requestStatus)
+                    ? new Date()
                     : undefined,
                 assigneeId: updatedBy,
                 notes: notes,
-                approverId: ['APPROVED', 'REJECTED', 'COMPLETED'].includes(requestStatus) 
-                    ? updatedBy 
+                approverId: ['APPROVED', 'REJECTED', 'COMPLETED'].includes(requestStatus)
+                    ? updatedBy
                     : undefined
             }
         });
@@ -509,31 +510,33 @@ async updateLoanStatus(
             });
         }
         
-        // Update the current approval step
-        await tx.requestApproval.update({
-            where: {
-                requestId_level: {
-                    requestId: currentRequest.id,
-                    level: currentRequest.nextApprovalLevel
+        // Update the current approval step (skip for disbursement - all steps are already approved)
+        if (!isDisbursement && currentApprovalStep) {
+            await tx.requestApproval.update({
+                where: {
+                    requestId_level: {
+                        requestId: currentRequest.id,
+                        level: currentRequest.nextApprovalLevel
+                    }
+                },
+                data: {
+                    status: status === 'REJECTED' ? 'REJECTED' : 'APPROVED',
+                    approverId: updatedBy,
+                    notes: notes,
+                    approvedAt: new Date()
                 }
-            },
-            data: {
-                status: status === 'REJECTED' ? 'REJECTED' : 'APPROVED',
-                approverId: updatedBy,
-                notes: notes,
-                approvedAt: new Date()
-            }
-        });
-        
+            });
+        }
+
         return updatedLoan;
     });
 }
 
-// Updated mapping logic
+// Updated mapping logic - loan status maps directly to request status
 private mapLoanStatusToRequestStatus(loanStatus: LoanStatus): RequestStatus {
     switch (loanStatus) {
-        case 'IN_REVIEW': return 'PENDING';
-        case 'REVIEWED': return 'IN_REVIEW';
+        case 'IN_REVIEW': return 'IN_REVIEW';
+        case 'REVIEWED': return 'REVIEWED';
         case 'APPROVED': return 'APPROVED';
         case 'REJECTED': return 'REJECTED';
         case 'DISBURSED': return 'COMPLETED';

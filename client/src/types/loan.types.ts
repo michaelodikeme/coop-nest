@@ -341,17 +341,21 @@ export interface LoanApplication {
 
 
 export interface LoanCalculation {
-  loanTypeId: string;
-  amount: number;
+  loanTypeId?: string;
+  loanAmount?: number;
+  amount?: number;
   tenure: number;
   monthlyPayment?: number;
   totalInterest: number;
   totalRepayment: number;
+  interestRate?: number;
+  isSoftLoan?: boolean;
   schedule: Array<{
-    scheduledDate: string;
+    paymentNumber: number;
+    paymentDate: string;
     principalAmount: number;
     interestAmount: number;
-    totalAmount: number;
+    totalPayment: number;
     remainingBalance: number;
   }>;
 }
