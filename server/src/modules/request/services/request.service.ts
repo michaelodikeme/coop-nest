@@ -204,8 +204,14 @@ class RequestService {
             const orderBy: any = {};
             orderBy[sortBy] = sortOrder;
 
+            // Build base conditions for status counts (filter by type but not status)
+            const baseConditions: any = {};
+            if (type) {
+                baseConditions.type = type;
+            }
+
             // Execute queries in parallel for better performance
-            const [total, requests] = await Promise.all([
+            const [total, requests, statusCounts] = await Promise.all([
                 prisma.request.count({ where: whereConditions }),
                 prisma.request.findMany({
                     where: whereConditions,
@@ -272,11 +278,25 @@ class RequestService {
                     orderBy,
                     skip: (page - 1) * limit,
                     take: limit
+                }),
+                // Get counts by status for the given type
+                prisma.request.groupBy({
+                    by: ['status'],
+                    where: baseConditions,
+                    _count: {
+                        status: true
+                    }
                 })
             ]);
 
             // Format the response
             const formattedRequests = requests.map(request => this.formatRequestResponse(request));
+
+            // Convert status counts array to object
+            const statusCountsObj: Record<string, number> = {};
+            statusCounts.forEach((item: { status: string; _count: { status: number } }) => {
+                statusCountsObj[item.status] = item._count.status;
+            });
 
             return {
                 data: formattedRequests,
@@ -284,7 +304,8 @@ class RequestService {
                     total,
                     page,
                     limit,
-                    totalPages: Math.ceil(total / limit)
+                    totalPages: Math.ceil(total / limit),
+                    statusCounts: statusCountsObj
                 }
             };
         } catch (error) {
@@ -928,23 +949,17 @@ class RequestService {
                     {
                         level: 1,
                         status: ApprovalStatus.PENDING,
-                        approverRole: 'ADMIN',
+                        approverRole: 'TREASURER',
                         notes: 'Initial loan application review'
                     },
                     {
                         level: 2,
                         status: ApprovalStatus.PENDING,
-                        approverRole: 'TREASURER',
-                        notes: 'Financial verification and review'
-                    },
-                    {
-                        level: 3,
-                        status: ApprovalStatus.PENDING,
                         approverRole: 'CHAIRMAN',
                         notes: 'Final loan approval'
                     },
                     {
-                        level: 4,
+                        level: 3,
                         status: ApprovalStatus.PENDING,
                         approverRole: 'TREASURER',
                         notes: 'Loan disbursement processing'

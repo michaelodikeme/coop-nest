@@ -296,7 +296,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const theme = useTheme();
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, checkApprovalLevel } = useAuth();
   const { logout, isLoading: isLogoutLoading } = useAuthentication();
   const { isSidebarOpen, setSidebarOpen } = useUI();
   const { hasPermission, hasModuleAccess } = usePermissions();
@@ -341,11 +341,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       ? hasPermission(item.permissions) 
       : true;
     
-    const hasRequiredModuleAccess = item.module 
-      ? hasModuleAccess(item.module) 
+    const hasRequiredModuleAccess = item.module
+      ? hasModuleAccess(item.module)
       : true;
-      
-    const { checkApprovalLevel } = useAuth();
+
     const hasRequiredApprovalLevel = item.approvalLevel
       ? checkApprovalLevel(item.approvalLevel)
       : true;

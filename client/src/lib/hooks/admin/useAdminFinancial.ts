@@ -191,7 +191,8 @@ export function useAdminLoans(page = 1, limit = 10, filters = {}) {
       const response = await loanService.getLoans(page, limit, filters);
       // For debugging
       console.log('Loans API response:', response);
-      return response; // The response is already structured correctly
+      // loanService.getLoans already normalizes the response
+      return response;
     },
     placeholderData: (previousData) => previousData,
   });
@@ -235,7 +236,9 @@ export function useAdminLoansSummary() {
       const response = await loanService.getLoansSummary();
       // For debugging
       console.log('Loan Summary API response:', response);
-      return response; // Return the unwrapped data
+      // Handle wrapped API response - extract data if wrapped
+      const data = (response as any)?.data ?? response;
+      return data;
     },
   });
 }
@@ -372,13 +375,17 @@ export function useEnhancedLoansSummary(startDate?: string, endDate?: string) {
       // Get the basic loan summary
       const response = await loanService.getLoansSummaryWithTrends(startDate, endDate);
       console.log('Enhanced Loan Summary API response:', response);
-      
+
+      // Handle wrapped API response - extract data if wrapped
+      const data = (response as any)?.data ?? response;
+
       // Add enhanced metrics to the summary
       return {
-        ...response,
-        pendingLoans: response.pendingLoans || 0,
-        newLoansCount: response.newLoansCount || 0,
-        totalRepaid: response.totalDisbursed - response.totalOutstanding || 0
+        ...data,
+        pendingLoans: data.pendingLoans || 0,
+        newLoansCount: data.newLoansCount || 0,
+        activeLoansCount: data.activeLoansCount || 0,
+        totalRepaid: Number(data.totalDisbursed || 0) - Number(data.totalOutstanding || 0)
       };
     },
   });

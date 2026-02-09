@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format } from "date-fns";
 import {
   Dialog,
   DialogTitle,
@@ -16,28 +16,28 @@ import {
   Paper,
   LinearProgress,
   Divider,
-  CircularProgress
-} from '@mui/material';
-import { useLoanDetails } from '@/lib/hooks/member/useMemberLoans';
-import { formatCurrency } from '@/utils/formatting/format';
+  CircularProgress,
+} from "@mui/material";
+import { useLoanDetails } from "@/lib/hooks/member/useMemberLoans";
+import { formatCurrency } from "@/utils/formatting/format";
 
-export function LoanDetailsModal({ 
-  open, 
-  onClose, 
-  loanId 
-}: { 
-  open: boolean; 
+export function LoanDetailsModal({
+  open,
+  onClose,
+  loanId,
+}: {
+  open: boolean;
   onClose: () => void;
   loanId: string;
 }) {
   const { loanDetails, isLoading } = useLoanDetails(loanId);
 
-  console.log('Loan Details:', loanDetails); // Add this for debugging
+  console.log("Loan Details:", loanDetails); // Add this for debugging
 
   if (isLoading) {
     return (
       <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-        <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Box sx={{ p: 4, textAlign: "center" }}>
           <CircularProgress />
         </Box>
       </Dialog>
@@ -49,14 +49,16 @@ export function LoanDetailsModal({
   // Calculate payment progress using the correct path
   const progressPercent = Math.min(
     100,
-    Math.round((Number(loanDetails.paidAmount) / Number(loanDetails.totalAmount)) * 100) || 0
+    Math.round(
+      (Number(loanDetails.paidAmount) / Number(loanDetails.totalAmount)) * 100
+    ) || 0
   );
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={onClose} 
-      maxWidth="md" 
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
       fullWidth
       // Add these props to help with modal visibility
       keepMounted={false}
@@ -64,16 +66,26 @@ export function LoanDetailsModal({
       sx={{ zIndex: (theme) => theme.zIndex.modal + 1 }}
     >
       <DialogTitle>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <Typography variant="h6">
-            {loanDetails.loanType?.name || 'Loan Details'}
+            {loanDetails.loanType?.name || "Loan Details"}
           </Typography>
           <Chip
             label={loanDetails.status}
             color={
-              loanDetails.status === 'ACTIVE' ? 'success' :
-              loanDetails.status === 'PENDING' ? 'warning' :
-              loanDetails.status === 'COMPLETED' ? 'info' : 'default'
+              loanDetails.status === "ACTIVE"
+                ? "success"
+                : loanDetails.status === "PENDING"
+                ? "warning"
+                : loanDetails.status === "COMPLETED"
+                ? "info"
+                : "default"
             }
             size="small"
           />
@@ -84,28 +96,42 @@ export function LoanDetailsModal({
           {/* Loan Summary */}
           <Grid size={{ xs: 12 }}>
             <Paper sx={{ p: 2, mb: 2 }}>
-              <Typography variant="subtitle2" gutterBottom>Loan Summary</Typography>
+              <Typography variant="subtitle2" gutterBottom>
+                Loan Summary
+              </Typography>
               <Grid container spacing={2}>
                 <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography variant="body2" color="text.secondary">Principal</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Principal
+                  </Typography>
                   <Typography variant="body1" fontWeight={500}>
                     {formatCurrency(Number(loanDetails.principalAmount))}
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography variant="body2" color="text.secondary">Interest</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Interest
+                  </Typography>
                   <Typography variant="body1" fontWeight={500}>
                     {formatCurrency(Number(loanDetails.interestAmount))}
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography variant="body2" color="text.secondary">Total Amount</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Total Amount
+                  </Typography>
                   <Typography variant="body1" fontWeight={500}>
-                    {formatCurrency(Number(loanDetails.totalAmount))}
+                    {formatCurrency(
+                      Number(
+                        loanDetails.totalAmount + loanDetails.interestAmount
+                      )
+                    )}
                   </Typography>
                 </Grid>
                 <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography variant="body2" color="text.secondary">Tenure</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Tenure
+                  </Typography>
                   <Typography variant="body1" fontWeight={500}>
                     {loanDetails.tenure} months
                   </Typography>
@@ -114,16 +140,24 @@ export function LoanDetailsModal({
 
               {/* Payment Progress */}
               <Box sx={{ mt: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                  <Typography variant="body2" color="text.secondary">Payment Progress</Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    mb: 0.5,
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    Payment Progress
+                  </Typography>
                   <Typography variant="body2" fontWeight={500}>
                     {progressPercent}%
                   </Typography>
                 </Box>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={progressPercent} 
-                  sx={{ height: 8, borderRadius: 4 }} 
+                <LinearProgress
+                  variant="determinate"
+                  value={progressPercent}
+                  sx={{ height: 8, borderRadius: 4 }}
                 />
               </Box>
             </Paper>
@@ -131,7 +165,9 @@ export function LoanDetailsModal({
 
           {/* Payment Schedules */}
           <Grid size={{ xs: 12 }}>
-            <Typography variant="subtitle1" gutterBottom>Payment Schedule</Typography>
+            <Typography variant="subtitle1" gutterBottom>
+              Payment Schedule
+            </Typography>
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
                 <TableHead>
@@ -147,7 +183,7 @@ export function LoanDetailsModal({
                   {loanDetails.paymentSchedules.map((schedule) => (
                     <TableRow key={schedule.id}>
                       <TableCell>
-                        {format(new Date(schedule.dueDate), 'MMM dd, yyyy')}
+                        {format(new Date(schedule.dueDate), "MMM dd, yyyy")}
                       </TableCell>
                       <TableCell align="right">
                         {formatCurrency(Number(schedule.expectedAmount))}
@@ -163,8 +199,11 @@ export function LoanDetailsModal({
                           label={schedule.status}
                           size="small"
                           color={
-                            schedule.status === 'PAID' ? 'success' :
-                            schedule.status === 'PARTIAL' ? 'warning' : 'default'
+                            schedule.status === "PAID"
+                              ? "success"
+                              : schedule.status === "PARTIAL"
+                              ? "warning"
+                              : "default"
                           }
                         />
                       </TableCell>
@@ -177,7 +216,9 @@ export function LoanDetailsModal({
 
           {/* Status History */}
           <Grid size={{ xs: 12 }}>
-            <Typography variant="subtitle1" gutterBottom>Status History</Typography>
+            <Typography variant="subtitle1" gutterBottom>
+              Status History
+            </Typography>
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
                 <TableHead>
@@ -192,11 +233,11 @@ export function LoanDetailsModal({
                   {loanDetails.statusHistory.map((history, index) => (
                     <TableRow key={index}>
                       <TableCell>
-                        {format(new Date(history.changeDate), 'MMM dd, yyyy')}
+                        {format(new Date(history.changeDate), "MMM dd, yyyy")}
                       </TableCell>
                       {/* <TableCell>{history.fromStatus}</TableCell> */}
                       <TableCell>{history.toStatus}</TableCell>
-                      <TableCell>{history.reason || '-'}</TableCell>
+                      <TableCell>{history.reason || "-"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

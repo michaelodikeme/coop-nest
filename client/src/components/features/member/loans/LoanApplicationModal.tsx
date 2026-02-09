@@ -13,6 +13,24 @@ import { loanService } from '@/lib/api';
 import { formatCurrency } from '@/utils/formatting/format';
 import { format } from 'date-fns';
 import type { LoanType, LoanCalculation } from '@/types/loan.types';
+import { useToast } from '@/components/molecules/Toast';
+
+// Custom hook to debounce a value
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 
 
 // Add new type definitions
@@ -30,48 +48,71 @@ import type { LoanType, LoanCalculation } from '@/types/loan.types';
 //   requiresApproval: boolean;
 // }
 
+// API response is wrapped by ApiResponse.success, so structure is:
+// { success, status, message, data: EligibilityServiceResponse }
 interface EligibilityResponse {
   success: boolean;
+  status?: string;
+  message?: string;
   data: {
-    isEligible: boolean;
-    maxAmount: string;
-    formattedMaxAmount: string;
-    reason?: string;
-    savingsSummary?: {
-      totalSavingsAmount: string;
-      formattedTotalSavings: string;
-    };
-    loanTypeDetails?: {
-      name: string;
-      interestRate: number;
-      duration: {
-        min: number;
-        max: number;
+    success: boolean;
+    data: {
+      isEligible: boolean;
+      maxAmount: string;
+      formattedMaxAmount: string;
+      reason?: string;
+      savingsSummary?: {
+        totalSavingsAmount: string;
+        formattedTotalSavings: string;
       };
-    };
-    activeLoans: {
-      hasSoftLoan: boolean;
-      hasRegularLoan: boolean;
-      hasOneYearPlusLoan: boolean;
+      loanTypeDetails?: {
+        name: string;
+        interestRate: number;
+        duration: {
+          min: number;
+          max: number;
+        };
+      };
+      activeLoans: {
+        hasSoftLoan: boolean;
+        hasRegularLoan: boolean;
+        hasOneYearPlusLoan: boolean;
+      };
     };
   };
 }
 
+// API response wrapper for calculation (wrapped by ApiResponse.success)
+interface LoanCalculationResponse {
+  success?: boolean;
+  message?: string;
+  data: LoanCalculation & {
+    schedule: Array<{
+      paymentNumber: number;
+      paymentDate: string;
+      principalAmount: number;
+      interestAmount: number;
+      totalPayment: number;
+      remainingBalance: number;
+    }>;
+  };
+}
+
 interface SelectLoanTypeProps {
-  formik: any; // Replace 'any' with the correct type if known
+  formik: any;
   loanTypes: LoanType[];
 }
 
 interface EnterLoanDetailsProps {
-  formik: any; // Replace 'any' with the correct type if known
-  calculation: LoanCalculation; // Replace 'any' with the correct type if known
+  formik: any;
+  calculation: LoanCalculationResponse | undefined;
   eligibility: EligibilityResponse | undefined;
   loanTypes: LoanType[];
 }
 
 interface ReviewLoanProps {
-  formik: any; // Replace 'any' with the correct type if known
-  calculation: any; // Replace 'any' with the correct type if known
+  formik: any;
+  calculation: LoanCalculationResponse | undefined;
   loanTypes: LoanType[];
 }
 
@@ -172,7 +213,7 @@ const EnterLoanDetails: React.FC<EnterLoanDetailsProps> = ({ formik, calculation
     console.log(
         "eligibility",
         eligibility,
-        Number(eligibility?.data?.maxAmount), selectedLoanType);
+        Number(eligibility?.data?.data?.maxAmount), selectedLoanType);
     return (
       <Box sx={{ mt: 2 }}>
       <Grid container spacing={3}>
@@ -186,7 +227,7 @@ const EnterLoanDetails: React.FC<EnterLoanDetailsProps> = ({ formik, calculation
       onChange={formik.handleChange}
       error={formik.touched.loanAmount && Boolean(formik.errors.loanAmount)}
       helperText={formik.touched.loanAmount && formik.errors.loanAmount}
-      placeholder={`Maximum amount: ${formatCurrency(Number(eligibility?.data?.maxAmount  || 0))}`}
+      placeholder={`Maximum amount: ${formatCurrency(Number(eligibility?.data?.data?.maxAmount || 0))}`}
       InputProps={{
         startAdornment: <Typography sx={{ mr: 1 }}>₦</Typography>
       }}
@@ -217,11 +258,11 @@ const EnterLoanDetails: React.FC<EnterLoanDetailsProps> = ({ formik, calculation
 
       {eligibility && (
         <Alert
-        severity={eligibility.data.isEligible ? "success" : "warning"}
+        severity={eligibility.data?.data?.isEligible ? "success" : "warning"}
         sx={{ mt: 2 }}
         >
-        {eligibility.data?.data.reason ||
-          `You are eligible for up to ${eligibility.data.formattedMaxAmount}`}
+        {eligibility.data?.data?.reason ||
+          `You are eligible for up to ${eligibility.data?.data?.formattedMaxAmount}`}
           </Alert>
         )}
 
@@ -270,7 +311,7 @@ const EnterLoanDetails: React.FC<EnterLoanDetailsProps> = ({ formik, calculation
           <Grid size={{ xs: 6 }}>
           <Typography variant="body2" color="text.secondary">Monthly Payment</Typography>
           <Typography variant="h6" color="primary">
-          {formatCurrency(calculation?.data.monthlyPayment)}
+          {formatCurrency(calculation?.data?.monthlyPayment)}
           </Typography>
           </Grid>
           <Grid size={{ xs: 6 }}>
@@ -307,7 +348,7 @@ const EnterLoanDetails: React.FC<EnterLoanDetailsProps> = ({ formik, calculation
           </Grid>
 
           {/* Payment Schedule Preview */}
-          {calculation.schedule && (
+          {calculation?.data?.schedule && calculation.data.schedule.length > 0 && (
             <Box sx={{ mt: 3 }}>
             <Typography variant="subtitle2" color="primary" gutterBottom>
             First 3 Payments Preview
@@ -323,21 +364,12 @@ const EnterLoanDetails: React.FC<EnterLoanDetailsProps> = ({ formik, calculation
             </TableRow>
             </TableHead>
             <TableBody>
-              {/* {calculation.schedule.slice(0, 3).map((payment: Payment, index: number) => (
-                <TableRow key={index}>
-                  <TableCell>{format(new Date(payment.paymentDate), 'MMM dd, yyyy')}</TableCell>
-                  <TableCell align="right">{formatCurrency(payment.principalAmount)}</TableCell>
-                  <TableCell align="right">{formatCurrency(payment.interestAmount)}</TableCell>
-                  <TableCell align="right">{formatCurrency(payment.expectedAmount)}</TableCell>
-                </TableRow>
-              ))} */}
-
-            {calculation.schedule.slice(0, 3).map((payment, index) => (
+            {calculation.data.schedule.slice(0, 3).map((payment, index) => (
               <TableRow key={index}>
-              <TableCell>{format(new Date(payment.scheduledDate), 'MMM dd, yyyy')}</TableCell>
+              <TableCell>{format(new Date(payment.paymentDate), 'MMM dd, yyyy')}</TableCell>
               <TableCell align="right">{formatCurrency(payment.principalAmount)}</TableCell>
               <TableCell align="right">{formatCurrency(payment.interestAmount)}</TableCell>
-              <TableCell align="right">{formatCurrency(payment.totalAmount)}</TableCell>
+              <TableCell align="right">{formatCurrency(payment.totalPayment)}</TableCell>
               </TableRow>
             ))}
             </TableBody>
@@ -404,8 +436,8 @@ const ReviewLoan: React.FC<ReviewLoanProps> = ({ formik, calculation, loanTypes 
 
 export function LoanApplicationModal({ open, onClose }: { open: boolean; onClose: () => void }) {
       const [activeStep, setActiveStep] = useState(0);
-      const [validationSchema, setValidationSchema] = useState()
       const queryClient = useQueryClient();
+      const toast = useToast();
 
 
     const formik = useFormik({
@@ -425,39 +457,13 @@ export function LoanApplicationModal({ open, onClose }: { open: boolean; onClose
             // Step 2: Amount and Tenure
             Yup.object({
                 loanAmount: Yup.number()
-                    .required(`Amount is required `)
+                    .required('Amount is required')
                     .positive('Amount must be positive')
-                    .test(
-                        'checkLoanAmount',
-                        'Amount must be within 3x total savings',
-                        async function(value) {  // ⚠️ Must use 'function', NOT arrow function!
-                            // Now you have access to 'this'
-                            console.log(value);              // Current username value
-                            console.log(this.parent);        // All form values!
-                            console.log(this.parent.email);  // Access email field
-                            console.log(this.parent.age);    // Access age field
-
-                            const response = await loanService.checkEligibility(this.parent.loanTypeId, Number(this.parent.loanAmount))
-                            console.log('available response', response);
-                            const {data} = response?.data;
-                            // // if (available) {}
-                            // console.log('available', available);
-                            console.log("from data here", this.parent.loanAmount,data, data.maxAmount, this.parent.loanAmount >= 1000 && this.parent.loanAmount <= data.maxAmount);
-                            return this.parent.loanAmount >= 1000 && this.parent.loanAmount <= data.maxAmount;
-                        }
-                    // .min(
-                    //     Number(selectedLoanType?.maxLoanAmount || 1000),
-                    //     `Minimum loan amount is ${formatCurrency(Number(selectedLoanType?.maxLoanAmount || 1000))}`
-                    // )
-                    // .max(
-                    //     Number(selectedLoanType?.savingsMultiplier * 50 || 5000 ),
-                    //     `Maximum loan amount is ${formatCurrency(Number(eligibility.data.data.maxAmount|| 5000))}`
-                    // ),
-                    ),
+                    .min(1000, 'Minimum loan amount is ₦1,000'),
                 loanTenure: Yup.number()
                     .required('Tenure is required')
-                    // .min(selectedLoanType?.minDuration || 1, `Minimum tenure is ${selectedLoanType?.minDuration} months`)
-                    // .max(selectedLoanType?.maxDuration || 36, `Maximum tenure is ${selectedLoanType?.maxDuration} months`)
+                    .min(1, 'Tenure must be at least 1 month')
+                    .max(36, 'Tenure cannot exceed 36 months')
             }),
             // Step 3: Purpose
             Yup.object({
@@ -468,10 +474,24 @@ export function LoanApplicationModal({ open, onClose }: { open: boolean; onClose
         ][activeStep],
         onSubmit: (values) => {
             if (activeStep === 2) {
+                // Final validation before submission
+                const amount = Number(values.loanAmount);
+                const maxAmount = Number(eligibility?.data?.data?.maxAmount || 0);
+
+                if (eligibility?.data?.data && !eligibility.data.data.isEligible) {
+                    toast.error(eligibility.data.data.reason || 'You are not eligible for this loan');
+                    return;
+                }
+
+                if (maxAmount > 0 && amount > maxAmount) {
+                    toast.error(`Loan amount exceeds maximum eligible amount of ${formatCurrency(maxAmount)}`);
+                    return;
+                }
+
                 applyMutation.mutate({
                     loanTypeId: values.loanTypeId,
-                    loanAmount: Number(values.loanAmount), // Convert to number
-                    loanTenure: Number(values.loanTenure), // Convert to number
+                    loanAmount: amount,
+                    loanTenure: Number(values.loanTenure),
                     loanPurpose: values.loanPurpose,
                 });
             } else {
@@ -515,24 +535,28 @@ export function LoanApplicationModal({ open, onClose }: { open: boolean; onClose
         },
       });
 
+      // Debounce the loan amount and tenure to prevent API calls on every keystroke
+      const debouncedLoanAmount = useDebounce(formik.values.loanAmount, 500);
+      const debouncedLoanTenure = useDebounce(formik.values.loanTenure, 500);
+
       const { data: eligibility } = useQuery<EligibilityResponse, Error>({
-        queryKey: ['loan-eligibility', formik.values.loanTypeId, formik.values.loanAmount],
-        queryFn: () => loanService.checkEligibility(formik.values.loanTypeId, Number(formik.values.loanAmount)),
-        enabled: !!(formik.values.loanTypeId && formik.values.loanAmount),
+        queryKey: ['loan-eligibility', formik.values.loanTypeId, debouncedLoanAmount],
+        queryFn: () => loanService.checkEligibility(formik.values.loanTypeId, Number(debouncedLoanAmount)),
+        enabled: !!(formik.values.loanTypeId && debouncedLoanAmount),
     });
 
-      // Calculate loan when amount and tenure change
+      // Calculate loan when amount and tenure change (debounced)
       const { data: calculation } = useQuery({
-        queryKey: ['loan-calculation', formik.values],
+        queryKey: ['loan-calculation', formik.values.loanTypeId, debouncedLoanAmount, debouncedLoanTenure],
         queryFn: () => loanService.calculateLoan(
             formik.values.loanTypeId,
-            Number(formik.values.loanAmount),
-            Number(formik.values.loanTenure)
+            Number(debouncedLoanAmount),
+            Number(debouncedLoanTenure)
         ),
         enabled: !!(
             formik.values.loanTypeId &&
-            formik.values.loanAmount &&
-            formik.values.loanTenure
+            debouncedLoanAmount &&
+            debouncedLoanTenure
         )
     });
 
@@ -635,7 +659,17 @@ export function LoanApplicationModal({ open, onClose }: { open: boolean; onClose
         mutationFn: loanService.applyForLoan,
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ['member-loans'] });
+          toast.success('Loan application submitted successfully!');
+          formik.resetForm();
+          setActiveStep(0);
           onClose();
+        },
+        onError: (error: any) => {
+          console.error('Loan application error:', error);
+          const errorMessage = error?.response?.data?.message
+            || error?.message
+            || 'Failed to submit loan application. Please try again.';
+          toast.error(errorMessage);
         }
       });
 

@@ -120,13 +120,12 @@ export default function LoanApprovalDetailPage() {
       monthlyTarget: parseFloat(typedRequest.metadata?.savings?.monthlyTarget || '0')
     },
     
-    // Status tracking
+    // Status tracking (3-level flow: Treasurer -> Chairman -> Treasurer)
     status: typedRequest.status || 'PENDING',
     nextApprovalLevel: typedRequest.nextApprovalLevel || 1,
-    currentApprovalRole: typedRequest.nextApprovalLevel === 1 ? 'ADMIN' : 
-    typedRequest.nextApprovalLevel === 2 ? 'TREASURER' :
-    typedRequest.nextApprovalLevel === 3 ? 'CHAIRMAN' :
-    typedRequest.nextApprovalLevel === 4 ? 'TREASURER' : ''
+    currentApprovalRole: typedRequest.nextApprovalLevel === 1 ? 'TREASURER' :
+    typedRequest.nextApprovalLevel === 2 ? 'CHAIRMAN' :
+    typedRequest.nextApprovalLevel === 3 ? 'TREASURER' : ''
   };
   
   // Loan details from detailed loan information
@@ -232,11 +231,11 @@ export default function LoanApprovalDetailPage() {
           }
         };
         
-        // Calculate the loan approval stage
+        // Calculate the loan approval stage (3-level flow: Treasurer -> Chairman -> Treasurer, then disbursement)
         const getLoanApprovalStage = () => {
-          if (typedRequest.status === 'PENDING') return "Initial Review (Admin)";
-          if (typedRequest.status === 'IN_REVIEW') return "Financial Review (Treasurer)";
-          if (typedRequest.status === 'REVIEWED') return "Final Approval (Chairman)";
+          if (typedRequest.status === 'PENDING') return "Initial Review (Treasurer)";
+          if (typedRequest.status === 'IN_REVIEW') return "Chairman Review";
+          if (typedRequest.status === 'REVIEWED') return "Final Approval (Treasurer)";
           if (typedRequest.status === 'APPROVED') return "Awaiting Disbursement";
           if (typedRequest.status === 'COMPLETED') return "Disbursed";
           return "Processing";
@@ -462,10 +461,10 @@ export default function LoanApprovalDetailPage() {
           Next Approval Level
           </Typography>
           <Typography variant="body1" fontWeight={500}>
-          {typedRequest.nextApprovalLevel === 1 ? 'Admin (Review)' : 
-            typedRequest.nextApprovalLevel === 2 ? 'Treasurer (Financial Review)' :
-            typedRequest.nextApprovalLevel === 3 ? 'Chairman (Final Approval)' :
-            typedRequest.nextApprovalLevel === 4 ? 'Treasurer (Disbursement)' : 'Completed'}
+          {typedRequest.nextApprovalLevel === 1 ? 'Treasurer (Initial Review)' :
+            typedRequest.nextApprovalLevel === 2 ? 'Chairman (Review)' :
+            typedRequest.nextApprovalLevel === 3 ? 'Treasurer (Final Approval)' :
+            typedRequest.status === 'APPROVED' ? 'Awaiting Disbursement' : 'Completed'}
             </Typography>
             </Box>
             
@@ -504,12 +503,12 @@ export default function LoanApprovalDetailPage() {
             </CardContent>
             </Card>
             
-            {/* Actions - ADMIN: show only if status is PENDING and user has REVIEW_LOAN_APPLICATIONS permission */}
+            {/* Actions - TREASURER L1: show only if status is PENDING and user has REVIEW_LOAN_APPLICATIONS permission */}
             {typedRequest.status === 'PENDING' && hasPermission('REVIEW_LOAN_APPLICATIONS') && checkApprovalLevel(1) && (
               <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" fontWeight={600} gutterBottom>
-              Initial Review (Admin)
-              </Typography>
+              {/* <Typography variant="h6" fontWeight={600} gutterBottom>
+              Initial Review (Treasurer)
+              </Typography> */}
               <Divider sx={{ mb: 3 }} />
               
               <TextField
@@ -549,11 +548,11 @@ export default function LoanApprovalDetailPage() {
               </Paper>
             )}
             
-            {/* Actions - TREASURER: show only if status is IN_REVIEW and user has REVIEW_LOAN permission */}
+            {/* Actions - CHAIRMAN L2: show only if status is IN_REVIEW and user has REVIEW_LOAN permission */}
             {typedRequest.status === 'IN_REVIEW' && hasPermission('REVIEW_LOAN') && checkApprovalLevel(2) && (
               <Paper sx={{ p: 3, mb: 3 }}>
               <Typography variant="h6" fontWeight={600} gutterBottom>
-              Financial Review (Treasurer)
+              Chairman Review
               </Typography>
               <Divider sx={{ mb: 3 }} />
               
@@ -594,11 +593,11 @@ export default function LoanApprovalDetailPage() {
               </Paper>
             )}
             
-            {/* Actions - CHAIRMAN: show only if status is REVIEWED and user has APPROVE_LOANS permission */}
+            {/* Actions - TREASURER L3: show only if status is REVIEWED and user has APPROVE_LOANS permission */}
             {typedRequest.status === 'REVIEWED' && hasPermission('APPROVE_LOANS') && checkApprovalLevel(3) && (
               <Paper sx={{ p: 3, mb: 3 }}>
               <Typography variant="h6" fontWeight={600} gutterBottom>
-              Final Approval (Chairman)
+              Final Approval (Treasurer)
               </Typography>
               <Divider sx={{ mb: 3 }} />
               
