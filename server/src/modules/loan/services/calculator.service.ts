@@ -75,6 +75,7 @@ export class CalculatorService {
 
         let monthlyPayment: Decimal;
         let totalInterest: Decimal;
+        let totalRepayment: Decimal;
 
         if (isSoftLoan) {
             // For soft loans: simple interest calculation
@@ -84,26 +85,31 @@ export class CalculatorService {
             console.log("totalInterest", totalInterest);
             // Monthly payment = (Principal + Total Interest) / Tenure
             monthlyPayment = loanAmount.add(totalInterest).div(tenure);
+            // Total repayment includes interest for soft loans
+            totalRepayment = loanAmount.add(totalInterest);
             console.log("monthlyPayment", monthlyPayment);
         } else {
-            // For regular loans: annual interest rate applied once
-            // Total interest = Principal × Annual Rate
+            // For regular loans: interest is calculated for display but NOT included in repayment
+            // Total interest = Principal × Annual Rate (for display only)
             totalInterest = loanAmount.mul(interestRate);
-            // Monthly payment = (Principal + Total Interest) / Tenure
-            monthlyPayment = loanAmount.add(totalInterest).div(tenure);
+            // Monthly payment = Principal / Tenure (no interest in repayment)
+            monthlyPayment = loanAmount.div(tenure);
+            // Total repayment is principal only for regular loans
+            totalRepayment = loanAmount;
         }
 
         // Generate amortization schedule
         const schedule: PaymentScheduleEntry[] = [];
         let remainingBalance = loanAmount;
 
-        // Calculate monthly principal and interest for the schedule
+        // Calculate monthly principal for the schedule
         const monthlyPrincipal = loanAmount.div(tenure);
-        const monthlyInterest = totalInterest.div(tenure);
+        // For soft loans, include interest in schedule; for regular loans, interest is 0 in payment
+        const monthlyInterestPayment = isSoftLoan ? totalInterest.div(tenure) : new Decimal(0);
 
         for (let month = 1; month <= tenure; month++) {
             let principalPayment = monthlyPrincipal;
-            let interestPayment = monthlyInterest;
+            const interestPayment = monthlyInterestPayment;
 
             // Adjust final payment for rounding
             if (month === tenure) {
@@ -127,7 +133,7 @@ export class CalculatorService {
             loanAmount,
             interestRate,
             totalInterest,
-            totalRepayment: loanAmount.add(totalInterest),
+            totalRepayment,
             monthlyPayment,
             tenure,
             schedule,
