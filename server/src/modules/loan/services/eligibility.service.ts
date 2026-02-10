@@ -208,18 +208,13 @@ export class EligibilityService {
     }
 
     private validateInterestRate(loanType: any): boolean {
-        const isSoftLoan = loanType.maxDuration <= 6;
-        const isOneYearPlus = loanType.name.toLowerCase().includes('1 year plus');
-        
-        if (isSoftLoan) {
-            return loanType.interestRate.equals(new Decimal(0.075)); // 7.5% monthly
+        // Interest rate validation - just check that it's a valid positive number
+        // The actual rate is determined by the loan type configuration in the database
+        if (!loanType.interestRate) {
+            return false;
         }
-        
-        if (isOneYearPlus) {
-            return loanType.interestRate.equals(new Decimal(0.15)); // 15% annually
-        }
-        
-        return loanType.interestRate.equals(new Decimal(0.10)); // 10% annually for regular
+        const rate = new Decimal(loanType.interestRate);
+        return rate.gte(0) && rate.lte(1); // Rate should be between 0 and 100%
     }
 
     private calculateMaxLoanAmount(

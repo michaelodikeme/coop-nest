@@ -125,6 +125,41 @@ interface Payment {
   expectedAmount: number;
 }
 
+// Helper function to get amount validation error
+const getAmountError = (
+  formik: any,
+  eligibility: EligibilityResponse | undefined,
+  isSoftLoan: boolean
+): { hasError: boolean; message: string } => {
+  const amount = Number(formik.values.loanAmount);
+  const maxAmount = Number(eligibility?.data?.data?.maxAmount || 0);
+  const softLoanMax = 500000;
+
+  // Check Yup validation errors first
+  if (formik.touched.loanAmount && formik.errors.loanAmount) {
+    return { hasError: true, message: String(formik.errors.loanAmount) };
+  }
+
+  // Check loan type specific validation
+  if (amount > 0) {
+    if (amount < 1000) {
+      return { hasError: true, message: 'Minimum loan amount is ₦1,000' };
+    }
+    if (isSoftLoan && amount > softLoanMax) {
+      return { hasError: true, message: `Soft loan maximum is ${formatCurrency(softLoanMax)}` };
+    }
+    if (!isSoftLoan && maxAmount > 0 && amount > maxAmount) {
+      return { hasError: true, message: `Maximum eligible amount is ${formatCurrency(maxAmount)}` };
+    }
+  }
+
+  // Return helper text when no error
+  const maxDisplay = isSoftLoan
+    ? formatCurrency(softLoanMax)
+    : (maxAmount > 0 ? formatCurrency(maxAmount) : 'Based on your savings');
+  return { hasError: false, message: `Maximum: ${maxDisplay}` };
+};
+
 
 // Step 1: Select Loan Type
 const SelectLoanType: React.FC<SelectLoanTypeProps> = ({ formik, loanTypes }) => {
@@ -225,11 +260,15 @@ const EnterLoanDetails: React.FC<EnterLoanDetailsProps> = ({ formik, calculation
       type="number"
       value={formik.values.loanAmount}
       onChange={formik.handleChange}
-      error={formik.touched.loanAmount && Boolean(formik.errors.loanAmount)}
-      helperText={formik.touched.loanAmount && formik.errors.loanAmount}
-      placeholder={`Maximum amount: ${formatCurrency(Number(eligibility?.data?.data?.maxAmount || 0))}`}
+      onBlur={formik.handleBlur}
+      error={getAmountError(formik, eligibility, isSoftLoan).hasError}
+      helperText={getAmountError(formik, eligibility, isSoftLoan).message}
       InputProps={{
-        startAdornment: <Typography sx={{ mr: 1 }}>₦</Typography>
+        startAdornment: <Typography sx={{ mr: 1 }}>₦</Typography>,
+        inputProps: {
+          min: 1000,
+          max: isSoftLoan ? 500000 : undefined
+        }
       }}
       />
       </Grid>
@@ -241,6 +280,7 @@ const EnterLoanDetails: React.FC<EnterLoanDetailsProps> = ({ formik, calculation
       name="loanTenure"
       value={formik.values.loanTenure}
       onChange={formik.handleChange}
+      onBlur={formik.handleBlur}
       error={formik.touched.loanTenure && Boolean(formik.errors.loanTenure)}
       helperText={
         (formik.touched.loanTenure && formik.errors.loanTenure) ||
@@ -263,6 +303,21 @@ const EnterLoanDetails: React.FC<EnterLoanDetailsProps> = ({ formik, calculation
         >
         {eligibility.data?.data?.reason ||
           `You are eligible for up to ${eligibility.data?.data?.formattedMaxAmount}`}
+          </Alert>
+        )}
+
+        {/* Loan type specific info */}
+        {selectedLoanType && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            {isSoftLoan ? (
+              <>
+                <strong>Soft Loan:</strong> Total repayment includes principal + interest. Maximum amount is ₦500,000.
+              </>
+            ) : (
+              <>
+                <strong>Regular Loan:</strong> Monthly repayment is calculated on principal only. Interest is displayed for reference.
+              </>
+            )}
           </Alert>
         )}
 
@@ -459,7 +514,8 @@ export function LoanApplicationModal({ open, onClose }: { open: boolean; onClose
                 loanAmount: Yup.number()
                     .required('Amount is required')
                     .positive('Amount must be positive')
-                    .min(1000, 'Minimum loan amount is ₦1,000'),
+                    .min(1000, 'Minimum loan amount is ₦1,000')
+                    .max(500000000, 'Amount exceeds maximum limit'),
                 loanTenure: Yup.number()
                     .required('Tenure is required')
                     .min(1, 'Tenure must be at least 1 month')
@@ -476,22 +532,43 @@ export function LoanApplicationModal({ open, onClose }: { open: boolean; onClose
             if (activeStep === 2) {
                 // Final validation before submission
                 const amount = Number(values.loanAmount);
+                const tenure = Number(values.loanTenure);
                 const maxAmount = Number(eligibility?.data?.data?.maxAmount || 0);
 
+                // Get selected loan type for validation
+                const selectedType = loanTypes?.find(t => t.id === values.loanTypeId);
+                const isSoftLoanType = selectedType && selectedType.maxDuration <= 6;
+
+                // Soft loan cap at 500,000
+                if (isSoftLoanType && amount > 500000) {
+                    toast.error('Soft loan maximum amount is ₦500,000');
+                    return;
+                }
+
+                // Eligibility check
                 if (eligibility?.data?.data && !eligibility.data.data.isEligible) {
                     toast.error(eligibility.data.data.reason || 'You are not eligible for this loan');
                     return;
                 }
 
-                if (maxAmount > 0 && amount > maxAmount) {
+                // Max amount check for regular loans
+                if (!isSoftLoanType && maxAmount > 0 && amount > maxAmount) {
                     toast.error(`Loan amount exceeds maximum eligible amount of ${formatCurrency(maxAmount)}`);
                     return;
+                }
+
+                // Tenure validation
+                if (selectedType) {
+                    if (tenure < selectedType.minDuration || tenure > selectedType.maxDuration) {
+                        toast.error(`Tenure must be between ${selectedType.minDuration} and ${selectedType.maxDuration} months`);
+                        return;
+                    }
                 }
 
                 applyMutation.mutate({
                     loanTypeId: values.loanTypeId,
                     loanAmount: amount,
-                    loanTenure: Number(values.loanTenure),
+                    loanTenure: tenure,
                     loanPurpose: values.loanPurpose,
                 });
             } else {
@@ -675,6 +752,45 @@ export function LoanApplicationModal({ open, onClose }: { open: boolean; onClose
 
       const isApplying = applyMutation.status === 'pending';
 
+      // Get selected loan type for validation
+      const selectedLoanType = loanTypes?.find(t => t.id === formik.values.loanTypeId);
+      const isSoftLoan = selectedLoanType && selectedLoanType.maxDuration <= 6;
+
+      // Check if current step is valid based on loan type rules
+      const isStepValid = () => {
+        if (activeStep === 0) {
+          return !!formik.values.loanTypeId;
+        }
+        if (activeStep === 1) {
+          const amount = Number(formik.values.loanAmount);
+          const tenure = Number(formik.values.loanTenure);
+          const maxAmount = Number(eligibility?.data?.data?.maxAmount || 0);
+
+          // Check if amount and tenure are provided
+          if (!amount || amount < 1000 || !tenure) return false;
+
+          // Soft loan cap at 500,000
+          if (isSoftLoan && amount > 500000) return false;
+
+          // Regular loan max from eligibility
+          if (!isSoftLoan && maxAmount > 0 && amount > maxAmount) return false;
+
+          // Tenure validation
+          if (selectedLoanType) {
+            if (tenure < selectedLoanType.minDuration || tenure > selectedLoanType.maxDuration) return false;
+          }
+
+          // Check eligibility
+          if (eligibility?.data?.data && !eligibility.data.data.isEligible) return false;
+
+          return true;
+        }
+        if (activeStep === 2) {
+          return formik.values.loanPurpose && formik.values.loanPurpose.length >= 10;
+        }
+        return true;
+      };
+
 
       // const handleNext = () => {
       //   if (formik.validateForm()) {
@@ -752,7 +868,7 @@ export function LoanApplicationModal({ open, onClose }: { open: boolean; onClose
         <Button
         variant="contained"
         type="submit"
-        disabled={isApplying}
+        disabled={isApplying || !isStepValid()}
         >
         {activeStep === 2 ? (
           isApplying ? <CircularProgress size={24}
