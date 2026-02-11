@@ -289,7 +289,7 @@ export default function WithdrawalDetailPage() {
               <Box mb={2}>
                 <Typography variant="body2" color="text.secondary">Current Balance</Typography>
                 <Typography variant="body1" fontWeight={500}>
-                  {savingsCurrentBalance}
+                  {savingsTotalSavings}
                 </Typography>
               </Box>
               

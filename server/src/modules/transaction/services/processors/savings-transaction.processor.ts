@@ -98,6 +98,16 @@ export class SavingsTransactionProcessor implements TransactionProcessor {
     }
 
     const newBalance = personalSavings.currentBalance.plus(transaction.amount.abs()); // Deposits are positive
+
+    // Validate that the new balance doesn't exceed the target amount (if set)
+    if (personalSavings.targetAmount && newBalance.greaterThan(personalSavings.targetAmount)) {
+      throw new TransactionError(
+        `Deposit would cause balance to exceed target amount of ${personalSavings.targetAmount.toString()}`,
+        TransactionErrorCodes.VALIDATION_ERROR,
+        400
+      );
+    }
+
     await db.personalSavings.update({
       where: { id: personalSavings.id },
       data: {

@@ -996,7 +996,12 @@ class SavingsWithdrawalService {
           const personalSavings = (request as any).personalSavings;
           const currentBalanceNum = Number(personalSavings.currentBalance);
           const withdrawalAmount = Number(content.amount || 0);
-          const remainingBalanceNum = currentBalanceNum - withdrawalAmount;
+
+          // If withdrawal is COMPLETED, currentBalance has already been reduced
+          // So don't subtract the withdrawal amount again
+          const remainingBalanceNum = request.status === RequestStatus.COMPLETED
+            ? currentBalanceNum
+            : currentBalanceNum - withdrawalAmount;
 
           savingsInfo = {
             type: "personal",
@@ -1025,8 +1030,12 @@ class SavingsWithdrawalService {
           const currentBalanceNum = Number(savings.balance);
           const totalSavingsNum = Number(savings.totalSavingsAmount);
           const withdrawalAmount = Number(content.amount || 0);
-          // Calculate remaining from totalSavingsAmount (cumulative total), not monthly balance
-          const remainingBalanceNum = totalSavingsNum - withdrawalAmount;
+
+          // If withdrawal is COMPLETED, totalSavingsAmount has already been reduced
+          // So don't subtract the withdrawal amount again
+          const remainingBalanceNum = request.status === RequestStatus.COMPLETED
+            ? totalSavingsNum
+            : totalSavingsNum - withdrawalAmount;
 
           savingsInfo = {
             type: "regular",
@@ -1329,7 +1338,12 @@ class SavingsWithdrawalService {
         const personalSavings = requestWithRelations.personalSavings;
         const currentBalanceNum = Number(personalSavings.currentBalance);
         const withdrawalAmount = Number(content.amount || 0);
-        const remainingBalanceNum = currentBalanceNum - withdrawalAmount;
+
+        // If withdrawal is COMPLETED, currentBalance has already been reduced
+        // So don't subtract the withdrawal amount again
+        const remainingBalanceNum = request.status === RequestStatus.COMPLETED
+          ? currentBalanceNum
+          : currentBalanceNum - withdrawalAmount;
 
         savingsInfo = {
           type: 'personal',
@@ -1357,8 +1371,12 @@ class SavingsWithdrawalService {
         const currentBalanceNum = Number(savings.balance);
         const totalSavingsNum = Number(savings.totalSavingsAmount);
         const withdrawalAmount = Number(content.amount || 0);
-        // Calculate remaining from totalSavingsAmount (cumulative total), not monthly balance
-        const remainingBalanceNum = totalSavingsNum - withdrawalAmount;
+
+        // If withdrawal is COMPLETED, totalSavingsAmount has already been reduced
+        // So don't subtract the withdrawal amount again
+        const remainingBalanceNum = request.status === RequestStatus.COMPLETED
+          ? totalSavingsNum
+          : totalSavingsNum - withdrawalAmount;
 
         savingsInfo = {
           type: 'regular',

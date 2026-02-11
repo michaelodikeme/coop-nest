@@ -12,6 +12,7 @@ import {
 import { Decimal } from "@prisma/client/runtime/library";
 import { ApiError } from "../../../utils/apiError";
 import logger from "../../../utils/logger";
+import { formatCurrency } from "../../../utils/formatters";
 import RequestService from "../../request/services/request.service";
 import {
   IPersonalSavingsQueryParams,
@@ -570,6 +571,14 @@ export class PersonalSavingsService {
 
       // Calculate new balance
       const newBalance = plan.currentBalance.add(new Decimal(amount));
+
+      // Validate that deposit doesn't exceed target amount (if target is set)
+      if (plan.targetAmount && newBalance.greaterThan(plan.targetAmount)) {
+        throw new ApiError(
+          `Deposit amount of ${formatCurrency(amount)} would cause balance to exceed target amount of ${formatCurrency(plan.targetAmount)}. Current balance: ${formatCurrency(plan.currentBalance)}`,
+          400
+        );
+      }
 
       // Start transaction
       return await prisma.$transaction(async (tx) => {
