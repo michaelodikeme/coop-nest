@@ -31,6 +31,14 @@ router.post(
     controller.processBulkRepayments.bind(controller) as RouteHandler
 );
 
+// Upload bulk loan repayments (Treasurer level)
+router.post(
+    '/upload',
+    upload,
+    checkPermission('PROCESS_LOANS_REPAYMENT'),
+    controller.uploadBulkLoanRepayments.bind(controller) as RouteHandler
+);
+
 // Download repayment template (Staff level)
 router.get(
     '/template',

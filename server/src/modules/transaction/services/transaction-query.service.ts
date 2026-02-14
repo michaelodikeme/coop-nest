@@ -809,6 +809,71 @@ export class TransactionQueryService {
         orderBy: { [sortField]: sortOrder === 'desc' ? 'desc' : 'asc' },
         skip,
         take: limit,
+        include: {
+          initiator: {
+            select: {
+              id: true,
+              username: true,
+              biodata: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  erpId: true
+                }
+              }
+            }
+          },
+          approver: {
+            select: {
+              id: true,
+              username: true,
+              biodata: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  erpId: true
+                }
+              }
+            }
+          },
+          loan: {
+            select: {
+              id: true,
+              erpId: true,
+              memberId: true,
+              loanType: {
+                select: {
+                  name: true
+                }
+              },
+              member: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  erpId: true
+                }
+              }
+            }
+          },
+          savings: {
+            select: {
+              id: true,
+              erpId: true
+            }
+          },
+          shares: {
+            select: {
+              id: true,
+              erpId: true
+            }
+          },
+          personalSavings: {
+            select: {
+              id: true
+            }
+          },
+          request: true
+        }
       }),
       prisma.transaction.count({ where: whereClause }),
     ]);

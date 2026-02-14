@@ -243,6 +243,70 @@ export function useAdminLoansSummary() {
   });
 }
 
+// Admin loan details hook
+export function useAdminLoanDetails(loanId: string) {
+  return useQuery({
+    queryKey: ['admin-loan-details', loanId],
+    queryFn: async () => {
+      const response = await loanService.getLoanDetails(loanId);
+      console.log('Admin Loan Details API response:', response);
+      return response;
+    },
+    enabled: !!loanId,
+  });
+}
+
+// Loan repayment upload hook
+export function useAdminLoanRepaymentUpload() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: async (file: File) => {
+      // Validate file type
+      const allowedTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel', // .xls
+        'text/csv'
+      ];
+
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('Invalid file type. Please upload an Excel (.xlsx, .xls) or CSV file.');
+      }
+
+      // Validate file size (5MB)
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        throw new Error('File size exceeds 5MB limit.');
+      }
+
+      return loanService.uploadBulkLoanRepayments(file);
+    },
+    onSuccess: (data) => {
+      // Invalidate relevant queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['admin-loans'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-loan-repayments'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-loan-schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-loan-summary'] });
+
+      // Show detailed results
+      if (data.totalFailed > 0) {
+        toast.warning(
+          `Upload partially complete: ${data.totalSuccessful} successful, ${data.totalFailed} failed. Check results for details.`
+        );
+      } else {
+        toast.success(
+          `All ${data.totalSuccessful} repayments uploaded successfully!`
+        );
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to upload loan repayments');
+    }
+  });
+}
+
 export function useAdminShares(page = 1, limit = 10, search = '') {
   return useQuery({
     queryKey: ['admin-shares', page, limit, search],

@@ -2,10 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../../../types/express';
 import { RepaymentService } from '../services/repayment.service';
 import { BulkRepaymentService } from '../utils/bulk-repayment.util';
+import { LoanRepaymentUploadService } from '../services/loan-repayment-upload.service';
 import { ApiResponse } from '../../../utils/apiResponse';
 import { ApiError } from '../../../utils/apiError';
 import { repaymentSchema } from '../validations/repayment.validation';
 import { LoanRepaymentData } from '../interfaces/repayment.interface';
+import * as fs from 'fs/promises';
 
 export class RepaymentController {
     private repaymentService: RepaymentService;
@@ -33,7 +35,7 @@ export class RepaymentController {
             if (!req.file) {
                 throw new ApiError('No file uploaded', 400);
             }
-            
+
             // Log file details for debugging
             console.log('Uploaded file:', {
                 originalname: req.file.originalname,
@@ -42,15 +44,72 @@ export class RepaymentController {
                 bufferExists: !!req.file.buffer,
                 bufferLength: req.file.buffer ? req.file.buffer.length : 0
             });
-            
+
             const result = await this.repaymentService.processBulkRepayments(
                 req.file,
                 req.user.id
             );
-            
+
             return ApiResponse.success(res, 'Bulk repayment processed successfully', result);
         } catch (error) {
             next(error);
+        }
+    }
+
+    async uploadBulkLoanRepayments(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+        let filePath: string | undefined;
+
+        try {
+            // 1. Validate file exists
+            const file = req.file;
+            if (!file) {
+                throw new ApiError('No file uploaded', 400);
+            }
+
+            filePath = file.path;
+
+            // 2. Get uploaded user ID from request
+            const uploadedBy = req.user.id;
+
+            // 3. Read file buffer
+            const fileBuffer = await fs.readFile(file.path);
+
+            if (!fileBuffer || fileBuffer.length === 0) {
+                throw new ApiError('Failed to read file or file is empty', 400);
+            }
+
+            // 4. Route to appropriate processor based on file type
+            let results;
+
+            if (file.mimetype.includes('spreadsheet') || file.mimetype.includes('excel')) {
+                results = await LoanRepaymentUploadService.processExcelFile(fileBuffer, uploadedBy);
+            } else if (file.mimetype.includes('csv')) {
+                results = await LoanRepaymentUploadService.processCsvFile(fileBuffer, uploadedBy);
+            } else {
+                throw new ApiError(
+                    'Invalid file format. Only Excel (.xlsx, .xls) and CSV files are supported.',
+                    400
+                );
+            }
+
+            // 5. Return results
+            return ApiResponse.success(
+                res,
+                `Loan repayments processed: ${results.totalSuccessful} successful, ${results.totalFailed} failed`,
+                results
+            );
+
+        } catch (error) {
+            next(error);
+        } finally {
+            // 6. Cleanup: Delete uploaded file
+            if (filePath) {
+                try {
+                    await fs.unlink(filePath);
+                } catch (cleanupError) {
+                    console.error('Failed to delete uploaded file:', cleanupError);
+                }
+            }
         }
     }
     

@@ -1,7 +1,7 @@
 import { apiService } from '@/lib/api/apiService';
 import { PaginatedResponse } from '@/types/types';
 import { TransactionRecord } from '@/types/transaction.types';
-import { MemberSummary, PersonalSavingsResponse } from '@/types/personal-savings.types';
+import { MemberSummary, PersonalSavingsResponse, AdminDashboard } from '@/types/personal-savings.types';
 
 // API response wrapper type
 interface ApiResponse<T> {
@@ -132,7 +132,7 @@ class PersonalSavingsService {
 
 
   // Get admin dashboard data
-  async getAdminDashboard() {
+  async getAdminDashboard(): Promise<AdminDashboard> {
     const url = `/personal-savings/admin/dashboard`;
     return apiService.get(url);
   }

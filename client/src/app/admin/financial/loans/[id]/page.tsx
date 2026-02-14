@@ -30,7 +30,7 @@ import PaymentsIcon from '@mui/icons-material/Payments';
 import HistoryIcon from '@mui/icons-material/History';
 import { useRouter } from 'next/navigation';
 import { formatCurrency, formatDate } from '@/utils/formatting/format';
-import { useLoanDetails } from '@/lib/hooks/member/useMemberLoans';
+import { useAdminLoanDetails } from '@/lib/hooks/admin/useAdminFinancial';
 import LoadingScreen from '@/components/atoms/LoadingScreen';
 import { LoanStatus } from '@/types/loan.types';
 
@@ -50,7 +50,7 @@ function LoanDetailsPageContent({ loanId }: { loanId: string }) {
   const router = useRouter();
   const [tabValue, setTabValue] = useState(0);
 
-  const { data: loan, isLoading, error } = useLoanDetails(loanId);
+  const { data: loan, isLoading, error } = useAdminLoanDetails(loanId);
 
   // Get color and label for loan status
   const getStatusChip = (status: LoanStatus) => {
