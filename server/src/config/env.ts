@@ -35,10 +35,4 @@ const env = {
   // Add other environment variables as needed
 };
 
-// console.log('PORT:', env.PORT); // Should log the value from the .env file
-// console.log('DATABASE_URL:', env.DATABASE_URL); // Should log the value from the .env file
-// console.log('JWT_SECRET:', env.JWT_SECRET); // Should log the value from the .env file
-// console.log('TOKEN_EXPIRY_TIME:', env.TOKEN_EXPIRY_TIME); // Should log the value from the .env file
-// console.log('Environment variables loaded successfully.');
-
 export default env;

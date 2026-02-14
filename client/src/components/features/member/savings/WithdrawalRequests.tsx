@@ -165,7 +165,6 @@ const WithdrawalRequests: React.FC<WithdrawalRequestsProps> = ({
                         <Typography fontWeight={500} gutterBottom>
                           Financial Impact
                         </Typography>
-
                         <Grid container spacing={2}>
                           <Grid item xs={6}>
                             <Typography variant="caption" color="text.secondary">
