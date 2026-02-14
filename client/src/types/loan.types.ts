@@ -281,14 +281,14 @@ export interface LoanDetails {
   purpose: string;
   createdAt: string;
   updatedAt: string;
-  
+
   // Backend sends savingsSnapshot as a nested object
   savingsSnapshot: {
     totalSavingsAmount: number | string;
     totalGrossAmount: number | string;
     monthlyTarget: number | string;
   };
-  
+
   loanType: {
     id: string;
     name: string;
@@ -301,7 +301,18 @@ export interface LoanDetails {
     isActive: boolean;
     requiresApproval: boolean;
   };
-  
+
+  member?: {
+    id: string;
+    erpId: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    department?: string;
+    emailAddress?: string;
+    phoneNumber?: string;
+  };
+
   paymentSchedules: Array<{
     id: string;
     loanId: string;
@@ -314,7 +325,20 @@ export interface LoanDetails {
     status: PaymentStatus;
     actualPaymentDate: string | null;
   }>;
-  
+
+  repayments?: Array<{
+    id: string;
+    loanId: string;
+    amount: string | number;
+    repaymentDate: string;
+    repaymentMonth: number;
+    repaymentYear: number;
+    uploadedBy: string;
+    uploadedDate: string;
+    isReconciled: boolean;
+    scheduleId?: string | null;
+  }>;
+
   statusHistory: Array<{
     fromStatus: LoanStatus;
     toStatus: LoanStatus;

@@ -235,20 +235,57 @@ export class LoanService {
     try {
       // Get the request first
       const request = await requestService.getRequestById(requestId);
-      
+
       // If there's a linked loan, fetch its details
       if (request.loanId) {
         const loanDetails = await this.getLoanDetails(request.loanId);
         return { request, loan: loanDetails };
       }
-      
+
       return { request, loan: null };
     } catch (error) {
       console.error('Error fetching loan request details:', error);
       throw error;
     }
   }
-  
+
+  /**
+   * Upload bulk loan repayments
+   * POST /loan/repayment/upload
+   * @param file Excel or CSV file with loan repayments
+   */
+  async uploadBulkLoanRepayments(file: File): Promise<{
+    totalSheets: number;
+    totalSuccessful: number;
+    totalFailed: number;
+    sheetResults: Array<{
+      sheetName: string;
+      totalRows: number;
+      successfulRows: number;
+      failedRows: Array<{
+        row: number;
+        erpId?: string;
+        error: string;
+      }>;
+    }>;
+  }> {
+    const formData = new FormData();
+    formData.append('fileUpload', file);
+
+    const response: any = await apiService.post('/loan/repayment/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+
+    // Unwrap the response if it's wrapped in ApiResponse format
+    if (response && response.data) {
+      return response.data;
+    }
+
+    return response;
+  }
+
 }
 
 

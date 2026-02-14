@@ -46,8 +46,8 @@ export function useAdminPersonalSavingsPlan(id?: string) {
  */
 export function useAdminPersonalSavingsDashboard() {
   const toast = useToast();
-  
-  return useQuery({
+
+  return useQuery<AdminDashboard>({
     queryKey: ['adminPersonalSavingsDashboard'],
     queryFn: async () => {
       try {

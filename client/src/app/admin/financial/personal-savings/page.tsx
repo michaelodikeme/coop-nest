@@ -31,12 +31,12 @@ const PersonalSavingsAdminPage = () => {
   const router = useRouter();
 
   // Fetch dashboard data
-  const { 
-    data: dashboardData, 
-    isLoading: isDashboardLoading 
+  const {
+    data: dashboardData,
+    isLoading: isDashboardLoading
   } = useAdminPersonalSavingsDashboard();
 
-  const summaryData = dashboardData?.data;
+  const summaryData = dashboardData;
 
   // Fetch plans with current filters
   const { 
