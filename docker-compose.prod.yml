@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   postgres:
     image: postgres:17
@@ -22,6 +21,8 @@ services:
     restart: unless-stopped
     networks:
       - coop-nest-network
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -45,7 +46,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-rootuser}@postgres:5432/${POSTGRES_DB:-postgres}?schema=coop-nest_db
       SERVER_PORT: 5000
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       REDIS_URL: redis://redis:6379
       APPLICATION_URL: ${APPLICATION_URL}
       JWT_SECRET: ${JWT_SECRET}
@@ -60,10 +61,11 @@ services:
       BANK_VERIFICATION_API_URL: ${BANK_VERIFICATION_API_URL}
       BANK_VERIFICATION_TOKEN: ${BANK_VERIFICATION_TOKEN}
 
-volumes:
-  coop-nest-app_postgres_data:
-    external: true
-
 networks:
   coop-nest-network:
     driver: bridge
+
+volumes:
+  coop-nest-app_postgres_data:
+    external: true
+  redis_data:
