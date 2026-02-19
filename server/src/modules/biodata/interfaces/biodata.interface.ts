@@ -136,6 +136,8 @@ export interface IBiodataQueryFilters {
   searchTerm?: string; // For searching across name fields
   startDate?: Date;
   endDate?: Date;
+  page?: number;
+  limit?: number;
 }
 
 export interface IVerifyBiodataInput {

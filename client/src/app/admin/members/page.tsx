@@ -67,7 +67,7 @@ export default function MembersPage() {
   
   // Pagination state
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   // Format filter options for the filter dialog - include "ALL" option for membershipStatus
   const filterOptions = {
@@ -326,7 +326,8 @@ export default function MembersPage() {
             isLoading={isLoading || deleteMember.isPending}
             pagination={true}
             page={pagination?.page ? pagination.page - 1 : 0}
-            pageSize={pagination?.limit || 10}
+            pageSize={pagination?.limit || pageSize}
+            totalCount={pagination?.total}
             onPageChange={(newPage) => setPage(newPage + 1)}
             onPageSizeChange={(newSize) => {
               setPageSize(newSize);

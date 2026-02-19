@@ -70,10 +70,15 @@ export const biodataQuerySchema = z.object({
   isVerified: z.boolean().optional(),
   isApproved: z.boolean().optional(),
   isDeleted: z.boolean().optional(),
-  membershipStatus: z.nativeEnum(MembershipStatus).optional(),
+  membershipStatus: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.nativeEnum(MembershipStatus).optional()
+  ),
   searchTerm: z.string().optional(),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(200).default(20),
 });
 
 export const biodataApprovalRequestSchema = z.object({

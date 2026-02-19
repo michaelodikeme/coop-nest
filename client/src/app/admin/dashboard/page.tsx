@@ -197,8 +197,8 @@ export default function DashboardPage() {
                           icon={<UsersIcon />}
                           color="primary"
                           trend={{
-                            direction: 'up',
-                            percentage: 2.5,
+                            direction: metrics.trends.members.direction,
+                            percentage: metrics.trends.members.percentage,
                             period: 'vs last month'
                           }}
                           description="Active registered members in the cooperative"
@@ -219,8 +219,8 @@ export default function DashboardPage() {
                           icon={<SavingsIcon />}
                           color="success"
                           trend={{
-                            direction: 'up',
-                            percentage: 3.2,
+                            direction: metrics.trends.savings.direction,
+                            percentage: metrics.trends.savings.percentage,
                             period: 'vs last month'
                           }}
                           description="Number of active savings accounts"
@@ -241,8 +241,8 @@ export default function DashboardPage() {
                           icon={<MoneyIcon />}
                           color="warning"
                           trend={{
-                            direction: 'up',
-                            percentage: 0.8,
+                            direction: metrics.trends.loans.direction,
+                            percentage: metrics.trends.loans.percentage,
                             period: 'vs last month'
                           }}
                           description="Total outstanding loan amount"
@@ -263,11 +263,11 @@ export default function DashboardPage() {
                           icon={<AssignmentIcon />}
                           color="error"
                           trend={{
-                            direction: Number(metrics.pendingApprovals) > 5 ? 'up' : 'down',
-                            percentage: 10,
-                            period: 'requires attention'
+                            direction: metrics.trends.pendingApprovals.direction,
+                            percentage: metrics.trends.pendingApprovals.percentage,
+                            period: 'of all requests'
                           }}
-                          description="Total pending requests awaiting approval" // Updated description
+                          description="Total pending requests awaiting approval"
                           onClick={() => window.location.href = '/admin/approvals'}
                         />
                       </div>

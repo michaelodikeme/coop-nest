@@ -1,5 +1,5 @@
 import { useQueryWithToast } from '@/lib/hooks/redux/useDataFetching';
-import { loanService } from '@/lib/api';
+import { loanService, memberService } from '@/lib/api';
 import { savingsService } from '@/lib/api/services/savingsService';
 import { transactionService } from '@/lib/api/services/transactionService';
 import { requestService } from '@/lib/api/services/requestService';
@@ -7,6 +7,16 @@ import { useMembers } from '@/lib/hooks/admin/useMembers';
 import { useApprovals } from '@/lib/hooks/admin/useApprovals';
 import { useMemo } from 'react';
 import { useMembersSavingsSummary } from '@/lib/hooks/admin/useAdminFinancial';
+import { useQuery } from '@tanstack/react-query';
+
+// Stable date strings for month-over-month trend queries
+const _now = new Date();
+const _curMonthStart = new Date(_now.getFullYear(), _now.getMonth(), 1).toISOString().split('T')[0];
+const _curMonthEnd = _now.toISOString().split('T')[0];
+const _prevMonthStart = new Date(_now.getFullYear(), _now.getMonth() - 1, 1).toISOString().split('T')[0];
+const _prevMonthEnd = new Date(_now.getFullYear(), _now.getMonth(), 0).toISOString().split('T')[0];
+const _curMonthNum = _now.getMonth() + 1;
+const _prevMonthNum = _curMonthNum > 1 ? _curMonthNum - 1 : 12;
 
 /**
  * Centralized hook for admin dashboard data
@@ -85,6 +95,32 @@ export function useAdminDashboard() {
     }
   );
 
+  // Month-scoped member count queries for trend calculation
+  const { data: curMonthMembersData } = useQuery({
+    queryKey: ['dashboard-members-cur-month', _curMonthStart],
+    queryFn: () => memberService.getAllBiodata({ page: 1, limit: 1, startDate: _curMonthStart, endDate: _curMonthEnd }),
+    staleTime: 300000,
+  });
+
+  const { data: prevMonthMembersData } = useQuery({
+    queryKey: ['dashboard-members-prev-month', _prevMonthStart],
+    queryFn: () => memberService.getAllBiodata({ page: 1, limit: 1, startDate: _prevMonthStart, endDate: _prevMonthEnd }),
+    staleTime: 300000,
+  });
+
+  // Month-scoped loan summary queries for trend calculation
+  const { data: curMonthLoansData } = useQuery({
+    queryKey: ['dashboard-loans-cur-month', _curMonthStart],
+    queryFn: () => loanService.getLoansSummary(_curMonthStart, _curMonthEnd),
+    staleTime: 300000,
+  });
+
+  const { data: prevMonthLoansData } = useQuery({
+    queryKey: ['dashboard-loans-prev-month', _prevMonthStart],
+    queryFn: () => loanService.getLoansSummary(_prevMonthStart, _prevMonthEnd),
+    staleTime: 300000,
+  });
+
   // Calculate metrics with robust fallbacks
   const metrics = useMemo(() => {
     // UPDATED: Get active savings count from members summary
@@ -130,6 +166,53 @@ export function useAdminDashboard() {
       100
     );
 
+    // Helper for percentage change
+    const calcGrowth = (current: number, previous: number): number =>
+      previous > 0 ? Math.round(((current - previous) / previous) * 1000) / 10 : 0;
+
+    // Members trend: new members registered this month vs previous month
+    const curMembers = Number((curMonthMembersData as any)?.meta?.total ?? (curMonthMembersData as any)?.total ?? 0);
+    const prevMembers = Number((prevMonthMembersData as any)?.meta?.total ?? (prevMonthMembersData as any)?.total ?? 0);
+    const membersGrowth = calcGrowth(curMembers, prevMembers);
+
+    // Savings trend: deposits this month vs previous month (from monthlyStats)
+    const monthlyData = monthlyStatsQuery.data?.monthlyData;
+    const curMonthStats = monthlyData?.find((m: any) => m.month === _curMonthNum);
+    const prevMonthStats = monthlyData?.find((m: any) => m.month === _prevMonthNum);
+    const curDeposits = Number(curMonthStats?.deposits ?? 0);
+    const prevDeposits = Number(prevMonthStats?.deposits ?? 0);
+    const savingsGrowth = calcGrowth(curDeposits, prevDeposits);
+
+    // Loans trend: outstanding amount this month vs previous month
+    const curOutstanding = Number((curMonthLoansData as any)?.totalOutstanding ?? (curMonthLoansData as any)?.data?.totalOutstanding ?? 0);
+    const prevOutstanding = Number((prevMonthLoansData as any)?.totalOutstanding ?? (prevMonthLoansData as any)?.data?.totalOutstanding ?? 0);
+    const loansGrowth = calcGrowth(curOutstanding, prevOutstanding);
+
+    // Pending approvals trend: percentage of all requests currently pending
+    const totalRequests = reqStats?.total ?? 0;
+    const pendingApprovalsPercent = totalRequests > 0
+      ? Math.round((Number(pendingApprovals) / totalRequests) * 100)
+      : 0;
+
+    const trends = {
+      members: {
+        direction: (membersGrowth >= 0 ? 'up' : 'down') as 'up' | 'down',
+        percentage: Math.abs(membersGrowth),
+      },
+      savings: {
+        direction: (savingsGrowth >= 0 ? 'up' : 'down') as 'up' | 'down',
+        percentage: Math.abs(savingsGrowth),
+      },
+      loans: {
+        direction: (loansGrowth >= 0 ? 'up' : 'down') as 'up' | 'down',
+        percentage: Math.abs(loansGrowth),
+      },
+      pendingApprovals: {
+        direction: (Number(pendingApprovals) > 5 ? 'up' : 'down') as 'up' | 'down',
+        percentage: pendingApprovalsPercent,
+      },
+    };
+
     return {
       totalMembers: totalMembers || 0,
       activeSavings,
@@ -140,6 +223,7 @@ export function useAdminDashboard() {
       totalWithdrawals,
       approvalRate,
       portfolioHealth,
+      trends,
     };
   }, [
     totalMembers,
@@ -149,6 +233,11 @@ export function useAdminDashboard() {
     pendingApprovalsQuery.data,
     requestStatsQuery.data,
     savingsOverviewQuery.data,
+    monthlyStatsQuery.data,
+    curMonthMembersData,
+    prevMonthMembersData,
+    curMonthLoansData,
+    prevMonthLoansData,
   ]);
 
   // Process monthly data for charts

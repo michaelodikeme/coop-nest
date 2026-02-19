@@ -167,7 +167,7 @@ export class BiodataController {
   async getBiodata(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const filters = biodataQuerySchema.parse(req.query);
-      const biodata = await this.biodataService.getBiodata({
+      const result = await this.biodataService.getBiodata({
         erpId: filters.erpId as string,
         ippisId: filters.ippisId as string,
         staffNo: filters.staffNo as string,
@@ -179,8 +179,20 @@ export class BiodataController {
         searchTerm: filters.searchTerm as string,
         startDate: filters.startDate,
         endDate: filters.endDate,
+        page: filters.page,
+        limit: filters.limit,
       });
-      return ApiResponse.success(res, 'Biodata retrieved successfully', biodata);
+      return res.json({
+        success: true,
+        status: 'success',
+        message: 'Biodata retrieved successfully',
+        data: result.data,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+        code: 200,
+      });
     } catch (error) {
       if (error instanceof ZodError) {
         return ApiResponse.badRequest(res, 'Invalid query parameters');

@@ -1042,14 +1042,36 @@ export class SavingsService {
     
     async getAdminOverview(): Promise<IAdminOverview> {
         try {
-            const [savingsAggregate, sharesAggregate, memberGroups] = await Promise.all([
-                prisma.savings.aggregate({ _sum: { totalSavingsAmount: true } }),
-                prisma.shares.aggregate({ _sum: { totalSharesAmount: true } }),
-                prisma.savings.groupBy({ by: ['memberId'] }),
+            // Get distinct members with savings
+            const memberGroups = await prisma.savings.groupBy({ by: ['memberId'] });
+
+            // Fetch latest savings and shares record for each member in parallel
+            const [latestSavingsRecords, latestSharesRecords] = await Promise.all([
+                Promise.all(memberGroups.map(({ memberId }) =>
+                    prisma.savings.findFirst({
+                        where: { memberId },
+                        orderBy: [{ year: 'desc' }, { month: 'desc' }],
+                        select: { totalSavingsAmount: true }
+                    })
+                )),
+                Promise.all(memberGroups.map(({ memberId }) =>
+                    prisma.shares.findFirst({
+                        where: { memberId },
+                        orderBy: [{ year: 'desc' }, { month: 'desc' }],
+                        select: { totalSharesAmount: true }
+                    })
+                ))
             ]);
 
-            const totalSavings = savingsAggregate._sum.totalSavingsAmount ?? new Prisma.Decimal(0);
-            const totalShares = sharesAggregate._sum.totalSharesAmount ?? new Prisma.Decimal(0);
+            // Sum the latest totals
+            const totalSavings = latestSavingsRecords.reduce(
+                (sum, record) => sum.add(record?.totalSavingsAmount ?? 0),
+                new Prisma.Decimal(0)
+            );
+            const totalShares = latestSharesRecords.reduce(
+                (sum, record) => sum.add(record?.totalSharesAmount ?? 0),
+                new Prisma.Decimal(0)
+            );
             const totalMembers = memberGroups.length;
             const averageSavingsPerMember = totalMembers > 0
                 ? totalSavings.div(totalMembers)

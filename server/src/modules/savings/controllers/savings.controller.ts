@@ -13,6 +13,20 @@ import path from 'path';
 import fs from 'fs';
 import { IMonthlySavingsInput, ISavingsStatementParams } from '../interfaces/savings.interface';
 
+function isExcelBuffer(buf: Buffer): boolean {
+  if (buf.length < 4) return false;
+  // XLSX/XLSM: ZIP magic bytes PK\x03\x04
+  if (buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04) return true;
+  // Old XLS: OLE2 compound doc D0 CF 11 E0
+  if (buf[0] === 0xD0 && buf[1] === 0xCF && buf[2] === 0x11 && buf[3] === 0xE0) return true;
+  return false;
+}
+
+function isCsvBuffer(buf: Buffer): boolean {
+  // CSV is plain text; no null bytes in first 512 bytes
+  return !buf.slice(0, Math.min(512, buf.length)).some(b => b === 0x00);
+}
+
 export class SavingsController {
   private savingsService: SavingsService;
   private statementService: StatementService;
@@ -64,7 +78,7 @@ export class SavingsController {
   
   uploadBulkSavings = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     let filePath: string | undefined;
-    
+
     try {
       if (!req.file) {
         throw new Error('No file uploaded');
@@ -72,12 +86,16 @@ export class SavingsController {
 
       filePath = req.file.path;
       const fileBuffer = fs.readFileSync(filePath);
-      const fileType = req.file.mimetype;
+      const mimeType = req.file.mimetype;
 
       let results;
-      if (fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+      // Check magic bytes first, fall back to MIME type
+      const isExcel = isExcelBuffer(fileBuffer) || mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const isCsv = !isExcel && (isCsvBuffer(fileBuffer) || mimeType === 'text/csv');
+
+      if (isExcel) {
         results = await SavingsUploadService.processExcelFile(fileBuffer);
-      } else if (fileType === 'text/csv') {
+      } else if (isCsv) {
         results = await SavingsUploadService.processCsvFile(fileBuffer);
       } else {
         throw new Error('Invalid file type. Please upload an Excel (.xlsx) or CSV file');

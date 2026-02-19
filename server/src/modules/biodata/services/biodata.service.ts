@@ -344,8 +344,19 @@ export class BiodataService {
   }
   
   async getBiodata(filters: IBiodataQueryFilters) {
-    // Create a copy of the filters to avoid mutating the original
-    const where: any = { ...filters };
+    const { page = 1, limit = 10 } = filters;
+
+    // Build the Prisma where clause (exclude pagination fields)
+    const where: any = {};
+
+    // Copy filter fields (excluding pagination and special-handled ones)
+    const directFields = ['erpId', 'ippisId', 'staffNo', 'department', 'isVerified', 'isApproved', 'isDeleted', 'membershipStatus'];
+    for (const field of directFields) {
+      const val = (filters as any)[field];
+      if (val !== undefined && val !== '') {
+        where[field] = val;
+      }
+    }
 
     // Handle search term
     if (filters.searchTerm) {
@@ -367,41 +378,40 @@ export class BiodataService {
       };
     }
 
-    // Make sure to COMPLETELY remove searchTerm, startDate, endDate from where object
-    delete where.searchTerm;
-    delete where.startDate;
-    delete where.endDate;
+    const include = {
+      accountInfo: {
+        include: {
+          bank: true,
+        },
+      },
+      users: {
+        select: {
+          id: true,
+          username: true,
+          isActive: true,
+          isMember: true,
+        },
+      },
+    };
 
-    // Remove any undefined fields to avoid Prisma errors
-    Object.keys(where).forEach(key => {
-      if (where[key] === undefined || where[key] === '') {
-        delete where[key];
-      }
-    });
-    
-    const biodata = await prisma.biodata.findMany({
-      where,
-      include: {
-        accountInfo: {
-          include: {
-            bank: true,
-          },
-        },
-        users: {
-          select: {
-            id: true,
-            username: true,
-            isActive: true,
-            isMember: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-    
-    return biodata;
+    const [biodata, total] = await Promise.all([
+      prisma.biodata.findMany({
+        where,
+        include,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.biodata.count({ where }),
+    ]);
+
+    return {
+      data: biodata,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
   
   async getBiodataById(id: string): Promise<IBiodata> {

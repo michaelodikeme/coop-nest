@@ -57,24 +57,20 @@ export const processSavingsTransaction = async (
             throw new Error(`Member not found for erpId: ${erpId}`);
         }
         
-        // Get ALL existing entries INCLUDING previous uploads in this transaction
-        const allEntries = await tx.savings.findMany({
+        // Get only the latest entry to derive running totals (avoids N+1 full-table scan)
+        const latestEntry = await tx.savings.findFirst({
             where: { erpId },
             include: {
-                shares: true,
-                transactions: {
-                    orderBy: { createdAt: 'desc' }
-                }
+                shares: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                },
             },
             orderBy: [
-                { year: 'asc' },
-                { month: 'asc' }
-            ]
+                { year: 'desc' },
+                { month: 'desc' },
+            ],
         });
-        
-        // Calculate cumulative totals properly
-        // Use the latest record's totals and add the new amounts
-        const latestEntry = allEntries[allEntries.length - 1];
 
         const runningTotals = {
             grossTotal: latestEntry
@@ -123,25 +119,6 @@ export const processSavingsTransaction = async (
                 totalSharesAmount: runningTotals.sharesTotal
             }
         });
-
-        // Update ALL existing entries with new totals
-        await Promise.all(allEntries.map(entry =>
-            Promise.all([
-                tx.savings.update({
-                    where: { id: entry.id },
-                    data: {
-                        totalGrossAmount: runningTotals.grossTotal,
-                        totalSavingsAmount: runningTotals.savingsTotal
-                    }
-                }),
-                tx.shares.update({
-                    where: { id: entry.shares[0]?.id },
-                    data: {
-                        totalSharesAmount: runningTotals.sharesTotal
-                    }
-                })
-            ])
-        ));
 
         // Get effective initiator
         const effectiveInitiatorId = initiatorId || 

@@ -39,7 +39,7 @@ class MemberService {
   async getAllBiodata(filters: MemberFilterParams = {}): Promise<PaginatedResponse<Member>> {
     const queryParams = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
+      if (value !== undefined && value !== null && value !== '') {
         queryParams.append(key, value.toString());
       }
     });

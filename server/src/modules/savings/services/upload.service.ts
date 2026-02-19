@@ -19,7 +19,10 @@ export class SavingsUploadService {
         }
     }
 
-    private static validateSavingsRow(row: any, shareAmount: Decimal): ISavingsUploadRow | null {
+    private static validateSavingsRow(
+        row: any,
+        shareAmount: Decimal
+    ): { data: ISavingsUploadRow | null; error?: string } {
         try {
             logger.debug('Validating row:', row);
 
@@ -42,17 +45,16 @@ export class SavingsUploadService {
             // Validate month and year
             const month = Number(row.month);
             const year = Number(row.year);
-            
+
             if (month < 1 || month > 12) {
                 throw new Error('Invalid month');
             }
-            
+
             const currentYear = new Date().getFullYear();
             if (year < 2020 || year > currentYear + 1) {
                 throw new Error('Invalid year range');
             }
 
-            // Return with explicit type checking
             const validatedRow: ISavingsUploadRow = {
                 erpId: row.erpId.toString().trim(),
                 grossAmount,
@@ -63,10 +65,9 @@ export class SavingsUploadService {
                 description: row.description?.toString().trim()
             };
 
-            return validatedRow;
+            return { data: validatedRow };
         } catch (error) {
-            logger.error(`Row validation error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-            return null;
+            return { data: null, error: error instanceof Error ? error.message : 'Invalid row data' };
         }
     }    
 
@@ -74,18 +75,21 @@ export class SavingsUploadService {
         const workbook = xlsx.read(buffer);
         const results: ISavingsUploadSheetResult[] = [];
         let totalProcessed = 0;
-        
+
+        // Fetch share amount once for the entire upload
+        const shareAmount = await this.getShareAmount();
+
         // Process each sheet in the workbook
         for (const sheetName of workbook.SheetNames) {
             try {
                 logger.info(`Processing sheet: ${sheetName} (${totalProcessed + 1} of ${workbook.SheetNames.length})`);
                 const sheet = workbook.Sheets[sheetName];
                 const rows = xlsx.utils.sheet_to_json(sheet);
-                
-                const sheetResult = await this.processSavingsRows(rows, sheetName);
+
+                const sheetResult = await this.processSavingsRows(rows, sheetName, shareAmount);
                 results.push(sheetResult);
                 totalProcessed++;
-                
+
                 logger.info(`Completed sheet ${sheetName}. Running total: ${totalProcessed} sheets`);
             } catch (error) {
                 logger.error(`Error processing sheet ${sheetName}:`, error);
@@ -108,13 +112,16 @@ export class SavingsUploadService {
             trim: true
         });
 
+        // Fetch share amount once for the entire upload
+        const shareAmount = await this.getShareAmount();
+
         return new Promise((resolve, reject) => {
             Readable.from(buffer)
                 .pipe(parser)
                 .on('data', (row) => rows.push(row))
                 .on('end', async () => {
                     try {
-                        const result = await this.processSavingsRows(rows, 'CSV File');
+                        const result = await this.processSavingsRows(rows, 'CSV File', shareAmount);
                         resolve({
                             totalSheets: 1,
                             totalSuccessful: result.successful,
@@ -133,8 +140,7 @@ export class SavingsUploadService {
         });
     }
 
-    private static async processSavingsRows(rows: any[], sheetName: string): Promise<ISavingsUploadSheetResult> {
-        const shareAmount = await this.getShareAmount();
+    private static async processSavingsRows(rows: any[], sheetName: string, shareAmount: Decimal): Promise<ISavingsUploadSheetResult> {
         const results: ISavingsUploadSheetResult = {
             sheetName,
             successful: 0,
@@ -153,15 +159,16 @@ export class SavingsUploadService {
         for (const [period, periodRows] of Object.entries(groupedRows)) {
             logger.info(`Processing ${periodRows.length} entries for period ${period} in sheet ${sheetName}`);
 
-            for (const row of periodRows) {
-                const validatedRow = this.validateSavingsRow(row, shareAmount);
-                if (!validatedRow) {
+            for (const [index, row] of periodRows.entries()) {
+                const validation = this.validateSavingsRow(row, shareAmount);
+                if (!validation.data) {
                     results.failed++;
                     results.errors.push(
-                        `[Sheet: ${sheetName}] Invalid data format for row with erpId: ${row.erpId}`
+                        `[Sheet: ${sheetName}] Row ${index + 2} (erpId: ${row.erpId ?? 'unknown'}): ${validation.error}`
                     );
                     continue;
                 }
+                const validatedRow = validation.data;
 
                 try {
                     await prisma.$transaction(async (tx) => {
