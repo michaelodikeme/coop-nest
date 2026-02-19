@@ -772,9 +772,10 @@ async getEnhancedLoansSummary(
 
         // Add monthly breakdown if requested
         if (includeMonthlyBreakdown) {
-            const currentYear = new Date().getFullYear();
-            const yearStart = new Date(currentYear, 0, 1);
-            const yearEnd = new Date(currentYear, 11, 31, 23, 59, 59);
+            // Derive year from startDate if provided, otherwise use current year
+            const targetYear = startDate ? startDate.getFullYear() : new Date().getFullYear();
+            const yearStart = startDate || new Date(targetYear, 0, 1);
+            const yearEnd = endDate || new Date(targetYear, 11, 31, 23, 59, 59);
 
             // Get disbursement data by month using Prisma groupBy
             const disbursementData = await prisma.loan.groupBy({
@@ -865,7 +866,7 @@ async getEnhancedLoansSummary(
                     repaidAmount: latestMonth.repaidAmount,
                     loansCount: latestMonth.loansCount,
                     month: latestMonth.month,
-                    year: currentYear,
+                    year: targetYear,
                     date: new Date().toISOString()
                 };
             } else {
@@ -1074,15 +1075,40 @@ async getLoansSummary(startDate?: Date, endDate?: Date): Promise<LoanSummary> {
                 }
             }
         });
-        
+
+        // 7. Previously-placeholder fields — now computed with real queries
+        const [
+            activeLoansResult,
+            completedLoansResult,
+            defaultedLoansResult,
+            totalRepaidResult,
+            avgLoanResult,
+        ] = await Promise.all([
+            prisma.loan.count({ where: { status: { in: ['ACTIVE', 'DISBURSED'] } } }),
+            prisma.loan.count({ where: { status: 'COMPLETED' } }),
+            prisma.loan.count({ where: { status: 'DEFAULTED' } }),
+            prisma.loanRepayment.aggregate({ _sum: { amount: true } }),
+            prisma.loan.aggregate({ _avg: { principalAmount: true } }),
+        ]);
+
+        const activeLoansCount = activeLoansResult;
+        const completedLoansCount = completedLoansResult;
+        const defaultedLoansCount = defaultedLoansResult;
+        const totalRepaid = Number(totalRepaidResult._sum.amount || 0);
+        const averageLoanAmount = Number(avgLoanResult._avg.principalAmount || 0);
+        const totalResolved = activeLoansCount + completedLoansCount + defaultedLoansCount;
+        const defaultRate = totalResolved > 0
+            ? Math.round((defaultedLoansCount / totalResolved) * 10000) / 100
+            : 0;
+
         // Return the summary data
         return {
-            totalRepaid: 0, // Placeholder, update with actual calculation if needed
-            activeLoansCount: 0, // Placeholder, update with actual calculation if needed
-            completedLoansCount: 0, // Placeholder, update with actual calculation if needed
-            defaultedLoansCount: 0, // Placeholder, update with actual calculation if needed
-            averageLoanAmount: 0, // Placeholder, update with actual calculation if needed
-            defaultRate: 0, // Placeholder, update with actual calculation if needed
+            totalRepaid,
+            activeLoansCount,
+            completedLoansCount,
+            defaultedLoansCount,
+            averageLoanAmount,
+            defaultRate,
             totalOutstanding: Number(outstandingLoans._sum.remainingBalance || 0),
             totalDisbursed: Number(disbursedLoans._sum.principalAmount || 0),
             newLoansCount,

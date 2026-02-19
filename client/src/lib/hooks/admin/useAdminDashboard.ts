@@ -65,6 +65,26 @@ export function useAdminDashboard() {
     }
   );
 
+  // Fetch request statistics → for approval rate calculation
+  const requestStatsQuery = useQueryWithToast(
+    ['admin-request-statistics'],
+    () => requestService.getRequestStatistics(),
+    {
+      errorMessage: 'Failed to load request statistics',
+      staleTime: 300000
+    }
+  );
+
+  // Fetch savings overview (all-time totals) → for portfolio health calculation
+  const savingsOverviewQuery = useQueryWithToast(
+    ['admin-savings-overview'],
+    () => savingsService.getAdminOverview(),
+    {
+      errorMessage: 'Failed to load savings overview',
+      staleTime: 300000
+    }
+  );
+
   // Calculate metrics with robust fallbacks
   const metrics = useMemo(() => {
     // UPDATED: Get active savings count from members summary
@@ -89,15 +109,26 @@ export function useAdminDashboard() {
     // Pending Approvals: use the approval service response directly
     const pendingApprovals = pendingApprovalsQuery.data ?? 0;
 
-    console.log('Dashboard metrics calculated:', {
-      totalMembers: totalMembers || 0,
-      activeSavings,
-      activeLoans,
-      monthlyTransactions,
-      pendingApprovals,
-      totalDeposits,
-      totalWithdrawals
-    });
+    // Approval Rate: (approved / total) * 100
+    const reqStats = requestStatsQuery.data;
+    const approvalRate = reqStats?.total > 0
+      ? Math.round((reqStats.approved / reqStats.total) * 100)
+      : 0;
+
+    // Portfolio Health score
+    const totalSavings = Number(savingsOverviewQuery.data?.totalSavings || 0);
+    const totalShares = Number(savingsOverviewQuery.data?.totalShares || 0);
+    const totalAssets = totalSavings + totalShares;
+    const totalDebt = Number(loansQuery.data?.totalOutstanding || 0);
+    const totalLoanAmount = Number(loansQuery.data?.totalDisbursed || 0);
+    const assetToDebtRatio = totalDebt > 0 ? totalAssets / totalDebt : totalAssets > 0 ? 5.0 : 1.0;
+    const portfolioAtRisk = Math.min((totalDebt / Math.max(totalLoanAmount, 1)) * 10, 10);
+    const phDefaultRate = Math.min(portfolioAtRisk * 0.5, 5);
+    const liquidityRatio = Math.min(totalSavings / Math.max(totalDebt, 1), 2.0);
+    const portfolioHealth = Math.min(
+      Math.round((assetToDebtRatio * 20) + ((10 - portfolioAtRisk) * 5) + ((5 - phDefaultRate) * 8) + (liquidityRatio * 25)),
+      100
+    );
 
     return {
       totalMembers: totalMembers || 0,
@@ -106,14 +137,18 @@ export function useAdminDashboard() {
       monthlyTransactions,
       pendingApprovals,
       totalDeposits,
-      totalWithdrawals
+      totalWithdrawals,
+      approvalRate,
+      portfolioHealth,
     };
   }, [
     totalMembers,
-    membersSavingsQuery.data, // UPDATED: Use membersSavingsQuery instead of savingsQuery
+    membersSavingsQuery.data,
     loansQuery.data,
     transactionStatsQuery.data,
-    pendingApprovalsQuery.data
+    pendingApprovalsQuery.data,
+    requestStatsQuery.data,
+    savingsOverviewQuery.data,
   ]);
 
   // Process monthly data for charts
@@ -166,19 +201,23 @@ export function useAdminDashboard() {
   const isLoading =
     isMembersLoading ||
     loansQuery.isLoading ||
-    membersSavingsQuery.isLoading || // UPDATED: Use membersSavingsQuery
+    membersSavingsQuery.isLoading ||
     transactionStatsQuery.isLoading ||
     monthlyStatsQuery.isLoading ||
-    pendingApprovalsQuery.isLoading;
+    pendingApprovalsQuery.isLoading ||
+    requestStatsQuery.isLoading ||
+    savingsOverviewQuery.isLoading;
 
   // Update errors object
   const errors = {
     members: totalMembers === undefined && !isMembersLoading,
     approvals: pendingApprovalsQuery.error,
     loans: loansQuery.error,
-    savings: membersSavingsQuery.error, // UPDATED: Use membersSavingsQuery
+    savings: membersSavingsQuery.error,
     transactions: transactionStatsQuery.error,
-    monthlyStats: monthlyStatsQuery.error
+    monthlyStats: monthlyStatsQuery.error,
+    requestStats: requestStatsQuery.error,
+    savingsOverview: savingsOverviewQuery.error,
   };
 
   // Update rawData
@@ -198,9 +237,11 @@ export function useAdminDashboard() {
       members: isMembersLoading,
       approvals: pendingApprovalsQuery.isLoading,
       loans: loansQuery.isLoading,
-      savings: membersSavingsQuery.isLoading, // UPDATED: Use membersSavingsQuery
+      savings: membersSavingsQuery.isLoading,
       transactions: transactionStatsQuery.isLoading,
-      monthlyStats: monthlyStatsQuery.isLoading
+      monthlyStats: monthlyStatsQuery.isLoading,
+      requestStats: requestStatsQuery.isLoading,
+      savingsOverview: savingsOverviewQuery.isLoading,
     },
     errors
   };

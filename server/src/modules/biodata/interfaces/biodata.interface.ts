@@ -134,6 +134,8 @@ export interface IBiodataQueryFilters {
   isDeleted?: boolean;
   membershipStatus?: MembershipStatus;
   searchTerm?: string; // For searching across name fields
+  startDate?: Date;
+  endDate?: Date;
 }
 
 export interface IVerifyBiodataInput {

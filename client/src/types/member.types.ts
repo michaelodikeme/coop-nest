@@ -54,6 +54,8 @@ export interface MemberFilterParams {
   searchTerm?: string;
   page?: number;
   limit?: number;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface Member extends Omit<Biodata, 'id' | 'createdAt' | 'updatedAt'> {

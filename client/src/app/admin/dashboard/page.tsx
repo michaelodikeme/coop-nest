@@ -80,14 +80,13 @@ export default function DashboardPage() {
   // Quick stats data
   const quickStatsData = [
     {
-      label: 'Monthly Target',
+      label: 'Monthly Transactions',
       value: metrics.monthlyTransactions,
-      target: 1000,
       color: theme.palette.success.main,
     },
     {
       label: 'Approval Rate',
-      value: 95,
+      value: metrics.approvalRate,
       target: 100,
       suffix: '%',
       color: theme.palette.info.main,
@@ -95,12 +94,11 @@ export default function DashboardPage() {
     {
       label: 'Active Members',
       value: metrics.totalMembers,
-      target: 500,
       color: theme.palette.primary.main,
     },
     {
       label: 'Portfolio Health',
-      value: 92,
+      value: metrics.portfolioHealth,
       target: 100,
       suffix: '%',
       color: theme.palette.warning.main,

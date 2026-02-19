@@ -90,21 +90,22 @@ const MonthlyFinancialChart: React.FC<MonthlyFinancialChartProps> = ({
     return Array.from({ length: 5 }, (_, i) => currentYear - i);
   }, []);
 
-  // Calculate trend indicators - update to use the new data structure
+  // Calculate trend using the two most recent months that have actual data
   const calculateTrend = (data: any[], key: keyof MonthlyData) => {
     if (!data || data.length < 2) return { trend: 'neutral', change: 0 };
-    
-    const currentMonth = data[data.length - 1];
-    const previousMonth = data[data.length - 2];
-    
-    const current = Number(currentMonth[key]) || 0;
-    const previous = Number(previousMonth[key]) || 0;
-    
+
+    // Only consider months with a non-zero value for this series
+    const activeMonths = data.filter(item => Number(item[key]) > 0);
+    if (activeMonths.length < 2) return { trend: 'neutral', change: 0 };
+
+    const current = Number(activeMonths[activeMonths.length - 1][key]) || 0;
+    const previous = Number(activeMonths[activeMonths.length - 2][key]) || 0;
+
     if (previous === 0) return { trend: 'neutral', change: 0 };
-    
+
     const change = ((current - previous) / previous) * 100;
     const trend = change > 5 ? 'up' : change < -5 ? 'down' : 'neutral';
-    
+
     return { trend, change: Math.abs(change) };
   };
 

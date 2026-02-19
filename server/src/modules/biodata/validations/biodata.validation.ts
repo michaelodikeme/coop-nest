@@ -72,6 +72,8 @@ export const biodataQuerySchema = z.object({
   isDeleted: z.boolean().optional(),
   membershipStatus: z.nativeEnum(MembershipStatus).optional(),
   searchTerm: z.string().optional(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
 });
 
 export const biodataApprovalRequestSchema = z.object({

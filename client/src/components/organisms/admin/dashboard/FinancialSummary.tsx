@@ -16,13 +16,21 @@ import {
   Skeleton,
 } from '@mui/material';
 import { savingsService } from '@/lib/api/services/savingsService';
-import { loanService } from '@/lib/api';
+import { loanService, memberService } from '@/lib/api';
 import { formatCurrency } from '@/utils/formatting/format';
 
+// Compute stable date range strings outside the component to avoid re-renders
+const now = new Date();
+const _currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+const _currentMonthEnd = now.toISOString().split('T')[0];
+const _prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+const _prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+
 // Hooks
-import { 
+import {
   useAdminLoansSummary,
-  useAdminSavingsSummary 
+  useAdminSavingsSummary,
+  useAdminSavingsOverview,
 } from '@/lib/hooks/admin/useAdminFinancial';
 import { useEnhancedLoansSummary } from '@/lib/hooks/admin/useAdminFinancial';
 import { useTransactionStats } from '@/lib/hooks/admin/useAdminTransactions';
@@ -88,10 +96,39 @@ const FinancialSummary = () => {
     error: loansError 
   } = useAdminLoansSummary(); // Use the standardized hook
 
-  const { 
-    data: enhancedLoansSummary, 
+  const {
+    data: enhancedLoansSummary,
     isLoading: isEnhancedLoading
   } = useEnhancedLoansSummary(); // Add enhanced summary for totalRepaid
+
+  // Fetch all-time savings overview for accurate member count and average
+  const { data: savingsOverview } = useAdminSavingsOverview();
+
+  // Loan disbursement queries for month-over-month growth
+  const { data: currentMonthLoans } = useQuery({
+    queryKey: ['loans-summary-current-month', _currentMonthStart],
+    queryFn: () => loanService.getLoansSummary(_currentMonthStart, _currentMonthEnd),
+    staleTime: 300000,
+  });
+
+  const { data: prevMonthLoans } = useQuery({
+    queryKey: ['loans-summary-prev-month', _prevMonthStart],
+    queryFn: () => loanService.getLoansSummary(_prevMonthStart, _prevMonthEnd),
+    staleTime: 300000,
+  });
+
+  // Member registration queries for month-over-month growth
+  const { data: currentMonthMembers } = useQuery({
+    queryKey: ['members-current-month', _currentMonthStart],
+    queryFn: () => memberService.getAllBiodata({ page: 1, limit: 1, startDate: _currentMonthStart, endDate: _currentMonthEnd }),
+    staleTime: 300000,
+  });
+
+  const { data: prevMonthMembers } = useQuery({
+    queryKey: ['members-prev-month', _prevMonthStart],
+    queryFn: () => memberService.getAllBiodata({ page: 1, limit: 1, startDate: _prevMonthStart, endDate: _prevMonthEnd }),
+    staleTime: 300000,
+  });
 
   // UPDATE: Include transaction stats loading in overall loading state
   const isLoading = isSavingsLoading || isLoansLoading || isEnhancedLoading || isTransactionStatsLoading;
@@ -105,16 +142,9 @@ const FinancialSummary = () => {
     const totalSavingsAmount = Number(transactionStats.totalSavingsDeposits || 0);
     const totalSharesAmount = Number(transactionStats.totalSharesDeposits || 0);
     
-    // Keep other data from savings summary
-    let activeMemberCount = 0;
-    let monthlyContribution = 0;
-
-    if (savingsSummary.data && Array.isArray(savingsSummary.data)) {
-      activeMemberCount = new Set(savingsSummary.data.map(r => r.accountId)).size;
-    } else {
-      activeMemberCount = Number(savingsSummary.activeAccountsCount || 0);
-      monthlyContribution = Number(savingsSummary.monthlyContribution || 0);
-    }
+    // Use the overview's totalMembers (from DB aggregate) for accurate count
+    const activeMemberCount = Number(savingsOverview?.totalMembers || savingsSummary.activeAccountsCount || 0);
+    const monthlyContribution = Number(savingsSummary.monthlyContribution || 0);
 
     console.log('FinancialSummary - Using transaction stats for savings data:', {
       totalSavingsAmount,
@@ -130,7 +160,7 @@ const FinancialSummary = () => {
       activeMemberCount,
       monthlyContribution,
     };
-  }, [savingsSummary, transactionStats]);
+  }, [savingsSummary, transactionStats, savingsOverview]);
 
   // Process loans data safely
   const processedLoansData = React.useMemo(() => {
@@ -210,13 +240,33 @@ const FinancialSummary = () => {
     };
   }, [processedSavingsData, processedLoansData]);
 
-  // Sample growth data (would come from API in production)
-  const growthData = {
-    savingsGrowth: 4.2,
-    sharesGrowth: 2.1,
-    loanGrowth: -1.3,
-    memberGrowth: 3.5,
-  };
+  // Calculate real month-over-month growth from live data
+  const growthData = React.useMemo(() => {
+    const calcGrowth = (current: number, previous: number): number =>
+      previous > 0 ? Math.round(((current - previous) / previous) * 1000) / 10 : 0;
+
+    // Savings/shares growth from monthlyBreakdown (year-scoped but has current & prev month)
+    const monthlyBreakdown: Array<{ month: number; savings: any; shares: any }> =
+      Array.isArray(savingsSummary?.data) ? savingsSummary.data : [];
+    const currentMonthNum = new Date().getMonth() + 1;
+    const prevMonthNum = currentMonthNum > 1 ? currentMonthNum - 1 : 12;
+    const curBreakdown = monthlyBreakdown.find(m => m.month === currentMonthNum);
+    const prevBreakdown = monthlyBreakdown.find(m => m.month === prevMonthNum);
+    const savingsGrowth = calcGrowth(Number(curBreakdown?.savings || 0), Number(prevBreakdown?.savings || 0));
+    const sharesGrowth = calcGrowth(Number(curBreakdown?.shares || 0), Number(prevBreakdown?.shares || 0));
+
+    // Loan growth from month-scoped disbursement totals
+    const curLoanDisbursed = Number((currentMonthLoans as any)?.totalDisbursed || (currentMonthLoans as any)?.data?.totalDisbursed || 0);
+    const prevLoanDisbursed = Number((prevMonthLoans as any)?.totalDisbursed || (prevMonthLoans as any)?.data?.totalDisbursed || 0);
+    const loanGrowth = calcGrowth(curLoanDisbursed, prevLoanDisbursed);
+
+    // Member growth from month-scoped biodata count
+    const curMembers = Number((currentMonthMembers as any)?.meta?.total || (currentMonthMembers as any)?.total || 0);
+    const prevMembers = Number((prevMonthMembers as any)?.meta?.total || (prevMonthMembers as any)?.total || 0);
+    const memberGrowth = calcGrowth(curMembers, prevMembers);
+
+    return { savingsGrowth, sharesGrowth, loanGrowth, memberGrowth };
+  }, [savingsSummary, currentMonthLoans, prevMonthLoans, currentMonthMembers, prevMonthMembers]);
 
   // UPDATE: Create metric cards data with transaction-based savings total
   const metricsData: FinancialMetric[] = [

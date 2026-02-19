@@ -176,7 +176,9 @@ export class BiodataController {
         isApproved: filters.isApproved as boolean,
         isDeleted: filters.isDeleted as boolean,
         membershipStatus: filters.membershipStatus as MembershipStatus,
-        searchTerm: filters.searchTerm as string
+        searchTerm: filters.searchTerm as string,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
       });
       return ApiResponse.success(res, 'Biodata retrieved successfully', biodata);
     } catch (error) {

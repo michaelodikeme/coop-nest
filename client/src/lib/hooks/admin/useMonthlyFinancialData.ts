@@ -32,79 +32,40 @@ export function useMonthlyFinancialData(year: number = new Date().getFullYear())
     queryFn: async (): Promise<MonthlyFinancialStats> => {
       console.log(`Fetching monthly financial data for year: ${year}`);
       
+      // Build year-specific date range for loan filtering
+      const yearStart = `${year}-01-01`;
+      const yearEnd = `${year}-12-31`;
+
       try {
         // Fetch all data concurrently
         const [savingsData, loansData, transactionsData] = await Promise.allSettled([
-          // FIXED: Call the correct method that returns monthly breakdown
-          savingsService.getAdminSavingsSummary(), // This should work based on your API response
-          
-          // Get enhanced loan summary with monthly breakdown
+          // Use getSavingsStats(year) which returns the raw stats with monthlyBreakdown at the top level
+          savingsService.getSavingsStats(year),
+
+          // Get enhanced loan summary with monthly breakdown, filtered to the selected year
           loanService.getEnhancedLoansSummary({
-            includeMonthlyBreakdown: true
+            startDate: yearStart,
+            endDate: yearEnd,
+            includeMonthlyBreakdown: true,
           }),
-          
-          // FIXED: Get more transactions and use the correct response structure
+
+          // Get transactions for the year
           transactionService.getAllTransactions({
             page: 1,
-            limit: 200, // Increased to capture more data
+            limit: 200,
           })
         ]);
 
-        // Process savings data
-        let savingsStats: any = null;
-        if (savingsData.status === 'fulfilled') {
-          savingsStats = savingsData.value;
-          console.log('Savings data fetched successfully:', savingsStats);
-          console.log('Savings data structure check:', {
-            hasData: !!savingsStats?.data?.data,
-            hasMonthlyBreakdown: !!savingsStats?.data?.monthlyBreakdown,
-            directMonthlyBreakdown: !!savingsStats?.monthlyBreakdown,
-            breakdownLength: savingsStats?.data?.monthlyBreakdown?.length || savingsStats?.monthlyBreakdown?.length || 0
-          });
-        } else {
-          console.error('Failed to fetch savings data:', savingsData.reason);
-        }
-
-        // Process loans data
-        let loansStats: any = null;
-        if (loansData.status === 'fulfilled') {
-          loansStats = loansData.value;
-          console.log('Loans data fetched successfully:', loansStats);
-        } else {
-          console.error('Failed to fetch loans data:', loansData.reason);
-        }
-
-        // Process transactions data
-        let transactionsStats: any = null;
-        if (transactionsData.status === 'fulfilled') {
-          transactionsStats = transactionsData.value;
-          console.log('Transactions data fetched successfully:', transactionsStats);
-          console.log('Transactions data structure check:', {
-            hasData: !!transactionsStats?.data,
-            hasNestedData: !!transactionsStats?.data?.data,
-            isDirectArray: Array.isArray(transactionsStats),
-            dataLength: transactionsStats?.data?.data?.length || transactionsStats?.data?.length || 0,
-            total: transactionsStats?.data?.total || 0
-          });
-        } else {
-          console.error('Failed to fetch transactions data:', transactionsData.reason);
-        }
+        // Process data from settled promises
+        const savingsStats: any = savingsData.status === 'fulfilled' ? savingsData.value : null;
+        const loansStats: any = loansData.status === 'fulfilled' ? loansData.value : null;
+        const transactionsStats: any = transactionsData.status === 'fulfilled' ? transactionsData.value : null;
 
         // Transform data into monthly format
         const monthlyData = transformToMonthlyData(savingsStats, loansStats, transactionsStats, year);
-        
-        // Calculate totals
         const totals = calculateTotals(savingsStats, loansStats, transactionsStats);
-        console.log('Monthly financial data transformed:', monthlyData);
 
-        const result: MonthlyFinancialStats = {
-          monthlyData,
-          totals,
-          year
-        };
-
-        console.log('Final monthly financial data:', result.totals);
-        return result;
+        return { monthlyData, totals, year } as MonthlyFinancialStats;
 
       } catch (error) {
         console.error('Error fetching monthly financial data:', error);
@@ -155,78 +116,49 @@ function transformToMonthlyData(
 }
 
 // Extract savings amount for specific month from API response
+// savingsData comes from getSavingsStats(year) which returns { monthlyBreakdown, totalSavings, ... }
 function extractSavingsForMonth(savingsData: any, month: number): number {
-  // FIXED: Check multiple possible data structures
-  console.log('Savings data structure:', savingsData);
-  
-  if (!savingsData) {
-    console.log('No savings data provided');
-    return 0;
-  }
+  if (!savingsData) return 0;
 
-  // Check if data is directly in savingsData.data.monthlyBreakdown
-  if (savingsData.data?.monthlyBreakdown) {
-    const monthData = savingsData.data.monthlyBreakdown.find((m: any) => m.month === month);
-    if (monthData) {
-      const savingsAmount = Number(monthData.savings || 0);
-      console.log(`Month ${month} savings from data.monthlyBreakdown:`, savingsAmount);
-      return savingsAmount;
-    }
-  }
+  // getSavingsStats returns the stats object directly with monthlyBreakdown at top level
+  const breakdown: any[] | undefined =
+    savingsData.monthlyBreakdown ||        // getSavingsStats result
+    savingsData.data?.monthlyBreakdown;    // fallback for wrapped response
 
-  // Check if data is directly in savingsData.monthlyBreakdown
-  if (savingsData.monthlyBreakdown) {
-    const monthData = savingsData.monthlyBreakdown.find((m: any) => m.month === month);
-    if (monthData) {
-      const savingsAmount = Number(monthData.savings || 0);
-      console.log(`Month ${month} savings from monthlyBreakdown:`, savingsAmount);
-      return savingsAmount;
-    }
-  }
+  if (!breakdown) return 0;
 
-  console.log(`No savings monthly breakdown found for month ${month}`);
-  return 0;
+  const monthData = breakdown.find((m: any) => m.month === month);
+  return Number(monthData?.savings || 0);
 }
 
 // Extract shares amount for specific month from API response
 function extractSharesForMonth(savingsData: any, month: number): number {
   if (!savingsData) return 0;
 
-  // FIXED: Check multiple possible data structures  
-  let monthlyBreakdown = savingsData.data?.monthlyBreakdown || savingsData.monthlyBreakdown;
-  
-  if (!monthlyBreakdown) {
-    console.log(`No shares monthly breakdown found for month ${month}`);
-    return 0;
-  }
+  const breakdown: any[] | undefined =
+    savingsData.monthlyBreakdown ||
+    savingsData.data?.monthlyBreakdown;
 
-  const monthData = monthlyBreakdown.find((m: any) => m.month === month);
-  if (!monthData) {
-    return 0;
-  }
+  if (!breakdown) return 0;
 
-  // Convert string to number and handle the 'shares' field
-  const sharesAmount = Number(monthData.shares || 0);
-  console.log(`Month ${month} shares:`, sharesAmount);
-  return sharesAmount;
+  const monthData = breakdown.find((m: any) => m.month === month);
+  return Number(monthData?.shares || 0);
 }
 
 // Extract loans amount for specific month from API response
+// getEnhancedLoansSummary returns ApiResponse wrapper: { data: { monthlyBreakdown: [...] } }
 function extractLoansForMonth(loansData: any, month: number): number {
-  if (!loansData?.data?.monthlyBreakdown) {
-    console.log('No loans monthly breakdown found');
-    return 0;
-  }
+  if (!loansData) return 0;
 
-  const monthData = loansData.data.monthlyBreakdown.find((m: any) => m.month === month);
-  if (!monthData) {
-    return 0;
-  }
+  // Handle both wrapped ({ data: { monthlyBreakdown } }) and direct ({ monthlyBreakdown }) formats
+  const breakdown: any[] | undefined =
+    loansData.data?.monthlyBreakdown ||
+    loansData.monthlyBreakdown;
 
-  // Use disbursedAmount as the primary metric for chart display
-  const disbursedAmount = Number(monthData.disbursedAmount || 0);
-  console.log(`Month ${month} loans disbursed:`, disbursedAmount);
-  return disbursedAmount;
+  if (!breakdown) return 0;
+
+  const monthData = breakdown.find((m: any) => m.month === month);
+  return Number(monthData?.disbursedAmount || 0);
 }
 
 // Extract transaction amounts for specific month from API response
@@ -235,12 +167,8 @@ function extractTransactionsForMonth(
   month: number, 
   year: number
 ): { total: number; deposits: number; withdrawals: number } {
-  // FIXED: Handle the actual response structure
-  console.log('Transactions data structure:', transactionsData);
-  
-  let transactionsList = [];
-  
-  // Handle different response structures
+  let transactionsList: any[] = [];
+
   if (transactionsData?.data?.data && Array.isArray(transactionsData.data.data)) {
     transactionsList = transactionsData.data.data;
   } else if (transactionsData?.data && Array.isArray(transactionsData.data)) {
@@ -248,11 +176,8 @@ function extractTransactionsForMonth(
   } else if (Array.isArray(transactionsData)) {
     transactionsList = transactionsData;
   } else {
-    console.log(`No valid transactions data found for month ${month}`);
     return { total: 0, deposits: 0, withdrawals: 0 };
   }
-
-  console.log(`Total transactions available: ${transactionsList.length}`);
 
   // Filter transactions for the specific month and year
   const monthTransactions = transactionsList.filter((transaction: any) => {
@@ -264,8 +189,6 @@ function extractTransactionsForMonth(
     
     return transactionMonth === month && transactionYear === year;
   });
-
-  console.log(`Month ${month} filtered transactions:`, monthTransactions.length);
 
   // Calculate totals for this month
   let deposits = 0;
@@ -288,34 +211,23 @@ function extractTransactionsForMonth(
     }
   });
 
-  console.log(`Month ${month} transaction totals:`, { total, deposits, withdrawals });
   return { total, deposits, withdrawals };
 }
 
 // Calculate overall totals from all data sources
 function calculateTotals(savingsData: any, loansData: any, transactionsData: any) {
-  // FIXED: Extract totals from the correct data structure
-  let totalSavings = 0;
-  let totalShares = 0;
-  
-  // Use the same logic as monthly extraction
-  if (savingsData?.data?.totalSavings) {
-    totalSavings = Number(savingsData.data.totalSavings);
-  } else if (savingsData?.totalSavings) {
-    totalSavings = Number(savingsData.totalSavings);
-  }
-  
-  if (savingsData?.data?.totalShares) {
-    totalShares = Number(savingsData.data.totalShares);
-  } else if (savingsData?.totalShares) {
-    totalShares = Number(savingsData.totalShares);
-  }
-  
+  // getSavingsStats returns { totalSavings, totalShares, ... } at top level
+  const totalSavings = Number(
+    savingsData?.totalSavings || savingsData?.data?.totalSavings || 0
+  );
+  const totalShares = Number(
+    savingsData?.totalShares || savingsData?.data?.totalShares || 0
+  );
+
+  // Enhanced loan summary is wrapped: { data: { totalDisbursed } }
   const totalLoans = Number(loansData?.data?.totalDisbursed || loansData?.totalDisbursed || 0);
   
-  console.log('Totals calculated:', { totalSavings, totalShares, totalLoans });
-  
-  // Keep transaction totals calculation as is (it's working)
+  // Transaction totals
   let totalTransactions = 0;
   let totalDeposits = 0;
   let totalWithdrawals = 0;

@@ -346,7 +346,7 @@ export class BiodataService {
   async getBiodata(filters: IBiodataQueryFilters) {
     // Create a copy of the filters to avoid mutating the original
     const where: any = { ...filters };
-    
+
     // Handle search term
     if (filters.searchTerm) {
       where.OR = [
@@ -358,10 +358,20 @@ export class BiodataService {
         { ippisId: { contains: filters.searchTerm } },
       ];
     }
-    
-    // Make sure to COMPLETELY remove searchTerm from where object
+
+    // Handle date range filter on createdAt
+    if (filters.startDate || filters.endDate) {
+      where.createdAt = {
+        ...(filters.startDate && { gte: filters.startDate }),
+        ...(filters.endDate && { lte: filters.endDate }),
+      };
+    }
+
+    // Make sure to COMPLETELY remove searchTerm, startDate, endDate from where object
     delete where.searchTerm;
-    
+    delete where.startDate;
+    delete where.endDate;
+
     // Remove any undefined fields to avoid Prisma errors
     Object.keys(where).forEach(key => {
       if (where[key] === undefined || where[key] === '') {
