@@ -16,11 +16,9 @@ export function useAdminDashboard() {
   // Fetch members count only for dashboard metrics
   const { totalMembers, isLoading: isMembersLoading } = useMembers(1, 1, {}, true);
 
-  // Use the correct method for pending approvals count
-  // This should get approvals assigned to the current admin user
   const pendingApprovalsQuery = useQueryWithToast(
     ['admin-pending-approvals-count'],
-    () => requestService.getPendingApprovalsCount(), // Changed from requestService.getPendingRequestCount()
+    () => requestService.getPendingRequestCount(),
     {
       errorMessage: 'Failed to load pending approvals',
       staleTime: 60000, // Reduced from 5 minutes to 1 minute for more frequent updates

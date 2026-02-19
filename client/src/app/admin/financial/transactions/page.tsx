@@ -161,7 +161,7 @@ export default function AdminTransactionsPage() {
     totalWithdrawals: transactionStats?.totalWithdrawals || 0,
     totalSavingsDeposits: transactionStats?.totalSavingsDeposits || 0,
     totalSavingsWithdrawals: transactionStats?.totalSavingsWithdrawals || 0,
-    totalSharesDeposits: transactionStats?.totolSharesDeposits || 0,
+    totalSharesDeposits: transactionStats?.totalSharesDeposits || 0,
     totalLoanRepayments: transactionStats?.totalLoanRepayments || 0,
     totalLoanDisbursements: transactionStats?.totalLoanDisbursements || 0,
   };

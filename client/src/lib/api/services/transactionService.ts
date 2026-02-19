@@ -220,7 +220,7 @@ export class TransactionService {
     totalWithdrawals: number;
     totalSavingsDeposits: number;
     totalSavingsWithdrawals: number;
-    totolSharesDeposits: number;
+    totalSharesDeposits: number;
     totalLoanRepayments: number;
     totalLoanDisbursements: number;
   }> {
@@ -256,7 +256,7 @@ export class TransactionService {
         totalWithdrawals: totalWithdrawalsData || 0,
         totalSavingsDeposits: savingDepositsData.totalAmount || 0,
         totalSavingsWithdrawals: savingsWithdrawalsData.totalAmount || 0,
-        totolSharesDeposits: sharesDepositData.totalAmount || 0,
+        totalSharesDeposits: sharesDepositData.totalAmount || 0,
         totalLoanRepayments: summary.typeSummary?.LOAN_REPAYMENT?.totalAmount || 0,
         totalLoanDisbursements: summary.typeSummary?.LOAN_DISBURSEMENT?.totalAmount || 0
       };
@@ -270,7 +270,7 @@ export class TransactionService {
         totalWithdrawals: 0,
         totalSavingsDeposits: 0,
         totalSavingsWithdrawals: 0,
-        totolSharesDeposits: 0,
+        totalSharesDeposits: 0,
         totalLoanRepayments: 0,
         totalLoanDisbursements: 0
       };

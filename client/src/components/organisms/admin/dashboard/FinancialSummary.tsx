@@ -103,7 +103,7 @@ const FinancialSummary = () => {
 
     // Use transaction stats for accurate savings totals (same as AdminTransactionsPage)
     const totalSavingsAmount = Number(transactionStats.totalSavingsDeposits || 0);
-    const totalSharesAmount = Number(transactionStats.totolSharesDeposits || 0); // Note: API has typo
+    const totalSharesAmount = Number(transactionStats.totalSharesDeposits || 0);
     
     // Keep other data from savings summary
     let activeMemberCount = 0;
