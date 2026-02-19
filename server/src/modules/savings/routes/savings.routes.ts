@@ -62,6 +62,14 @@ router.get(
     savingsController.getMonthlySavings.bind(savingsController) as RouteHandler
 );
 
+// Admin overview (all-time aggregates)
+router.get(
+    '/overview',
+    authorizeRoles(['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN']),
+    checkPermission('VIEW_SAVINGS_STATS'),
+    savingsController.getAdminOverview.bind(savingsController) as RouteHandler
+);
+
 // Stats routes
 router.get(
     '/stats/:year',

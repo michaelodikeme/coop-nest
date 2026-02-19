@@ -229,6 +229,13 @@ export interface ISavingsStats {
     } | null;
 }
 
+export interface IAdminOverview {
+    totalSavings: Decimal;
+    totalShares: Decimal;
+    totalMembers: number;
+    averageSavingsPerMember: Decimal;
+}
+
 export interface ITransactionHistoryParams {
   savingsId: string;
   biodataId: string;// user's biodata ID

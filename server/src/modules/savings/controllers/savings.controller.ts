@@ -226,6 +226,15 @@ export class SavingsController {
     }
   };
 
+  getAdminOverview = async (_req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const overview = await this.savingsService.getAdminOverview();
+      ApiResponse.success(res, 'Admin savings overview retrieved successfully', overview);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   getSavingsStats = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { year } = req.params;

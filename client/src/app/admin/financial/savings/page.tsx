@@ -34,7 +34,7 @@ import { formatCurrency, formatDate } from "@/utils/formatting/format";
 import {
   useAdminSavings,
   useAdminMonthlySavings,
-  useAdminSavingsSummary,
+  useAdminSavingsOverview,
   useAdminSavingsUpload,
   useAdminWithdrawalRequests,
   useProcessWithdrawal,
@@ -109,8 +109,8 @@ export default function AdminSavingsPage() {
       monthlySavingsPage,
       monthlySavingsPageSize
     );
-  const { data: savingsSummaryData, isLoading: isLoadingSummary } =
-    useAdminSavingsSummary();
+  const { data: overviewData, isLoading: isLoadingOverview } =
+    useAdminSavingsOverview();
   const savingsUploadMutation = useAdminSavingsUpload();
   const {
     data: withdrawalRequests,
@@ -443,6 +443,7 @@ export default function AdminSavingsPage() {
     const summary = {
       totalMembers: 0,
       totalAmount: 0,
+      totalShares: 0,
       averageAmount: 0,
       monthlyTarget: 0,
       totalSavings: 0,
@@ -450,28 +451,15 @@ export default function AdminSavingsPage() {
       lastUpdate: "N/A",
     };
 
-    // Get total members from meta data if available
-    if (allSavings?.meta?.total) {
-      summary.totalMembers = allSavings.meta.total;
-    }
-
-    // Calculate totals from savings summary data if available
-    if (savingsSummaryData) {
-      // No need to navigate through .data since we're returning the full object from the hook
-      summary.totalAmount = Number(
-        savingsSummaryData.totalSavings ||
-          savingsSummaryData.totalSavingsAmount ||
-          0
-      );
-      summary.grossContributions = Number(
-        savingsSummaryData.totalGrossAmount || 0
-      );
-      summary.monthlyTarget = Number(savingsSummaryData.monthlyTarget || 0);
-
-      const activeAccountsCount =
-        savingsSummaryData.activeAccountsCount || allSavings?.meta?.total || 1;
-
-      summary.averageAmount = summary.totalAmount / activeAccountsCount;
+    // Use all-time overview data (totalSavings, totalShares, totalMembers, averageSavingsPerMember)
+    if (overviewData) {
+      summary.totalAmount = Number(overviewData.totalSavings || 0);
+      summary.totalShares = Number(overviewData.totalShares || 0);
+      summary.totalMembers = overviewData.totalMembers || memberSummary?.meta?.total || 0;
+      summary.averageAmount = Number(overviewData.averageSavingsPerMember || 0);
+    } else {
+      // Fallback to paginated member count if overview not yet loaded
+      summary.totalMembers = memberSummary?.meta?.total || 0;
     }
 
     // Get last update from first record if available
@@ -599,7 +587,7 @@ export default function AdminSavingsPage() {
                 Total Savings
               </Typography>
               <Typography variant="h5" component="div" fontWeight={600}>
-                {isLoadingSummary ? (
+                {isLoadingOverview ? (
                   <CircularProgress size={24} />
                 ) : (
                   formatCurrency(savingsSummary.totalAmount)
@@ -607,6 +595,26 @@ export default function AdminSavingsPage() {
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 Combined savings balance
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card variant="outlined" sx={{ height: "100%" }}>
+            <CardContent>
+              <Typography color="text.secondary" gutterBottom>
+                Total Shares
+              </Typography>
+              <Typography variant="h5" component="div" fontWeight={600}>
+                {isLoadingOverview ? (
+                  <CircularProgress size={24} />
+                ) : (
+                  formatCurrency(savingsSummary.totalShares)
+                )}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Combined shares balance
               </Typography>
             </CardContent>
           </Card>
@@ -639,10 +647,10 @@ export default function AdminSavingsPage() {
                 Average Savings
               </Typography>
               <Typography variant="h5" component="div" fontWeight={600}>
-                {isLoadingSummary ? (
+                {isLoadingOverview ? (
                   <CircularProgress size={24} />
                 ) : (
-                  formatCurrency(savingsSummary.monthlyTarget)
+                  formatCurrency(savingsSummary.averageAmount)
                 )}
               </Typography>
               <Typography variant="caption" color="text.secondary">

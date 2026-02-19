@@ -102,6 +102,15 @@ class SavingsService {
   }
 
   /**
+   * Get admin savings overview (all-time aggregates)
+   * GET /savings/overview
+   */
+  async getAdminOverview() {
+    const response = await apiService.get('/savings/overview') as { data?: any };
+    return response?.data ?? null;
+  }
+
+  /**
    * Get admin savings summary [FRONTEND AGGREGATION]
    * Aggregates all savings and shares for admin dashboard.
    */

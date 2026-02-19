@@ -13,7 +13,8 @@ import {
     ISavingsStats,
     IPaginatedSavingsResponse,
     IProcessedSavings,
-    ISavingsConfiguration
+    ISavingsConfiguration,
+    IAdminOverview
 } from '../interfaces/savings.interface';
 import {
     MemberSavingsSummaryParams,
@@ -1039,6 +1040,28 @@ export class SavingsService {
         }
     }
     
+    async getAdminOverview(): Promise<IAdminOverview> {
+        try {
+            const [savingsAggregate, sharesAggregate, memberGroups] = await Promise.all([
+                prisma.savings.aggregate({ _sum: { totalSavingsAmount: true } }),
+                prisma.shares.aggregate({ _sum: { totalSharesAmount: true } }),
+                prisma.savings.groupBy({ by: ['memberId'] }),
+            ]);
+
+            const totalSavings = savingsAggregate._sum.totalSavingsAmount ?? new Prisma.Decimal(0);
+            const totalShares = sharesAggregate._sum.totalSharesAmount ?? new Prisma.Decimal(0);
+            const totalMembers = memberGroups.length;
+            const averageSavingsPerMember = totalMembers > 0
+                ? totalSavings.div(totalMembers)
+                : new Prisma.Decimal(0);
+
+            return { totalSavings, totalShares, totalMembers, averageSavingsPerMember };
+        } catch (error) {
+            logger.error('Error getting admin overview:', error);
+            throw new ApiError('Failed to fetch admin savings overview', 500);
+        }
+    }
+
     private mapSavingsResponse(savings: Savings & { member?: any, shares?: any[], transactions?: any[] }): IProcessedSavings {
         return {
             id: savings.id,

@@ -26,6 +26,14 @@ export function useAdminSavings(page = 1, limit = 10, filters = {}) {
   });
 }
 
+// All-time admin overview hook (total savings, total shares, member count, average)
+export function useAdminSavingsOverview() {
+  return useQuery({
+    queryKey: ['admin-savings-overview'],
+    queryFn: () => savingsService.getAdminOverview(),
+  });
+}
+
 // Enhanced savings summary hook
 export function useAdminSavingsSummary() {
   const currentYear = new Date().getFullYear();
