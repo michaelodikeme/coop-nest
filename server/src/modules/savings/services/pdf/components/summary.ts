@@ -5,19 +5,29 @@ import { formatCurrency } from '../../../../../utils/formatters';
 export const addSummary = (
     doc: PDFKit.PDFDocument,
     config: IStatementConfig,
-    memberInfo: any
+    memberInfo: any,
+    filterType?: 'ALL' | 'SAVINGS' | 'SHARES'
 ): void => {
-    // Add section title
+    // Add section title - LEFT ALIGNED
     doc.font(`${config.defaultFont}-Bold`)
         .fontSize(14)
         .fillColor(config.colors.primary)
-        .text('Account Summary')
+        .text('Account Summary', config.margins.left, doc.y, { align: 'left' })
         .moveDown(0.5);
 
-    // Create boxes for summary info
-    const boxWidth = (doc.page.width - config.margins.left - config.margins.right - 40) / 3;
-    const boxHeight = 80;
     const startY = doc.y;
+
+    // Determine which boxes to show based on filter type
+    const showSavings = !filterType || filterType === 'ALL' || filterType === 'SAVINGS';
+    const showShares = !filterType || filterType === 'ALL' || filterType === 'SHARES';
+
+    // Count visible boxes to calculate width
+    let visibleBoxCount = 0;
+    if (showSavings) visibleBoxCount += 2; // Savings Balance + Monthly Target
+    if (showShares) visibleBoxCount += 1;  // Total Shares
+
+    const boxWidth = (doc.page.width - config.margins.left - config.margins.right - ((visibleBoxCount - 1) * 20)) / visibleBoxCount;
+    const boxHeight = 80;
 
     // Helper function to draw a summary box
     const drawSummaryBox = (
@@ -43,27 +53,34 @@ export const addSummary = (
             .text(value, x + 10, startY + 35, { width: boxWidth - 20, align: 'center' });
     };
 
-    // Draw summary boxes
-    drawSummaryBox(
-        'Total Savings Balance',
-        formatCurrency(memberInfo.savings?.balance || 0),
-        config.margins.left,
-        config.colors.primary
-    );
+    let boxIndex = 0;
 
-    drawSummaryBox(
-        'Monthly Target',
-        formatCurrency(memberInfo.savings?.monthlyTarget || 0),
-        config.margins.left + boxWidth + 20
-    );
+    // Draw summary boxes conditionally
+    if (showSavings) {
+        drawSummaryBox(
+            'Total Savings Balance',
+            formatCurrency(memberInfo.totalSavings || 0),
+            config.margins.left + (boxIndex * (boxWidth + 20)),
+            config.colors.primary
+        );
+        boxIndex++;
 
-    drawSummaryBox(
-        'Total Shares Value',
-        formatCurrency(memberInfo.shares?.totalValue || 0),
-        config.margins.left + (boxWidth + 20) * 2,
-        '#2e7d32' // Green color for shares
-    );
+        drawSummaryBox(
+            'Monthly Target',
+            formatCurrency(memberInfo.savings?.monthlyTarget || 0),
+            config.margins.left + (boxIndex * (boxWidth + 20))
+        );
+        boxIndex++;
+    }
 
-    doc.y = startY + boxHeight + 20;
-    doc.moveDown();
+    if (showShares) {
+        drawSummaryBox(
+            'Total Shares Value',
+            formatCurrency(memberInfo.totalShares || 0),
+            config.margins.left + (boxIndex * (boxWidth + 20)),
+            '#2e7d32' // Green color for shares
+        );
+    }
+
+    doc.y = startY + boxHeight + 15; // Reduced spacing
 };

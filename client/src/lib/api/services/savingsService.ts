@@ -407,12 +407,93 @@ class SavingsService {
    * This endpoint allows downloading the savings statement as a PDF.
    * GET /savings/statement/:erpId/download
    */
-  async downloadSavingsStatement(erpId: string): Promise<Blob> {
-    return apiService.get(`/savings/statement/${erpId}/download`, {
+  async downloadSavingsStatement(erpId: string, filters?: {
+    type?: 'ALL' | 'SAVINGS' | 'SHARES';
+    startDate?: string;
+    endDate?: string;
+  }): Promise<Blob> {
+    const queryParams = new URLSearchParams();
+
+    if (filters) {
+      if (filters.type) queryParams.append('type', filters.type);
+      if (filters.startDate) queryParams.append('startDate', filters.startDate);
+      if (filters.endDate) queryParams.append('endDate', filters.endDate);
+    }
+
+    const url = `/savings/statement/${erpId}/download${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
+    return apiService.get(url, {
       responseType: 'blob'
     });
   }
 
+  // ================ EXPORT ENDPOINTS ================
+
+  /**
+   * Export all savings summary with filters [ADMIN ONLY]
+   * This endpoint exports all member savings summary data as an Excel file.
+   * GET /savings/export/summary
+   */
+  async exportAllSavingsSummary(filters?: {
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    status?: string;
+  }): Promise<Blob> {
+    const queryParams = new URLSearchParams();
+
+    if (filters) {
+      if (filters.search) queryParams.append('search', filters.search);
+      if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
+      if (filters.sortOrder) queryParams.append('sortOrder', filters.sortOrder);
+      if (filters.status) queryParams.append('status', filters.status);
+    }
+
+    const url = `/savings/export/summary${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
+    return apiService.get(url, {
+      responseType: 'blob'
+    });
+  }
+
+  /**
+   * Export monthly savings for a specific month and year [ADMIN ONLY]
+   * This endpoint exports all savings data for a specific month and year as an Excel file.
+   * GET /savings/export/monthly
+   */
+  async exportMonthlySavings(year: number, month: number): Promise<Blob> {
+    const queryParams = new URLSearchParams({
+      year: year.toString(),
+      month: month.toString()
+    });
+
+    return apiService.get(`/savings/export/monthly?${queryParams.toString()}`, {
+      responseType: 'blob'
+    });
+  }
+
+  /**
+   * Export withdrawal requests with filters [ADMIN ONLY]
+   * This endpoint exports withdrawal requests as an Excel file.
+   * GET /savings/export/withdrawals
+   */
+  async exportWithdrawals(filters?: {
+    status?: string;
+    search?: string;
+  }): Promise<Blob> {
+    const queryParams = new URLSearchParams();
+
+    if (filters) {
+      if (filters.status) queryParams.append('status', filters.status);
+      if (filters.search) queryParams.append('search', filters.search);
+    }
+
+    const url = `/savings/export/withdrawals${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
+    return apiService.get(url, {
+      responseType: 'blob'
+    });
+  }
 
   /**
    * Get savings statistics for a year [ADMIN ONLY]

@@ -41,6 +41,7 @@ import {
   useWithdrawalStatistics,
   useMembersSavingsSummary, // Import the new hook
 } from "@/lib/hooks/admin/useAdminFinancial";
+import { savingsService } from "@/lib/api";
 import SearchIcon from "@mui/icons-material/Search";
 import { useRouter } from "next/navigation";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
@@ -77,6 +78,7 @@ export default function AdminSavingsPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [monthlySavingsPage, setMonthlySavingsPage] = useState(0);
   const [monthlySavingsPageSize, setMonthlySavingsPageSize] = useState(50);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Create search/filter object
   const filters = {
@@ -158,6 +160,67 @@ export default function AdminSavingsPage() {
       toast.error(
         "Failed to upload savings data. Please check file format and try again."
       );
+    }
+  };
+
+  // Handle export data based on active tab
+  const handleExportData = async () => {
+    try {
+      setIsExporting(true);
+      toast.info("Generating export file...");
+      let blob: Blob;
+      let filename: string;
+
+      switch (activeTab) {
+        case 0: // All Savings
+          blob = await savingsService.exportAllSavingsSummary({
+            search: searchTerm,
+            sortBy,
+            sortOrder,
+            status: withdrawalStatusFilter
+          });
+          filename = `savings_all_summary_${new Date().toISOString().split('T')[0]}.xlsx`;
+          break;
+
+        case 1: // Monthly Savings
+          blob = await savingsService.exportMonthlySavings(
+            filterYear,
+            filterMonth
+          );
+          const monthName = new Date(filterYear, filterMonth - 1).toLocaleString('default', { month: 'long' });
+          filename = `savings_monthly_${monthName}_${filterYear}_${new Date().toISOString().split('T')[0]}.xlsx`;
+          break;
+
+        case 2: // Withdrawals
+          blob = await savingsService.exportWithdrawals({
+            status: withdrawalStatusFilter,
+            search: searchTerm
+          });
+          const statusLabel = withdrawalStatusFilter || 'All';
+          filename = `withdrawals_${statusLabel}_${new Date().toISOString().split('T')[0]}.xlsx`;
+          break;
+
+        default:
+          toast.error("Invalid tab selected for export");
+          return;
+      }
+
+      // Trigger download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success('Data exported successfully');
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast.error('Failed to export data. Please try again.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -465,7 +528,7 @@ export default function AdminSavingsPage() {
     // Get last update from first record if available
     if (Array.isArray(allSavings?.data) && allSavings.data.length > 0) {
       const firstRecord = allSavings.data[0];
-      summary.lastUpdate = formatDate(firstRecord.createdAt || new Date());
+      summary.lastUpdate = formatDate(firstRecord.lastDeposit || new Date());
     }
 
     return summary;
@@ -564,16 +627,16 @@ export default function AdminSavingsPage() {
           </PermissionGate>
 
           <PermissionGate
-            permissions={["UPLOAD_SAVINGS"]}
+            permissions={["VIEW_SAVINGS"]}
             module={Module.SAVINGS}
-            approvalLevel={2}
           >
             <Button
-              onClick={() => window.open("/api/savings/backup", "_blank")}
+              onClick={handleExportData}
               variant="outlined"
               startIcon={<DownloadIcon />}
+              disabled={isExporting}
             >
-              Export Data
+              {isExporting ? "Exporting..." : "Export Data"}
             </Button>
           </PermissionGate>
         </Box>

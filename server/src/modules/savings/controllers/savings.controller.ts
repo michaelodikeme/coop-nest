@@ -3,7 +3,7 @@ import { TransactionType } from '@prisma/client';
 import { SavingsService } from '../services/savings.service';
 import { SavingsUploadService } from '../services/upload.service';
 import { SavingsBackupService } from '../services/backup.service';
-import { generateSavingsStatementPdf } from '../services/pdf.service';
+import { SavingsExportService } from '../services/export.service';
 import { StatementService } from '../services/pdf/statement.service';
 import { ApiResponse } from '../../../utils/apiResponse';
 import { AuthenticatedRequest } from '../../../types/express';
@@ -137,6 +137,107 @@ export class SavingsController {
         }
         fs.unlink(filepath, (unlinkErr) => {
           if (unlinkErr) console.error('Error deleting backup file:', unlinkErr);
+        });
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Export all savings summary with filters
+   * GET /api/savings/export/summary
+   */
+  exportAllSavingsSummary = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { search, sortBy, sortOrder, status } = req.query;
+
+      const filters = {
+        search: search as string,
+        sortBy: sortBy as string,
+        sortOrder: sortOrder as 'asc' | 'desc',
+        status: status as string
+      };
+
+      const filepath = await SavingsExportService.exportAllSavingsSummary(filters);
+
+      res.download(filepath, path.basename(filepath), (err) => {
+        if (err) {
+          next(err);
+        }
+        // Clean up file after download
+        fs.unlink(filepath, (unlinkErr) => {
+          if (unlinkErr) console.error('Error deleting export file:', unlinkErr);
+        });
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Export monthly savings for specific month and year
+   * GET /api/savings/export/monthly
+   */
+  exportMonthlySavings = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { year, month } = req.query;
+
+      if (!year || !month) {
+        throw new ValidationError('Year and month are required', {
+          year: ['Year is required'],
+          month: ['Month is required']
+        });
+      }
+
+      const yearNum = parseInt(year as string);
+      const monthNum = parseInt(month as string);
+
+      if (isNaN(yearNum) || isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
+        throw new ValidationError('Invalid year or month', {
+          year: ['Year must be a valid number'],
+          month: ['Month must be between 1 and 12']
+        });
+      }
+
+      const filepath = await SavingsExportService.exportMonthlySavings(yearNum, monthNum);
+
+      res.download(filepath, path.basename(filepath), (err) => {
+        if (err) {
+          next(err);
+        }
+        // Clean up file after download
+        fs.unlink(filepath, (unlinkErr) => {
+          if (unlinkErr) console.error('Error deleting export file:', unlinkErr);
+        });
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Export withdrawal requests with filters
+   * GET /api/savings/export/withdrawals
+   */
+  exportWithdrawalRequests = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { status, search } = req.query;
+
+      const filters = {
+        status: status as string,
+        search: search as string
+      };
+
+      const filepath = await SavingsExportService.exportWithdrawalRequests(filters);
+
+      res.download(filepath, path.basename(filepath), (err) => {
+        if (err) {
+          next(err);
+        }
+        // Clean up file after download
+        fs.unlink(filepath, (unlinkErr) => {
+          if (unlinkErr) console.error('Error deleting export file:', unlinkErr);
         });
       });
     } catch (error) {
@@ -295,22 +396,40 @@ export class SavingsController {
   downloadSavingsStatement = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { erpId } = req.params;
-      const { startDate, endDate } = req.query;
-      
+      const { startDate, endDate, type } = req.query;
+
       if (!req.user?.isAdmin && req.user?.erpId !== erpId) {
         throw new Error('Unauthorized access');
       }
 
       const statement = await this.savingsService.getSavingsStatement({ erpId, year: new Date().getFullYear(), month: new Date().getMonth() + 1 });
-      const dateRange = startDate && endDate ? { startDate: startDate as string, endDate: endDate as string } : undefined;
-      
-      const pdfPath = await this.statementService.generateStatement(statement, dateRange);
-      
+
+      // Build filters object
+      const filters: {
+        type?: 'ALL' | 'SAVINGS' | 'SHARES';
+        startDate?: Date;
+        endDate?: Date;
+      } = {};
+
+      if (type && ['ALL', 'SAVINGS', 'SHARES'].includes(type as string)) {
+        filters.type = type as 'ALL' | 'SAVINGS' | 'SHARES';
+      }
+
+      if (startDate) {
+        filters.startDate = new Date(startDate as string);
+      }
+
+      if (endDate) {
+        filters.endDate = new Date(endDate as string);
+      }
+
+      const pdfPath = await this.statementService.generateStatement(statement, filters);
+
       res.download(pdfPath, `savings_statement_${erpId}.pdf`, (err) => {
         if (fs.existsSync(pdfPath)) {
           fs.unlinkSync(pdfPath);
         }
-        
+
         if (err) {
           next(err);
         }

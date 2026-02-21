@@ -95,10 +95,32 @@ router.post(
 
 // Backup routes
 router.get(
-    '/backup', 
+    '/backup',
     checkPermission('PROCESS_SAVINGS'),
     checkApprovalLevel(3),
     savingsController.backupSavings.bind(savingsController) as RouteHandler
+);
+
+// Export routes
+router.get(
+    '/export/summary',
+    checkPermission('VIEW_SAVINGS'),
+    authorizeRoles(['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN']),
+    savingsController.exportAllSavingsSummary.bind(savingsController) as RouteHandler
+);
+
+router.get(
+    '/export/monthly',
+    checkPermission('VIEW_SAVINGS'),
+    authorizeRoles(['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN']),
+    savingsController.exportMonthlySavings.bind(savingsController) as RouteHandler
+);
+
+router.get(
+    '/export/withdrawals',
+    checkPermission('VIEW_SAVINGS'),
+    authorizeRoles(['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN']),
+    savingsController.exportWithdrawalRequests.bind(savingsController) as RouteHandler
 );
 
 // Statement routes

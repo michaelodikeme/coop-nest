@@ -8,7 +8,7 @@ export const addHeader = async (
     doc: PDFKit.PDFDocument,
     config: IStatementConfig,
     logoPath: string,
-    dateRange?: { startDate: string; endDate: string }
+    filterNote?: string
 ): Promise<void> => {
     // Add logo if exists
     try {
@@ -19,24 +19,23 @@ export const addHeader = async (
         console.error('Error loading logo:', error);
     }
 
-    // Add title
+    // Add title - LEFT ALIGNED
     doc.font(`${config.defaultFont}-Bold`)
         .fontSize(24)
         .fillColor(config.colors.primary)
-        .text('CoopNest', config.margins.left + 120, 40)
-        .fontSize(16)
-        .fillColor(config.colors.text)
-        .text('Savings Statement', config.margins.left + 120);
+        .text('CoopNest', config.margins.left, 40, { align: 'left' });
 
-    // Add date range if provided
-    if (dateRange) {
+    doc.fontSize(16)
+        .fillColor(config.colors.text)
+        .text('Savings Statement', config.margins.left, doc.y, { align: 'left' });
+
+    // Add filter note if provided - change to just show period
+    if (filterNote) {
+        // Extract just the period text, removing "Filtered Statement"
+        const periodText = filterNote.replace('Filtered Statement (', '').replace(')', '');
         doc.fontSize(10)
             .fillColor(config.colors.secondary)
-            .text(
-                `Period: ${dateRange.startDate} to ${dateRange.endDate}`,
-                config.margins.left + 120,
-                doc.y + 5
-            );
+            .text(periodText, config.margins.left, doc.y + 5, { align: 'left' });
     }
 
     // Add current date
@@ -44,9 +43,10 @@ export const addHeader = async (
         .fillColor(config.colors.secondary)
         .text(
             `Generated on: ${new Date().toLocaleDateString('en-GB')}`,
-            config.margins.left + 120,
-            doc.y + 5
+            config.margins.left,
+            doc.y + 5,
+            { align: 'left' }
         );
 
-    doc.moveDown(2);
+    doc.y += 30; // Move down 30 pixels
 };

@@ -297,13 +297,14 @@ export class SavingsService {
                     }
                 }
             });
-            
+
             if (!member) {
                 throw new ApiError('Member not found', 404);
             }
-            
-            const savings = await prisma.savings.findFirst({
-                where: { 
+
+            // Fetch ALL savings records for the member (not just one)
+            const allSavings = await prisma.savings.findMany({
+                where: {
                     erpId,
                     ...(year && { year })
                 },
@@ -317,6 +318,7 @@ export class SavingsService {
                             id: true,
                             createdAt: true,
                             transactionType: true,
+                            baseType: true,
                             amount: true,
                             balanceAfter: true,
                             description: true,
@@ -325,14 +327,94 @@ export class SavingsService {
                         orderBy: {
                             createdAt: 'desc'
                         }
+                    },
+                    shares: {
+                        select: {
+                            totalSharesAmount: true,
+                            monthlyTarget: true,
+                            transactions: {
+                                select: {
+                                    id: true,
+                                    createdAt: true,
+                                    transactionType: true,
+                                    baseType: true,
+                                    amount: true,
+                                    balanceAfter: true,
+                                    description: true,
+                                    status: true
+                                },
+                                orderBy: {
+                                    createdAt: 'desc'
+                                }
+                            }
+                        }
                     }
                 }
             });
-            
-            if (!savings) {
+
+            if (!allSavings || allSavings.length === 0) {
                 throw new ApiError('No savings records found', 404);
             }
-            
+
+            // Get the most recent savings record for summary info
+            const latestSavings = allSavings[0];
+
+            // Collect all transactions from all savings records AND shares records
+            const allTransactions: any[] = [];
+
+            allSavings.forEach(savingsRecord => {
+                // Add savings transactions
+                if (savingsRecord.transactions && savingsRecord.transactions.length > 0) {
+                    savingsRecord.transactions.forEach(tx => {
+                        allTransactions.push({
+                            date: tx.createdAt,
+                            transactionType: tx.transactionType,
+                            baseType: tx.baseType,
+                            amount: Number(tx.amount),
+                            description: tx.description || ''
+                        });
+                    });
+                }
+
+                // Add share transactions
+                if (savingsRecord.shares && savingsRecord.shares.length > 0) {
+                    savingsRecord.shares.forEach(shareRecord => {
+                        if (shareRecord.transactions && shareRecord.transactions.length > 0) {
+                            shareRecord.transactions.forEach(tx => {
+                                allTransactions.push({
+                                    date: tx.createdAt,
+                                    transactionType: tx.transactionType,
+                                    baseType: tx.baseType,
+                                    amount: Number(tx.amount),
+                                    description: tx.description || ''
+                                });
+                            });
+                        }
+                    });
+                }
+            });
+
+            // Sort all transactions by date descending (most recent first)
+            allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+            // Calculate totals from ACTUAL TRANSACTIONS (not from savings record fields)
+            // Note: Withdrawal amounts are already negative in the database
+            let totalSavingsAmount = 0;
+            let totalSharesAmount = 0;
+
+            allTransactions.forEach(tx => {
+                if (tx.transactionType === 'SAVINGS_DEPOSIT') {
+                    totalSavingsAmount += tx.amount;
+                } else if (tx.transactionType === 'SAVINGS_WITHDRAWAL') {
+                    // Amount is already negative, so adding it subtracts from total
+                    totalSavingsAmount += tx.amount;
+                } else if (tx.transactionType === 'SHARES_PURCHASE') {
+                    totalSharesAmount += tx.amount;
+                }
+            });
+
+            logger.info(`Fetched statement for ${erpId}: ${allSavings.length} savings records, ${allTransactions.length} total transactions`);
+
             return {
                 memberInfo: {
                     id: member.id,
@@ -348,21 +430,15 @@ export class SavingsService {
                         bvn: acc.bvn
                     })),
                     savings: {
-                        id: savings.id,
-                        balance: savings.balance,
-                        monthlyTarget: savings.monthlyTarget,
-                        lastDeposit: savings.lastDeposit,
-                        status: savings.status
+                        id: latestSavings.id,
+                        balance: latestSavings.balance,
+                        monthlyTarget: latestSavings.monthlyTarget,
+                        lastDeposit: latestSavings.lastDeposit,
+                        status: latestSavings.status
                     },
-                    transactions: savings.transactions.map(t => ({
-                        month: savings.month.toString(),
-                        year: savings.year.toString(),
-                        grossAmount: Number(t.amount),
-                        savingsAmount: Number(t.amount),
-                        sharesAmount: 0,
-                        transactionType: t.transactionType,
-                        status: t.status
-                    }))
+                    totalSavings: totalSavingsAmount,
+                    totalShares: totalSharesAmount,
+                    transactions: allTransactions
                 },
             };
         } catch (error) {

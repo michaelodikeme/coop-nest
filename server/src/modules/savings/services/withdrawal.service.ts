@@ -67,6 +67,7 @@ class SavingsWithdrawalService {
             RequestStatus.PENDING,
             RequestStatus.IN_REVIEW,
             RequestStatus.APPROVED,
+            RequestStatus.COMPLETED,  // FIXED: Must count completed withdrawals!
           ],
         },
       },
