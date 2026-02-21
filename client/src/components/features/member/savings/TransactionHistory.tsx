@@ -241,6 +241,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ limit, savingsI
             </Select>
           </FormControl>
 
+          {/* Export button - Not needed as per requirements
           <Button
             variant="outlined"
             size="small"
@@ -249,6 +250,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({ limit, savingsI
           >
             Export
           </Button>
+          */}
         </Stack>
       </Box>
 

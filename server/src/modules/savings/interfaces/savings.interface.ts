@@ -135,14 +135,14 @@ export interface ISavingsStatement {
       lastDeposit: Date | null;
       status: AccountStatus;
     };
+    totalSavings?: number;
+    totalShares?: number;
     transactions?: Array<{
-      month: string;
-      year: string;
-      grossAmount?: number;
-      savingsAmount?: number;
-      sharesAmount?: number;
+      date: Date;
       transactionType: TransactionType;
-      status: TransactionStatus;
+      baseType: TransactionType;
+      amount: number;
+      description: string | null;
     }>;
   };
 }

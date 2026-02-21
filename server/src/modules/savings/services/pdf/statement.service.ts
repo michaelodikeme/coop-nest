@@ -67,43 +67,73 @@ export class StatementService {
         const { erpId } = statement.memberInfo;
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         return `savings_statement_${erpId}_${timestamp}.pdf`;
-    }    private groupTransactionsByPeriod(transactions: any[]): ITransactionRow[] {
-        if (!Array.isArray(transactions)) return [];
-        
-        // Group transactions by month/year
-        const grouped = transactions.reduce<Record<string, ITransactionRow>>((acc, curr) => {
-            const key = `${curr.month}-${curr.year}`;
-            if (!acc[key]) {
-                acc[key] = {
-                    month: Number(curr.month),
-                    year: Number(curr.year),
-                    savingsAmount: 0,
-                    sharesAmount: 0,
-                    grossAmount: 0,
-                    status: curr.status
-                };
-            }
+    }
+    private filterTransactions(
+        transactions: any[],
+        filters?: {
+            type?: 'ALL' | 'SAVINGS' | 'SHARES';
+            startDate?: Date;
+            endDate?: Date;
+        }
+    ): any[] {
 
-            if (curr.transactionType === 'SAVINGS_DEPOSIT') {
-                acc[key].savingsAmount = Number(curr.savingsAmount || 0);
-            } else if (curr.transactionType === 'SHARES_PURCHASE') {
-                acc[key].sharesAmount = Number(curr.sharesAmount || 0);
-            }
-            acc[key].grossAmount = acc[key].savingsAmount + acc[key].sharesAmount;
+        let filtered = [...transactions];
 
-            return acc;
-        }, {});
+        // Filter by transaction type
+        if (filters?.type && filters.type !== 'ALL') {
+            const typeMap: Record<string, string[]> = {
+                'SAVINGS': ['SAVINGS_DEPOSIT', 'SAVINGS_WITHDRAWAL'],
+                'SHARES': ['SHARES_PURCHASE']
+            };
 
-        // Convert to array and sort by date
-        return Object.values(grouped).sort((a: any, b: any) => {
-            if (a.year !== b.year) return b.year - a.year;
-            return b.month - a.month;
-        });
+            const allowedTypes = typeMap[filters.type] || [];
+            const beforeCount = filtered.length;
+            filtered = filtered.filter(tx => allowedTypes.includes(tx.transactionType));
+        }
+
+        // Filter by date range
+        if (filters?.startDate || filters?.endDate) {
+            filtered = filtered.filter(tx => {
+                const txDate = new Date(tx.date);
+                if (filters.startDate && txDate < filters.startDate) return false;
+                if (filters.endDate && txDate > filters.endDate) return false;
+                return true;
+            });
+        }
+
+        return filtered;
+    }
+
+
+    private buildFilterNote(filters?: {
+        type?: 'ALL' | 'SAVINGS' | 'SHARES';
+        startDate?: Date;
+        endDate?: Date;
+    }): string {
+        if (!filters) return '';
+
+        const parts: string[] = [];
+
+        if (filters.type && filters.type !== 'ALL') {
+            parts.push(`Type: ${filters.type}`);
+        }
+
+        if (filters.startDate || filters.endDate) {
+            const start = filters.startDate ? formatDate(filters.startDate.toISOString()) : 'Beginning';
+            const end = filters.endDate ? formatDate(filters.endDate.toISOString()) : 'Present';
+            parts.push(`Period: ${start} - ${end}`);
+        }
+
+        return parts.length > 0 ? `Filtered Statement (${parts.join(', ')})` : '';
     }
 
     public async generateStatement(
         statement: ISavingsStatement,
-        dateRange?: { startDate: string; endDate: string }
+        filters?: {
+            type?: 'ALL' | 'SAVINGS' | 'SHARES';
+            startDate?: Date;
+            endDate?: Date;
+        }
     ): Promise<string> {
         const doc = this.initializeDocument();
         const config = this.getDefaultConfig();
@@ -113,32 +143,69 @@ export class StatementService {
 
         doc.pipe(stream);
 
-        // Add components in sequence
-        await addHeader(doc, config, this.logoPath, dateRange);
-        addMemberInfo(doc, config, statement.memberInfo);
-        addSummary(doc, config, statement.memberInfo);
+        // Filter transactions based on criteria
+        let transactions = statement.memberInfo.transactions || [];
 
-        const groupedTransactions = this.groupTransactionsByPeriod(statement.memberInfo.transactions || []);
-        addTransactionTable(doc, config, groupedTransactions);
+        if (filters) {
+            transactions = this.filterTransactions(transactions, filters);
+        }
+
+        // Calculate totals from FILTERED transactions
+        // Note: Withdrawal amounts are already negative in the database
+        let filteredTotalSavings = 0;
+        let filteredTotalShares = 0;
+
+        transactions.forEach(tx => {
+            if (tx.transactionType === 'SAVINGS_DEPOSIT') {
+                filteredTotalSavings += tx.amount;
+            } else if (tx.transactionType === 'SAVINGS_WITHDRAWAL') {
+                // Amount is already negative, so adding it subtracts from total
+                filteredTotalSavings += tx.amount;
+            } else if (tx.transactionType === 'SHARES_PURCHASE') {
+                filteredTotalShares += tx.amount;
+            }
+        });
+
+        // Build filter note for header
+        const filterNote = this.buildFilterNote(filters);
+
+        // Create memberInfo with filtered totals for the summary
+        const memberInfoForSummary = {
+            ...statement.memberInfo,
+            totalSavings: filteredTotalSavings,
+            totalShares: filteredTotalShares
+        };
+
+        // Add components in sequence
+        await addHeader(doc, config, this.logoPath, filterNote);
+        addMemberInfo(doc, config, statement.memberInfo);
+        addSummary(doc, config, memberInfoForSummary, filters?.type);
+
+        addTransactionTable(doc, config, transactions);
         addFooter(doc, config);
 
-        // Add page numbers
+        // Add page numbers - BEFORE finalizing to prevent extra pages
         const pages = doc.bufferedPageRange();
         for (let i = 0; i < pages.count; i++) {
             doc.switchToPage(i);
+            const pageNumY = doc.page.height - 30;
             doc.fontSize(8)
+               .fillColor(config.colors.secondary)
                .text(
                     `Page ${i + 1} of ${pages.count}`,
                     config.margins.left,
-                    doc.page.height - 25,
-                    { align: 'center' }
+                    pageNumY,
+                    { width: doc.page.width - config.margins.left - config.margins.right, align: 'center' }
                 );
         }
 
         doc.end();
 
         return new Promise((resolve, reject) => {
-            stream.on('finish', () => resolve(filePath));
+            stream.on('finish', () => {
+                console.log('PDF generation complete:', filePath);
+                resolve(filePath);
+            });
             stream.on('error', reject);
         });
     }

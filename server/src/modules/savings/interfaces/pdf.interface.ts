@@ -1,4 +1,4 @@
-import { TransactionStatus } from '@prisma/client';
+import { TransactionStatus, TransactionType } from '@prisma/client';
 import PDFDocument from 'pdfkit';
 
 export interface IStatementConfig {
@@ -35,10 +35,9 @@ export interface IPdfOptions {
 
 
 export interface ITransactionRow {
-    month: number;
-    year: number;
-    grossAmount: number;
-    savingsAmount: number;
-    sharesAmount: number;
-    status: TransactionStatus;
+    date: Date;
+    transactionType: TransactionType;
+    baseType: TransactionType;
+    amount: number;
+    description: string | null;
 }

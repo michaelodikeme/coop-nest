@@ -51,11 +51,13 @@ import {
   Receipt,
 } from "@mui/icons-material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/components/molecules/Toast";
 import LastTransactionSummary from "@/components/features/member/savings/LastTransactionSummary";
 import TransactionHistory from "@/components/features/member/savings/TransactionHistory";
 import WithdrawalRequests from "@/components/features/member/savings/WithdrawalRequests";
 import TransactionForm from "@/components/features/member/savings/TransactionForm";
 import SavingsChart from "@/components/features/member/savings/SavingsChart";
+import { ExportStatementModal, ExportFilters } from "@/components/features/member/savings/ExportStatementModal";
 import LoadingScreen from "@/components/atoms/LoadingScreen";
 import { savingsService } from "@/lib/api";
 import { useAuth } from "@/lib/api/contexts/AuthContext";
@@ -67,12 +69,14 @@ import { Transaction } from "@/types/transaction.types";
 export default function SavingsPage() {
   const theme = useTheme();
   const { user } = useAuth();
+  const toast = useToast();
   const [showWithdrawalForm, setShowWithdrawalForm] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [openNewRequest, setOpenNewRequest] = useState(false);
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
@@ -195,11 +199,8 @@ export default function SavingsPage() {
   // Transform savings data for chart using correct fields
   const savingsChartData = useMemo(() => {
     if (!mySavings?.data?.length) {
-      console.log("No savings data found");
       return [];
     }
-
-    console.log("Transforming savings data for chart", mySavings.data);
 
     // Sort by year and month to ensure chronological order
     const sortedData = [...mySavings.data].sort((a, b) => {
@@ -219,16 +220,12 @@ export default function SavingsPage() {
       else if (item.balance) {
         amount = Number(item.balance);
       }
-      console.log(`Month ${item.month}: Savings Amount = ${amount}`);
-
       return {
         month: item.month,
         year: item.year, // Make sure this property is included
         amount,
       };
     });
-
-    console.log("Mapped savings data:", mappedData);
     return mappedData;
   }, [mySavings]);
 
@@ -294,23 +291,42 @@ export default function SavingsPage() {
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
   };
-  const exportSavingsStatement = async () => {
+
+  const handleExportStatement = async (filters: ExportFilters) => {
     try {
       const blob = await savingsService.downloadSavingsStatement(
-        user?.biodata?.erpId || ""
+        user?.biodata?.erpId || "",
+        filters
       );
       // Create a URL for the blob and trigger download
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.style.display = "none";
       a.href = url;
-      a.download = `savings-statement-${user?.biodata?.erpId}.pdf`;
+
+      // Create filename based on filters
+      let filename = `savings-statement-${user?.biodata?.erpId}`;
+      if (filters.type !== 'ALL') {
+        filename += `-${filters.type.toLowerCase()}`;
+      }
+      if (filters.startDate || filters.endDate) {
+        const start = filters.startDate || 'start';
+        const end = filters.endDate || 'end';
+        filename += `-${start}_to_${end}`;
+      }
+      filename += '.pdf';
+
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      setExportModalOpen(false);
+      toast.success('Statement generated successfully');
     } catch (error) {
       console.error("Error exporting statement:", error);
-      // Handle error
+      toast.error('Failed to generate statement. Please try again.');
     }
   };
 
@@ -343,7 +359,7 @@ export default function SavingsPage() {
               variant="outlined"
               color="primary"
               startIcon={<FileDownload />}
-              onClick={exportSavingsStatement}
+              onClick={() => setExportModalOpen(true)}
             >
               Export Statement
             </Button>
@@ -369,15 +385,6 @@ export default function SavingsPage() {
         <Alert
           severity="info"
           sx={{ mb: 3, borderRadius: 2 }}
-          // action={
-          //   <Button
-          //     color="inherit"
-          //     size="small"
-          //     onClick={() => setActiveTab(2)}
-          //   >
-          //     View Details
-          //   </Button>
-          // }
         >
           <AlertTitle>Pending Withdrawal Request</AlertTitle>
           You have {withdrawalRequestsData?.data?.length || 0} pending
@@ -883,6 +890,14 @@ export default function SavingsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Export Statement Modal */}
+      <ExportStatementModal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        erpId={user?.biodata?.erpId || ''}
+        onExport={handleExportStatement}
+      />
     </Container>
   );
 }

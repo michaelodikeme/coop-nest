@@ -96,18 +96,16 @@ export const generateSavingsStatementPdf = async (
         }
 
         // Format the date
-        const date = `${transaction.month}/${transaction.year}`;
-        
-        // Format the amounts using the formatCurrency utility
-        const grossAmount = formatCurrency(transaction.grossAmount || 0);
-        const savingsAmount = formatCurrency(transaction.savingsAmount || 0);
-        const sharesAmount = formatCurrency(transaction.sharesAmount || 0);
+        const date = new Date(transaction.date).toLocaleDateString('en-GB');
+
+        // Format the amount
+        const amount = formatCurrency(transaction.amount || 0);
 
         // Add row data with proper alignment
         doc.text(date, columns.date.x, currentY, { width: columns.date.width })
-           .text(grossAmount, columns.gross.x, currentY, { width: columns.gross.width })
-           .text(savingsAmount, columns.savings.x, currentY, { width: columns.savings.width })
-           .text(sharesAmount, columns.shares.x, currentY, { width: columns.shares.width });
+           .text(transaction.transactionType, columns.gross.x, currentY, { width: columns.gross.width })
+           .text(transaction.baseType, columns.savings.x, currentY, { width: columns.savings.width })
+           .text(amount, columns.shares.x, currentY, { width: columns.shares.width });
 
         currentY += 20;
     });
@@ -119,19 +117,14 @@ export const generateSavingsStatementPdf = async (
        .stroke();
     currentY += 10;
 
-    // Calculate totals
-    const totals = statement.memberInfo.transactions?.reduce((acc, curr) => ({
-        gross: acc.gross + (curr.grossAmount || 0),
-        savings: acc.savings + (curr.savingsAmount || 0),
-        shares: acc.shares + (curr.sharesAmount || 0)
-    }), { gross: 0, savings: 0, shares: 0 });
+    // Calculate total
+    const total = statement.memberInfo.transactions?.reduce((acc, curr) =>
+        acc + (curr.amount || 0), 0) || 0;
 
     // Add totals row
     doc.font('Helvetica-Bold')
-       .text('Totals:', columns.date.x, currentY)
-       .text(formatCurrency(totals?.gross || 0), columns.gross.x, currentY)
-       .text(formatCurrency(totals?.savings || 0), columns.savings.x, currentY)
-       .text(formatCurrency(totals?.shares || 0), columns.shares.x, currentY);
+       .text('Total:', columns.date.x, currentY)
+       .text(formatCurrency(total), columns.shares.x, currentY);
 
     // Footer
     doc.fontSize(8)
