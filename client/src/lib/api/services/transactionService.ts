@@ -239,7 +239,8 @@ export class TransactionService {
       const savingDepositsData = summary.typeSummary?.SAVINGS_DEPOSIT || { totalTransactions: 0, totalAmount: 0 };
       const sharesDepositData = summary.typeSummary?.SHARES_PURCHASE || { totalTransactions: 0, totalAmount: 0 };
       const savingsWithdrawalsData = summary.typeSummary?.SAVINGS_WITHDRAWAL || { totalTransactions: 0, totalAmount: 0 };
-      const totalWithdrawalsData = summary.debitTotal || 0;
+      // Use SAVINGS_WITHDRAWAL specifically, not all debits
+      const totalWithdrawalsData = savingsWithdrawalsData.totalAmount || 0;
 
       console.log('Comprehensive transaction data: ',
         summary,
