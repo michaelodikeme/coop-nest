@@ -424,7 +424,7 @@ export default function AdminTransactionsPage() {
             setCurrentPage(1); // Reset to first page when changing page size
           }}
           loading={isLoading}
-          enableFiltering={true}
+          enableFiltering={false}
         />
       </Paper>
 

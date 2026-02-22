@@ -402,7 +402,8 @@ export class SavingsController {
         throw new Error('Unauthorized access');
       }
 
-      const statement = await this.savingsService.getSavingsStatement({ erpId, year: new Date().getFullYear(), month: new Date().getMonth() + 1 });
+      // Fetch ALL savings records for the member (don't filter by year/month)
+      const statement = await this.savingsService.getSavingsStatement({ erpId });
 
       // Build filters object
       const filters: {

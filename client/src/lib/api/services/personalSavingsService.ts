@@ -134,7 +134,8 @@ class PersonalSavingsService {
   // Get admin dashboard data
   async getAdminDashboard(): Promise<AdminDashboard> {
     const url = `/personal-savings/admin/dashboard`;
-    return apiService.get(url);
+    const response = await apiService.get<ApiResponse<AdminDashboard>>(url);
+    return response.data;
   }
 
   // Get a specific pending savings request

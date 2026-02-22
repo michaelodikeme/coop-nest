@@ -190,12 +190,13 @@ const PersonalSavingsAdminPage = () => {
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+    setPage(0); // Reset to first page when switching tabs
     switch(newValue) {
       case 0:
         setStatus('ACTIVE');
         break;
       case 1:
-        setStatus('PENDING');  // Changed from 'SUSPENDED' to 'PENDING'
+        setStatus('PENDING');
         break;
       case 2:
         setStatus('CLOSED');
@@ -289,7 +290,7 @@ const PersonalSavingsAdminPage = () => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
           <Tabs value={tabValue} onChange={handleTabChange}>
             <Tab label="Active" />
-            <Tab label="Pending" />  // Tab label matches the status now
+            <Tab label="Pending" />
             <Tab label="Closed" />
             <Tab label="All" />
           </Tabs>
@@ -308,6 +309,7 @@ const PersonalSavingsAdminPage = () => {
           }}
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
+          enableFiltering={false}
           headerBackgroundColor={theme => theme.palette.mode === 'dark' ? '#333' : '#f5f5f5'}
           onRowClick={(row) => {
             // Check if it's a pending request (has requestId but no id)

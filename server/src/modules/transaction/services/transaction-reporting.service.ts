@@ -78,15 +78,18 @@ export class TransactionReportingService {
             summary.reversedTransactions++;
             break;
         }
-        
+
         // Track credit/debit totals
+        // Note: DEBIT transactions (withdrawals) are stored as negative amounts
+        // We need absolute values for totals, then subtract debits from credits for net balance
         const amount = txn.amount.toNumber();
         if (txn.baseType === TransactionType.CREDIT) {
           summary.creditTotal += amount;
         } else if (txn.baseType === TransactionType.DEBIT) {
-          summary.debitTotal += amount;
+          // Use absolute value since DEBIT amounts are stored as negative
+          summary.debitTotal += Math.abs(amount);
         }
-        
+
         // Update module summary
         if (!summary.moduleSummary[txn.module]) {
           summary.moduleSummary[txn.module] = {
@@ -96,16 +99,18 @@ export class TransactionReportingService {
             netAmount: 0
           };
         }
-        
+
         summary.moduleSummary[txn.module].totalTransactions++;
         if (txn.baseType === TransactionType.CREDIT) {
           summary.moduleSummary[txn.module].creditAmount += amount;
           summary.moduleSummary[txn.module].netAmount += amount;
         } else if (txn.baseType === TransactionType.DEBIT) {
-          summary.moduleSummary[txn.module].debitAmount += amount;
-          summary.moduleSummary[txn.module].netAmount -= amount;
+          // Use absolute value for debit totals (amounts are stored negative)
+          summary.moduleSummary[txn.module].debitAmount += Math.abs(amount);
+          // For net calculation, subtract the absolute value
+          summary.moduleSummary[txn.module].netAmount -= Math.abs(amount);
         }
-        
+
         // Update type summary
         if (!summary.typeSummary[txn.transactionType]) {
           summary.typeSummary[txn.transactionType] = {
@@ -113,9 +118,10 @@ export class TransactionReportingService {
             totalAmount: 0
           };
         }
-        
+
         summary.typeSummary[txn.transactionType].totalTransactions++;
-        summary.typeSummary[txn.transactionType].totalAmount += amount;
+        // For type summary, use absolute value to show total volume per type
+        summary.typeSummary[txn.transactionType].totalAmount += Math.abs(amount);
       }
       
       // Calculate net balance

@@ -837,7 +837,7 @@ export default function LoanApprovalsPage() {
             loading={isLoading}
             error={error?.message}
             headerBackgroundColor={alpha('#f5f7fa', 0.6)}
-            enableFiltering={true}
+            enableFiltering={false}
             noDataMessage="No loan applications found matching your criteria"
             onRowClick={(row) => router.push(`/admin/approvals/loans/${row.id}`)}
           />

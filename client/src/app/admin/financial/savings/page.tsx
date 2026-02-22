@@ -773,7 +773,7 @@ export default function AdminSavingsPage() {
             }}
             loading={isLoadingMemberSummary}
             error={memberSummaryError ? memberSummaryError.message : undefined}
-            enableFiltering={true}
+            enableFiltering={false}
           />
         </Paper>
       )}
