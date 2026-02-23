@@ -4,7 +4,7 @@
   "description": "A cooperative savings and loan management application built with TypeScript",
   "main": "src/server.ts",
   "scripts": {
-    "start": "ts-node src/server.ts",
+    "start": "node dist/src/server.js",
     "dev": "nodemon src/server.ts",
     "build": "tsc",
     "test": "jest",

@@ -30,106 +30,101 @@ export class SavingsExportService {
                 status
             } = filters;
 
-            // Build the where conditions for filtering
-            const where: any = {};
-
-            // Apply search filter (across member name, erpId)
-            if (search) {
-                where.OR = [
-                    { member: { fullName: { contains: search, mode: 'insensitive' } } },
-                    { erpId: { contains: search, mode: 'insensitive' } },
-                ];
-            }
+            // Build WHERE clause for SQL
+            const conditions: string[] = ['1=1']; // Always true base condition
+            const sqlParams: any[] = [];
+            let paramIndex = 1;
 
             // Apply status filter
-            if (status) {
-                const isValidAccountStatus = ['ACTIVE', 'INACTIVE', 'SUSPENDED'].includes(status);
-                if (isValidAccountStatus) {
-                    where.status = status;
-                } else {
-                    logger.warn(`Ignoring invalid AccountStatus value in filter: ${status}`);
-                }
+            if (status && ['ACTIVE', 'INACTIVE', 'SUSPENDED'].includes(status)) {
+                conditions.push(`s.status = $${paramIndex}`);
+                sqlParams.push(status);
+                paramIndex++;
             }
 
-            // Get unique member IDs from savings records
-            const memberIds = await prisma.savings.groupBy({
-                by: ['memberId'],
-                where,
-            });
+            // Apply search filter (member name or erpId)
+            if (search) {
+                conditions.push(`(LOWER(b."fullName") LIKE $${paramIndex} OR LOWER(s."erpId") LIKE $${paramIndex})`);
+                sqlParams.push(`%${search.toLowerCase()}%`);
+                paramIndex++;
+            }
 
-            // Get the latest savings record for each member
-            const memberSavings = await Promise.all(
-                memberIds.map(async (item) => {
-                    // Get the latest savings record for this member
-                    const latestSavings = await prisma.savings.findFirst({
-                        where: { memberId: item.memberId },
-                        orderBy: { lastDeposit: 'desc' },
-                        include: {
-                            member: {
-                                select: {
-                                    id: true,
-                                    erpId: true,
-                                    fullName: true,
-                                    department: true
-                                }
-                            }
-                        }
-                    });
+            const whereClause = conditions.join(' AND ');
 
-                    if (!latestSavings) return null;
+            // Build ORDER BY clause
+            const orderByMap: Record<string, string> = {
+                memberName: 'b."fullName"',
+                department: 'b.department',
+                lastDeposit: 's."lastDeposit"',
+                totalSavingsAmount: 's."totalSavingsAmount"',
+                totalSharesAmount: 'sh."totalSharesAmount"',
+                totalGrossAmount: 's."totalGrossAmount"'
+            };
+            const orderByColumn = orderByMap[sortBy] || 's."lastDeposit"';
+            const orderByDirection = sortOrder === 'asc' ? 'ASC' : 'DESC';
 
-                    // Get the latest shares record for this member
-                    const latestShares = await prisma.shares.findFirst({
-                        where: { memberId: item.memberId },
-                        orderBy: { lastPurchase: 'desc' },
-                        select: {
-                            totalSharesAmount: true
-                        }
-                    });
-
-                    return {
-                        erpId: latestSavings.erpId,
-                        memberName: latestSavings.member.fullName,
-                        department: latestSavings.member.department,
-                        totalSavingsAmount: latestSavings.totalSavingsAmount.toString(),
-                        totalSharesAmount: latestShares?.totalSharesAmount.toString() || '0',
-                        totalGrossAmount: latestSavings.totalGrossAmount.toString(),
-                        lastDeposit: latestSavings.lastDeposit
-                            ? new Date(latestSavings.lastDeposit).toISOString().split('T')[0]
-                            : '',
-                        status: latestSavings.status
-                    };
-                })
+            // Execute raw SQL query with CTEs - only 1 database query!
+            const dataResult = await prisma.$queryRawUnsafe<Array<{
+                erpId: string;
+                memberName: string;
+                department: string;
+                totalSavingsAmount: number;
+                totalSharesAmount: number | null;
+                totalGrossAmount: number;
+                lastDeposit: Date | null;
+                status: string;
+            }>>(
+                `
+                WITH latest_savings AS (
+                    SELECT DISTINCT ON (s."memberId")
+                        s."memberId",
+                        s."erpId",
+                        s."totalSavingsAmount",
+                        s."totalGrossAmount",
+                        s."lastDeposit",
+                        s.status
+                    FROM "Savings" s
+                    INNER JOIN "Biodata" b ON s."memberId" = b.id
+                    WHERE ${whereClause}
+                    ORDER BY s."memberId", s."lastDeposit" DESC NULLS LAST
+                ),
+                latest_shares AS (
+                    SELECT DISTINCT ON ("memberId")
+                        "memberId",
+                        "totalSharesAmount"
+                    FROM "Shares"
+                    ORDER BY "memberId", "lastPurchase" DESC NULLS LAST
+                )
+                SELECT
+                    s."erpId" as "erpId",
+                    b."fullName" as "memberName",
+                    b.department as department,
+                    s."totalSavingsAmount"::numeric as "totalSavingsAmount",
+                    COALESCE(sh."totalSharesAmount", 0)::numeric as "totalSharesAmount",
+                    s."totalGrossAmount"::numeric as "totalGrossAmount",
+                    s."lastDeposit" as "lastDeposit",
+                    s.status as status
+                FROM latest_savings s
+                LEFT JOIN latest_shares sh ON s."memberId" = sh."memberId"
+                INNER JOIN "Biodata" b ON s."memberId" = b.id
+                ORDER BY ${orderByColumn} ${orderByDirection} NULLS LAST
+                `,
+                ...sqlParams
             );
 
-            // Filter out null values
-            const validMemberSavings = memberSavings.filter(item => item !== null);
-
-            // Apply sorting
-            const sortedData = [...validMemberSavings].sort((a: any, b: any) => {
-                if (sortBy === 'memberName') {
-                    return sortOrder === 'asc'
-                        ? a.memberName.localeCompare(b.memberName)
-                        : b.memberName.localeCompare(a.memberName);
-                }
-
-                if (sortBy === 'department') {
-                    return sortOrder === 'asc'
-                        ? a.department.localeCompare(b.department)
-                        : b.department.localeCompare(a.department);
-                }
-
-                if (sortBy === 'lastDeposit') {
-                    const dateA = a.lastDeposit ? new Date(a.lastDeposit).getTime() : 0;
-                    const dateB = b.lastDeposit ? new Date(b.lastDeposit).getTime() : 0;
-                    return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-                }
-
-                // Default for numeric fields
-                const valA = parseFloat(a[sortBy] || '0');
-                const valB = parseFloat(b[sortBy] || '0');
-                return sortOrder === 'asc' ? valA - valB : valB - valA;
-            });
+            // Convert data to string format for Excel
+            const sortedData = dataResult.map(record => ({
+                erpId: record.erpId,
+                memberName: record.memberName,
+                department: record.department,
+                totalSavingsAmount: record.totalSavingsAmount.toString(),
+                totalSharesAmount: (record.totalSharesAmount || 0).toString(),
+                totalGrossAmount: record.totalGrossAmount.toString(),
+                lastDeposit: record.lastDeposit
+                    ? new Date(record.lastDeposit).toISOString().split('T')[0]
+                    : '',
+                status: record.status
+            }));
 
             // Format data for Excel with proper column headers
             const formattedData = sortedData.map(record => ({

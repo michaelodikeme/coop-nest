@@ -19,6 +19,8 @@ services:
   redis:
     image: redis:7
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"  # Bind to localhost only for security
     networks:
       - coop-nest-network
     volumes:
@@ -38,8 +40,8 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "3000:3000"
-      - "5000:5000"
+      - "127.0.0.1:3000:3000"  # Frontend - localhost only (nginx proxies to this)
+      - "127.0.0.1:5000:5000"  # Backend API - localhost only (nginx proxies to this)
     networks:
       - coop-nest-network
     environment:

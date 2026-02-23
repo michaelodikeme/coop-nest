@@ -622,168 +622,137 @@ export class SavingsService {
                 status
             } = params;
 
-            // Build the where conditions for filtering
-            const where: any = {};
+            // Build WHERE clause for SQL
+            const conditions: string[] = ['1=1']; // Always true base condition
+            const sqlParams: any[] = [];
+            let paramIndex = 1;
 
-            // Apply search filter (across member name, erpId)
+            // Apply status filter
+            if (status && ['ACTIVE', 'INACTIVE', 'SUSPENDED'].includes(status)) {
+                conditions.push(`s.status = $${paramIndex}`);
+                sqlParams.push(status);
+                paramIndex++;
+            }
+
+            // Apply search filter (member name or erpId)
             if (search) {
-              where.OR = [
-                { member: { fullName: { contains: search, mode: 'insensitive' } } },
-                { erpId: { contains: search, mode: 'insensitive' } },
-              ];
+                conditions.push(`(LOWER(b."fullName") LIKE $${paramIndex} OR LOWER(s."erpId") LIKE $${paramIndex})`);
+                sqlParams.push(`%${search.toLowerCase()}%`);
+                paramIndex++;
             }
 
             // Apply department filter
             if (department) {
-              where.member = {
-                ...(where.member || {}),
-                department: { equals: department },
-              };
+                conditions.push(`b.department = $${paramIndex}`);
+                sqlParams.push(department);
+                paramIndex++;
             }
 
-            // Apply status filter
-            if (status) {
-              try {
-                // Only apply the status filter if it's a valid AccountStatus value
-                const isValidAccountStatus = ['ACTIVE', 'INACTIVE', 'SUSPENDED'].includes(status);
-                if (isValidAccountStatus) {
-                  where.status = status;
-                } else {
-                  // Log a warning that we're ignoring an invalid status filter
-                  logger.warn(`Ignoring invalid AccountStatus value in filter: ${status}`);
-                }
-              } catch (error) {
-                if (error instanceof ApiError) throw error;
-                logger.warn('Error applying status filter:', error);
-              }
-            }
+            const whereClause = conditions.join(' AND ');
 
-            // First, get unique member IDs from savings records
-            const memberIds = await prisma.savings.groupBy({
-              by: ['memberId'],
-              where,
-            });
+            // Build ORDER BY clause
+            const orderByMap: Record<string, string> = {
+                memberName: 'b."fullName"',
+                department: 'b.department',
+                lastDeposit: 's."lastDeposit"',
+                totalSavingsAmount: 's."totalSavingsAmount"',
+                totalSharesAmount: 'sh."totalSharesAmount"',
+                totalGrossAmount: 's."totalGrossAmount"'
+            };
+            const orderByColumn = orderByMap[sortBy] || 's."lastDeposit"';
+            const orderByDirection = sortOrder === 'asc' ? 'ASC' : 'DESC';
 
-            // Count total unique members for pagination
-            const totalMembers = memberIds.length;
-
-            // Calculate pagination values
+            // Calculate pagination
             const skip = (page - 1) * limit;
-            const take = limit;
+            sqlParams.push(limit, skip);
 
-            // Get member IDs for this page
-            const paginatedMemberIds = memberIds
-              .slice(skip, skip + take)
-              .map(item => item.memberId);
+            // Execute raw SQL query with CTEs - only 2 database queries (count + data)
+            const [countResult, dataResult] = await Promise.all([
+                // Count query
+                prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
+                    `
+                    WITH latest_savings AS (
+                        SELECT DISTINCT ON (s."memberId")
+                            s."memberId",
+                            s."erpId",
+                            s."totalSavingsAmount",
+                            s."totalGrossAmount",
+                            s."lastDeposit",
+                            s.status
+                        FROM "Savings" s
+                        INNER JOIN "Biodata" b ON s."memberId" = b.id
+                        WHERE ${whereClause}
+                        ORDER BY s."memberId", s."lastDeposit" DESC NULLS LAST
+                    )
+                    SELECT COUNT(*)::bigint as count FROM latest_savings
+                    `,
+                    ...sqlParams.slice(0, paramIndex - 1)
+                ),
+                // Data query with pagination
+                prisma.$queryRawUnsafe<Array<{
+                    id: string;
+                    erpId: string;
+                    memberName: string;
+                    department: string;
+                    totalSavingsAmount: number;
+                    totalSharesAmount: number | null;
+                    totalGrossAmount: number;
+                    lastDeposit: Date | null;
+                    status: AccountStatus;
+                }>>(
+                    `
+                    WITH latest_savings AS (
+                        SELECT DISTINCT ON (s."memberId")
+                            s."memberId",
+                            s."erpId",
+                            s."totalSavingsAmount",
+                            s."totalGrossAmount",
+                            s."lastDeposit",
+                            s.status
+                        FROM "Savings" s
+                        INNER JOIN "Biodata" b ON s."memberId" = b.id
+                        WHERE ${whereClause}
+                        ORDER BY s."memberId", s."lastDeposit" DESC NULLS LAST
+                    ),
+                    latest_shares AS (
+                        SELECT DISTINCT ON ("memberId")
+                            "memberId",
+                            "totalSharesAmount"
+                        FROM "Shares"
+                        ORDER BY "memberId", "lastPurchase" DESC NULLS LAST
+                    )
+                    SELECT
+                        s."memberId" as id,
+                        s."erpId" as "erpId",
+                        b."fullName" as "memberName",
+                        b.department as department,
+                        s."totalSavingsAmount"::numeric as "totalSavingsAmount",
+                        COALESCE(sh."totalSharesAmount", 0)::numeric as "totalSharesAmount",
+                        s."totalGrossAmount"::numeric as "totalGrossAmount",
+                        s."lastDeposit" as "lastDeposit",
+                        s.status as status
+                    FROM latest_savings s
+                    LEFT JOIN latest_shares sh ON s."memberId" = sh."memberId"
+                    INNER JOIN "Biodata" b ON s."memberId" = b.id
+                    ORDER BY ${orderByColumn} ${orderByDirection} NULLS LAST
+                    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+                    `,
+                    ...sqlParams
+                )
+            ]);
 
-            // Get the latest savings record for each member
-            const memberSavings = await Promise.all(
-              paginatedMemberIds.map(async (memberId) => {
-                // Get the latest savings record for this member
-                const latestSavings = await prisma.savings.findFirst({
-                  where: { memberId },
-                  orderBy: { lastDeposit: 'desc' },
-                  include: {
-                    member: {
-                      select: {
-                        id: true,
-                        erpId: true,
-                        fullName: true,
-                        department: true
-                      }
-                    }
-                  }
-                });
+            const totalMembers = Number(countResult[0].count);
 
-                if (!latestSavings) return null;
-
-                // Get the latest shares record for this member
-                const latestShares = await prisma.shares.findFirst({
-                  where: { memberId },
-                  orderBy: { lastPurchase: 'desc' },
-                  select: {
-                    totalSharesAmount: true
-                  }
-                });
-
-                return {
-                  id: memberId,
-                  erpId: latestSavings.erpId,
-                  memberName: latestSavings.member.fullName,
-                  department: latestSavings.member.department,
-                  totalSavingsAmount: latestSavings.totalSavingsAmount,
-                  totalSharesAmount: latestShares?.totalSharesAmount || new Prisma.Decimal(0),
-                  totalGrossAmount: latestSavings.totalGrossAmount,
-                  lastDeposit: latestSavings.lastDeposit,
-                  status: latestSavings.status
-                };
-              })
-            );
-
-            // Filter out null values (in case any member doesn't have savings)
-            const validMemberSavings = memberSavings.filter(item => item !== null) as Array<{
-              id: string;
-              erpId: string;
-              memberName: string;
-              department: string;
-              totalSavingsAmount: Decimal;
-              totalSharesAmount: Decimal;
-              totalGrossAmount: Decimal;
-              lastDeposit: Date | null;
-              status: AccountStatus;
-            }>;
-
-            // Apply sorting
-            const sortedMemberSavings = [...validMemberSavings].sort((a, b) => {
-              if (sortBy === 'memberName') {
-                return sortOrder === 'asc'
-                  ? a.memberName.localeCompare(b.memberName)
-                  : b.memberName.localeCompare(a.memberName);
-              }
-              
-              if (sortBy === 'department') {
-                return sortOrder === 'asc'
-                  ? a.department.localeCompare(b.department)
-                  : b.department.localeCompare(a.department);
-              }
-              
-              if (sortBy === 'lastDeposit') {
-                const dateA = a.lastDeposit ? new Date(a.lastDeposit).getTime() : 0;
-                const dateB = b.lastDeposit ? new Date(b.lastDeposit).getTime() : 0;
-                return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-              }
-              
-              // Default sorting for numeric fields
-              const valA = a[sortBy as keyof typeof a];
-              const valB = b[sortBy as keyof typeof b];
-              
-              // Handle decimals (Prisma.Decimal objects)
-              if (valA instanceof Decimal && valB instanceof Decimal) {
-                return sortOrder === 'asc' ? valA.cmp(valB) : valB.cmp(valA);
-              }
-              
-              // Handle dates
-              if (valA instanceof Date && valB instanceof Date) {
-                return sortOrder === 'asc' 
-                  ? valA.getTime() - valB.getTime() 
-                  : valB.getTime() - valA.getTime();
-              }
-              
-              // Handle strings
-              if (typeof valA === 'string' && typeof valB === 'string') {
-                return sortOrder === 'asc'
-                  ? valA.localeCompare(valB)
-                  : valB.localeCompare(valA);
-              }
-              
-              // Handle numbers or convert to numbers for comparison if possible
-              const numA = typeof valA === 'number' ? valA : 0;
-              const numB = typeof valB === 'number' ? valB : 0;
-              return sortOrder === 'asc' ? numA - numB : numB - numA;
-            });
+            // Convert numeric values to Prisma.Decimal
+            const data = dataResult.map(row => ({
+                ...row,
+                totalSavingsAmount: new Prisma.Decimal(row.totalSavingsAmount),
+                totalSharesAmount: new Prisma.Decimal(row.totalSharesAmount || 0),
+                totalGrossAmount: new Prisma.Decimal(row.totalGrossAmount)
+            }));
 
             return {
-                data: sortedMemberSavings,
+                data,
                 meta: {
                     total: totalMembers,
                     page,
@@ -1118,42 +1087,47 @@ export class SavingsService {
     
     async getAdminOverview(): Promise<IAdminOverview> {
         try {
-            // Get distinct members with savings
-            const memberGroups = await prisma.savings.groupBy({ by: ['memberId'] });
+            // Use raw SQL with CTEs for efficient querying - only 1 database query!
+            const result = await prisma.$queryRaw<Array<{
+                total_savings: number;
+                total_shares: number;
+                total_members: bigint;
+                average_savings: number;
+            }>>`
+                WITH latest_savings AS (
+                    SELECT DISTINCT ON ("memberId")
+                        "memberId",
+                        "totalSavingsAmount"
+                    FROM "Savings"
+                    ORDER BY "memberId", "year" DESC, "month" DESC
+                ),
+                latest_shares AS (
+                    SELECT DISTINCT ON ("memberId")
+                        "memberId",
+                        "totalSharesAmount"
+                    FROM "Shares"
+                    ORDER BY "memberId", "year" DESC, "month" DESC
+                )
+                SELECT
+                    COALESCE(SUM(ls."totalSavingsAmount"), 0)::numeric AS total_savings,
+                    COALESCE(SUM(lsh."totalSharesAmount"), 0)::numeric AS total_shares,
+                    COUNT(DISTINCT ls."memberId") AS total_members,
+                    CASE
+                        WHEN COUNT(DISTINCT ls."memberId") > 0
+                        THEN (COALESCE(SUM(ls."totalSavingsAmount"), 0) / COUNT(DISTINCT ls."memberId"))::numeric
+                        ELSE 0
+                    END AS average_savings
+                FROM latest_savings ls
+                LEFT JOIN latest_shares lsh ON ls."memberId" = lsh."memberId"
+            `;
 
-            // Fetch latest savings and shares record for each member in parallel
-            const [latestSavingsRecords, latestSharesRecords] = await Promise.all([
-                Promise.all(memberGroups.map(({ memberId }) =>
-                    prisma.savings.findFirst({
-                        where: { memberId },
-                        orderBy: [{ year: 'desc' }, { month: 'desc' }],
-                        select: { totalSavingsAmount: true }
-                    })
-                )),
-                Promise.all(memberGroups.map(({ memberId }) =>
-                    prisma.shares.findFirst({
-                        where: { memberId },
-                        orderBy: [{ year: 'desc' }, { month: 'desc' }],
-                        select: { totalSharesAmount: true }
-                    })
-                ))
-            ]);
-
-            // Sum the latest totals
-            const totalSavings = latestSavingsRecords.reduce(
-                (sum, record) => sum.add(record?.totalSavingsAmount ?? 0),
-                new Prisma.Decimal(0)
-            );
-            const totalShares = latestSharesRecords.reduce(
-                (sum, record) => sum.add(record?.totalSharesAmount ?? 0),
-                new Prisma.Decimal(0)
-            );
-            const totalMembers = memberGroups.length;
-            const averageSavingsPerMember = totalMembers > 0
-                ? totalSavings.div(totalMembers)
-                : new Prisma.Decimal(0);
-
-            return { totalSavings, totalShares, totalMembers, averageSavingsPerMember };
+            const data = result[0];
+            return {
+                totalSavings: new Prisma.Decimal(data.total_savings),
+                totalShares: new Prisma.Decimal(data.total_shares),
+                totalMembers: Number(data.total_members),
+                averageSavingsPerMember: new Prisma.Decimal(data.average_savings)
+            };
         } catch (error) {
             logger.error('Error getting admin overview:', error);
             throw new ApiError('Failed to fetch admin savings overview', 500);
