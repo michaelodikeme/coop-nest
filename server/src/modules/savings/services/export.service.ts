@@ -44,7 +44,7 @@ export class SavingsExportService {
 
             // Apply search filter (member name or erpId)
             if (search) {
-                conditions.push(`(LOWER(b."fullName") LIKE $${paramIndex} OR LOWER(s."erp_id") LIKE $${paramIndex})`);
+                conditions.push(`(LOWER(b."name") LIKE $${paramIndex} OR LOWER(s."erp_id") LIKE $${paramIndex})`);
                 sqlParams.push(`%${search.toLowerCase()}%`);
                 paramIndex++;
             }
@@ -53,7 +53,7 @@ export class SavingsExportService {
 
             // Build ORDER BY clause
             const orderByMap: Record<string, string> = {
-                memberName: 'b."fullName"',
+                memberName: 'b."name"',
                 department: 'b.department',
                 lastDeposit: 's."lastDeposit"',
                 totalSavingsAmount: 's."totalSavingsAmount"',
@@ -97,7 +97,7 @@ export class SavingsExportService {
                 )
                 SELECT
                     s."erp_id" as "erpId",
-                    b."fullName" as "memberName",
+                    b."name" as "memberName",
                     b.department as department,
                     s."totalSavingsAmount"::numeric as "totalSavingsAmount",
                     COALESCE(sh."totalSharesAmount", 0)::numeric as "totalSharesAmount",
