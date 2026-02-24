@@ -61,14 +61,15 @@ jobs:
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SERVER_SSH_KEY }}
         port: ${{ secrets.SERVER_PORT }}
+        command_timeout: 20m
         script: |
           echo "Starting deployment process..."
 
           # Navigate to project directory
           cd /opt/coop-nest-app
 
-          # Pull latest app image
-          echo "Pulling latest Docker images..."
+          # Pull latest app image with progress output
+          echo "Pulling latest Docker images (this may take several minutes)..."
           docker compose -f docker-compose.prod.yml --env-file .env.docker pull app
 
           # Ensure postgres and redis are running first
