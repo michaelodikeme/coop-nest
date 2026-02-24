@@ -664,11 +664,16 @@ export class SavingsService {
 
             // Calculate pagination
             const skip = (page - 1) * limit;
+
+            // Save filter params for count query (before adding pagination params)
+            const filterParams = [...sqlParams];
+
+            // Add pagination params for data query
             sqlParams.push(limit, skip);
 
             // Execute raw SQL query with CTEs - only 2 database queries (count + data)
             const [countResult, dataResult] = await Promise.all([
-                // Count query
+                // Count query (uses only filter params, no pagination)
                 prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
                     `
                     WITH latest_savings AS (
@@ -686,7 +691,7 @@ export class SavingsService {
                     )
                     SELECT COUNT(*)::bigint as count FROM latest_savings
                     `,
-                    ...sqlParams.slice(0, paramIndex - 1)
+                    ...filterParams
                 ),
                 // Data query with pagination
                 prisma.$queryRawUnsafe<Array<{
