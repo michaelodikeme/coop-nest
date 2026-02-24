@@ -23,9 +23,6 @@ RUN npx prisma generate
 # Build TypeScript server
 RUN npm run build
 
-# Remove dev dependencies to reduce size
-RUN npm prune --production
-
 # ============================================
 # Stage 2: Build Client
 # ============================================
@@ -48,9 +45,6 @@ COPY client/ ./
 
 # Build Next.js client for production
 RUN npm run build
-
-# Remove dev dependencies
-RUN npm prune --production
 
 # ============================================
 # Stage 3: Production Runtime
