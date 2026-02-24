@@ -636,7 +636,7 @@ export class SavingsService {
 
             // Apply search filter (member name or erpId)
             if (search) {
-                conditions.push(`(LOWER(b."fullName") LIKE $${paramIndex} OR LOWER(s."erpId") LIKE $${paramIndex})`);
+                conditions.push(`(LOWER(b.name) LIKE $${paramIndex} OR LOWER(s.erp_id) LIKE $${paramIndex})`);
                 sqlParams.push(`%${search.toLowerCase()}%`);
                 paramIndex++;
             }
@@ -652,7 +652,7 @@ export class SavingsService {
 
             // Build ORDER BY clause
             const orderByMap: Record<string, string> = {
-                memberName: 'b."fullName"',
+                memberName: 'b.name',
                 department: 'b.department',
                 lastDeposit: 's."lastDeposit"',
                 totalSavingsAmount: 's."totalSavingsAmount"',
@@ -679,7 +679,7 @@ export class SavingsService {
                     WITH latest_savings AS (
                         SELECT DISTINCT ON (s."memberId")
                             s."memberId",
-                            s."erpId",
+                            s.erp_id,
                             s."totalSavingsAmount",
                             s."totalGrossAmount",
                             s."lastDeposit",
@@ -709,7 +709,7 @@ export class SavingsService {
                     WITH latest_savings AS (
                         SELECT DISTINCT ON (s."memberId")
                             s."memberId",
-                            s."erpId",
+                            s.erp_id,
                             s."totalSavingsAmount",
                             s."totalGrossAmount",
                             s."lastDeposit",
@@ -728,8 +728,8 @@ export class SavingsService {
                     )
                     SELECT
                         s."memberId" as id,
-                        s."erpId" as "erpId",
-                        b."fullName" as "memberName",
+                        s.erp_id as "erpId",
+                        b.name as "memberName",
                         b.department as department,
                         s."totalSavingsAmount"::numeric as "totalSavingsAmount",
                         COALESCE(sh."totalSharesAmount", 0)::numeric as "totalSharesAmount",
