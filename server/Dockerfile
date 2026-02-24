@@ -6,6 +6,11 @@ WORKDIR /app
 # Install system dependencies for Prisma, bcrypt, etc.
 RUN apk add --no-cache openssl libc6-compat
 
+# Configure npm for better network reliability
+RUN npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000
+
 # Copy package files first for better layer caching
 COPY package*.json ./
 
@@ -35,6 +40,11 @@ WORKDIR /app
 # Install system dependencies for Prisma, bcrypt, etc.
 RUN apk add --no-cache openssl libc6-compat
 
+# Configure npm for better network reliability
+RUN npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000
+
 # Copy package files
 COPY package*.json ./
 
@@ -58,15 +68,19 @@ WORKDIR /app
 # Install system dependencies for Prisma runtime
 RUN apk add --no-cache openssl libc6-compat
 
-# Copy package files and install only production dependencies
+# Copy package files
 COPY package*.json ./
-RUN npm install --omit=dev
+
+# Copy node_modules from builder (includes Prisma client)
+COPY --from=builder /app/node_modules ./node_modules
+
+# Remove devDependencies to reduce image size (no network needed)
+RUN npm prune --omit=dev
 
 # Copy built server from builder
 COPY --from=builder /app/dist ./dist
 
-# Copy Prisma client and schema from builder
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+# Copy Prisma schema (Prisma client already in node_modules)
 COPY --from=builder /app/prisma ./prisma
 
 # Set environment

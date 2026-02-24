@@ -8,6 +8,11 @@ FROM node:20-alpine AS server-builder
 
 WORKDIR /app/server
 
+# Configure npm for better network reliability
+RUN npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000
+
 # Copy server package files
 COPY server/package*.json ./
 
@@ -30,11 +35,16 @@ FROM node:20-alpine AS client-builder
 
 WORKDIR /app/client
 
+# Configure npm for better network reliability
+RUN npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000
+
 # Copy client package files
 COPY client/package*.json ./
 
 # Install ALL dependencies (including dev dependencies for build)
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Build arguments for client environment
 ARG NEXT_PUBLIC_API_URL

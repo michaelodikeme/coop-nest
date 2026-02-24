@@ -6,6 +6,11 @@ WORKDIR /app
 # Install system deps required by Next.js / native packages
 RUN apk add --no-cache libc6-compat openssl
 
+# Configure npm for better network reliability
+RUN npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000
+
 # Copy dependency files first for better layer caching
 COPY package*.json ./
 
@@ -28,6 +33,11 @@ WORKDIR /app
 
 # Install system deps
 RUN apk add --no-cache libc6-compat openssl
+
+# Configure npm for better network reliability
+RUN npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000
 
 # Copy dependency files
 COPY package*.json ./
@@ -52,9 +62,14 @@ RUN apk add --no-cache libc6-compat openssl
 # Set environment
 ENV NODE_ENV=production
 
-# Copy package files and install only production dependencies
+# Copy package files
 COPY package*.json ./
-RUN npm install --omit=dev --legacy-peer-deps
+
+# Copy node_modules from builder (no network needed)
+COPY --from=builder /app/node_modules ./node_modules
+
+# Remove devDependencies to reduce image size
+RUN npm prune --omit=dev
 
 # Copy built Next.js output and necessary files
 COPY --from=builder /app/.next ./.next

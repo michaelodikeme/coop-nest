@@ -44,7 +44,7 @@ export class SavingsExportService {
 
             // Apply search filter (member name or erpId)
             if (search) {
-                conditions.push(`(LOWER(b."fullName") LIKE $${paramIndex} OR LOWER(s."erpId") LIKE $${paramIndex})`);
+                conditions.push(`(LOWER(b."fullName") LIKE $${paramIndex} OR LOWER(s."erp_id") LIKE $${paramIndex})`);
                 sqlParams.push(`%${search.toLowerCase()}%`);
                 paramIndex++;
             }
@@ -78,7 +78,7 @@ export class SavingsExportService {
                 WITH latest_savings AS (
                     SELECT DISTINCT ON (s."memberId")
                         s."memberId",
-                        s."erpId",
+                        s."erp_id",
                         s."totalSavingsAmount",
                         s."totalGrossAmount",
                         s."lastDeposit",
@@ -96,7 +96,7 @@ export class SavingsExportService {
                     ORDER BY "memberId", "lastPurchase" DESC NULLS LAST
                 )
                 SELECT
-                    s."erpId" as "erpId",
+                    s."erp_id" as "erpId",
                     b."fullName" as "memberName",
                     b.department as department,
                     s."totalSavingsAmount"::numeric as "totalSavingsAmount",
