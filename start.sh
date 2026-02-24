@@ -14,11 +14,7 @@ npx prisma generate
 echo "Running database migrations..."
 npx prisma migrate deploy
 
-# 3. Build the Express server (compile TypeScript)
-echo "Building Express server..."
-npm run build
-
-# 4. Start the Express server in background (production mode - uses compiled JS)
+# 3. Start the Express server in background (production mode - uses pre-built JS from Dockerfile)
 echo "Starting Express server on port 5000 (production mode)..."
 npm start &
 SERVER_PID=$!
@@ -26,13 +22,9 @@ SERVER_PID=$!
 # Give the server time to initialize
 sleep 5
 
-# 5. Build the Next.js client (compile for production)
-echo "Building Next.js client..."
-cd /app/client
-npm run build
-
-# 6. Start the Next.js client in production mode
+# 4. Start the Next.js client in production mode (uses pre-built code from Dockerfile)
 echo "Starting Next.js client on port 3000 (production mode)..."
+cd /app/client
 npm run start &
 CLIENT_PID=$!
 

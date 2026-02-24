@@ -24,6 +24,9 @@ COPY . .
 # Generate Prisma Client (requires schema.prisma to be present)
 RUN cd server && npx prisma generate
 
+# Build Express server (compile TypeScript)
+RUN cd server && npm run build
+
 # Build arguments for client environment
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
