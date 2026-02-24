@@ -1,44 +1,95 @@
-# Monolithic Dockerfile - runs both server and client in a single container
-# Use docker-compose.yml for development (recommended)
+# Multi-stage Dockerfile for optimized production image
+# Runs both server and client in a single container with minimal size
 
-FROM node:20-alpine
+# ============================================
+# Stage 1: Build Server
+# ============================================
+FROM node:20-alpine AS server-builder
 
-WORKDIR /app
+WORKDIR /app/server
 
-# Install system dependencies
-RUN apk add --no-cache postgresql-client openssl libc6-compat
+# Copy server package files
+COPY server/package*.json ./
 
-# Copy package files for better layer caching
-COPY package*.json ./
-COPY server/package*.json ./server/
-COPY client/package*.json ./client/
-
-# Install dependencies
+# Install ALL dependencies (including dev dependencies for build)
 RUN npm install
-RUN cd server && npm install
-RUN cd client && npm install
 
-# Copy all source files
-COPY . .
+# Copy server source files and prisma schema
+COPY server/ ./
 
-# Generate Prisma Client (requires schema.prisma to be present)
-RUN cd server && npx prisma generate
+# Generate Prisma Client
+RUN npx prisma generate
 
-# Build Express server (compile TypeScript)
-RUN cd server && npm run build
+# Build TypeScript server
+RUN npm run build
+
+# Remove dev dependencies to reduce size
+RUN npm prune --production
+
+# ============================================
+# Stage 2: Build Client
+# ============================================
+FROM node:20-alpine AS client-builder
+
+WORKDIR /app/client
+
+# Copy client package files
+COPY client/package*.json ./
+
+# Install ALL dependencies (including dev dependencies for build)
+RUN npm install
 
 # Build arguments for client environment
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
-# Build Next.js client
-RUN cd client && npm run build
+# Copy client source files
+COPY client/ ./
+
+# Build Next.js client for production
+RUN npm run build
+
+# Remove dev dependencies
+RUN npm prune --production
+
+# ============================================
+# Stage 3: Production Runtime
+# ============================================
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install runtime system dependencies only
+RUN apk add --no-cache postgresql-client openssl libc6-compat
+
+# Copy root package.json if needed
+COPY package*.json ./
+
+# Install root dependencies (if any) - production only
+RUN if [ -f package.json ]; then npm install --production; fi
+
+# Copy built server from builder stage
+COPY --from=server-builder /app/server/dist ./server/dist
+COPY --from=server-builder /app/server/node_modules ./server/node_modules
+COPY --from=server-builder /app/server/package*.json ./server/
+COPY --from=server-builder /app/server/prisma ./server/prisma
+
+# Copy built client from builder stage
+COPY --from=client-builder /app/client/.next ./client/.next
+COPY --from=client-builder /app/client/node_modules ./client/node_modules
+COPY --from=client-builder /app/client/package*.json ./client/
+COPY --from=client-builder /app/client/public ./client/public
+COPY --from=client-builder /app/client/next.config.ts ./client/
+
+# Copy startup script
+COPY start.sh ./
+RUN chmod +x start.sh
 
 # Expose ports for server and client
 EXPOSE 3000 5000
 
-# Ensure start script is executable
-RUN chmod +x start.sh
+# Set production environment
+ENV NODE_ENV=production
 
 # Run migrations and start both services
 CMD ["./start.sh"]
