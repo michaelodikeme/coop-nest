@@ -40,17 +40,19 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "127.0.0.1:3000:3000"  # Frontend - localhost only (nginx proxies to this)
-      - "127.0.0.1:5000:5000"  # Backend API - localhost only (nginx proxies to this)
+      - "127.0.0.1:8080:8080"  # Frontend - localhost only (nginx proxies to this)
+      - "127.0.0.1:8081:8081"  # Backend API - localhost only (nginx proxies to this)
     networks:
       - coop-nest-network
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-rootuser}@postgres:5432/${POSTGRES_DB:-postgres}?schema=coop-nest_db
-      SERVER_PORT: 5000
+      SERVER_PORT: 8081
+      CLIENT_PORT: 8080
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       REDIS_URL: redis://redis:6379
       APPLICATION_URL: ${APPLICATION_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS}
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_ACCESS_EXPIRY: ${JWT_ACCESS_EXPIRY:-1h}

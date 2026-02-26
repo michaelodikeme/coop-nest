@@ -90,10 +90,12 @@ COPY start.sh ./
 RUN chmod +x start.sh
 
 # Expose ports for server and client
-EXPOSE 3000 5000
+EXPOSE 8080 8081
 
 # Set production environment
 ENV NODE_ENV=production
+ENV SERVER_PORT=8081
+ENV CLIENT_PORT=8080
 
 # Run migrations and start both services
 CMD ["./start.sh"]

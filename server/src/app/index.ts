@@ -30,17 +30,22 @@ process.on('unhandledRejection', (reason, promise) => {
 const app = express();
 const permissionSync = new PermissionSyncService(prisma);
 
-// Middleware setup
+// Middleware setup - CORS configuration
+const allowedOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+    : [
+        'http://localhost:8080',  // Development frontend (updated port)
+        'http://localhost:3000',  // Legacy development frontend
+        ...(process.env.APPLICATION_URL ? [process.env.APPLICATION_URL] : []),
+    ];
+
+logger.info('CORS enabled for origins:', allowedOrigins);
+
 app.use(cors({
-    origin: process.env.CORS_ORIGINS?.split(',') || [
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://fuosmcsl.online', // Add your domain here
-        'http://168.231.116.82:3000',
-    ],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
     exposedHeaders: ['Content-Range', 'X-Content-Range']
 }));
 
