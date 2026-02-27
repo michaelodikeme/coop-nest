@@ -26,11 +26,10 @@ export class SystemSettingsService {
 
     async ensureSystemUser(): Promise<string> {
         try {
-            // Try to find existing system user
-            const systemUser = await this.prisma.user.findFirst({
+            // Try to find existing system user by username only
+            const systemUser = await this.prisma.user.findUnique({
                 where: {
-                    username: 'SYSTEM',
-                    isMember: false
+                    username: 'SYSTEM'
                 }
             });
 
