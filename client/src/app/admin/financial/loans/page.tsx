@@ -20,6 +20,7 @@ import {
 } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import UploadIcon from "@mui/icons-material/Upload";
+import AddIcon from "@mui/icons-material/Add";
 import { DataTable, DataTableColumn } from "@/components/organisms/DataTable";
 import { Button } from "@/components/atoms/Button";
 import PermissionGate from "@/components/atoms/PermissionGate";
@@ -500,20 +501,37 @@ export default function AdminLoansPage() {
           Loan Management
         </Typography>
 
-        <PermissionGate
-          permissions={["PROCESS_LOANS_REPAYMENT"]}
-          module={Module.LOAN}
-          approvalLevel={2}
-        >
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<UploadIcon />}
-            onClick={() => setIsUploadModalOpen(true)}
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <PermissionGate
+            permissions={["CREATE_LOANS"]}
+            module={Module.LOAN}
+            approvalLevel={2}
           >
-            Upload Repayments
-          </Button>
-        </PermissionGate>
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={() => router.push("/admin/financial/loans/new")}
+            >
+              Create New Loan
+            </Button>
+          </PermissionGate>
+
+          <PermissionGate
+            permissions={["PROCESS_LOANS_REPAYMENT"]}
+            module={Module.LOAN}
+            approvalLevel={2}
+          >
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<UploadIcon />}
+              onClick={() => setIsUploadModalOpen(true)}
+            >
+              Upload Repayments
+            </Button>
+          </PermissionGate>
+        </Box>
       </Box>
 
       {/* Summary Cards */}

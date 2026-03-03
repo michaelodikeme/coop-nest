@@ -18,8 +18,6 @@ export class LoanService {
   * GET /loans/types
   */
   async getLoanTypes(): Promise<LoanType[]> {
-
-    const responce = apiService.get('/loan/types')
     return apiService.get('/loan/types');
   }
   
@@ -115,11 +113,12 @@ export class LoanService {
   * Calculate loan payment schedule
   * POST /loans/calculate
   */
-  async calculateLoan(loanTypeId: string, amount: number, tenure: number): Promise<any> {
+  async calculateLoan(loanTypeId: string, amount: number, tenure: number, biodataId?: string): Promise<any> {
     return apiService.post('/loan/calculate', {
       loanTypeId,
       amount,
-      tenure
+      tenure,
+      ...(biodataId && { biodataId })
     });
   }
   
@@ -135,7 +134,22 @@ export class LoanService {
   }): Promise<any> {
     return apiService.post('/loan/apply', data);
   }
-  
+
+  /**
+  * Create loan for member (Admin only)
+  * POST /loan/create
+  */
+  async createLoanForMember(data: {
+    biodataId: string;
+    erpId: string;
+    loanTypeId: string;
+    loanAmount: number;
+    loanTenure: number;
+    loanPurpose: string;
+  }): Promise<any> {
+    return apiService.post('/loan/create', data);
+  }
+
   /**
   * Get loan details by ID
   * GET /loans/:id

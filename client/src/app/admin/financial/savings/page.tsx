@@ -79,6 +79,9 @@ export default function AdminSavingsPage() {
   const [monthlySavingsPage, setMonthlySavingsPage] = useState(0);
   const [monthlySavingsPageSize, setMonthlySavingsPageSize] = useState(50);
   const [isExporting, setIsExporting] = useState(false);
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [departmentFilter, setDepartmentFilter] = useState<string>("");
 
   // Create search/filter object
   const filters = {
@@ -96,6 +99,9 @@ export default function AdminSavingsPage() {
     sortBy,
     sortOrder,
     status: withdrawalStatusFilter,
+    department: departmentFilter,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
   };
 
   // Fetch data using custom hooks
@@ -136,6 +142,9 @@ export default function AdminSavingsPage() {
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
     setSearchTerm(""); // Reset search when changing tabs
+    setDepartmentFilter(""); // Reset department filter
+    setStartDate(""); // Reset start date
+    setEndDate(""); // Reset end date
 
     if (newValue === 2) {
       // If switching to withdrawals tab, set default filter
@@ -757,6 +766,78 @@ export default function AdminSavingsPage() {
       </Paper>
       {activeTab === 0 && (
         <Paper sx={{ p: 2 }}>
+          <Box sx={{ mb: 3 }}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search by name or ERP ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Department"
+                  placeholder="Filter by department"
+                  value={departmentFilter}
+                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Start Date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="End Date"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              </Grid>
+              {(searchTerm || departmentFilter || startDate || endDate) && (
+                <Grid size={{ xs: 12 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setDepartmentFilter("");
+                      setStartDate("");
+                      setEndDate("");
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </Grid>
+              )}
+            </Grid>
+          </Box>
           <DataTable
             columns={memberSavingsColumns}
             data={memberSummary?.data || []}

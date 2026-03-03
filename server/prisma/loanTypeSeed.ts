@@ -13,7 +13,7 @@ async function main() {
         {
             name: 'Soft Loan',
             description: 'Short-term loan with 1-6 months duration. 10% monthly interest rate. No savings-based limit on amount.',
-            interestRate: 0.10,
+            interestRate: 0.75,
             minDuration: 1,
             maxDuration: 6,
             maxLoanAmount: 500000

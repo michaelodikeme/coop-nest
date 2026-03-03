@@ -48,6 +48,14 @@ router.post(
     controller.applyForLoan.bind(controller) as RouteHandler
 );
 
+// Admin loan creation route
+router.post(
+    '/create',
+    authorizeRoles(['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN']),
+    checkPermission('CREATE_LOANS'),
+    controller.createLoanForMember.bind(controller) as RouteHandler
+);
+
 // Add summary route - Admin only route
 router.get(
     '/summary',

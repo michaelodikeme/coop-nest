@@ -6,6 +6,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rootuser}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    ports:
+      - "5432:5432"  # Expose PostgreSQL to host machine
     volumes:
       - coop-nest-app_postgres_data:/var/lib/postgresql/data
     networks:
@@ -46,6 +48,7 @@ services:
     working_dir: /app
     command: >
       sh -c "
+        npm install &&
         npx prisma generate &&
         npx prisma migrate deploy --schema=prisma/schema.prisma &&
         npm run dev
@@ -83,7 +86,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=8080
-      - NEXT_PUBLIC_API_URL=http://localhost:8081
+      - NEXT_PUBLIC_API_URL=http://localhost:8081/api
 
 volumes:
   coop-nest-app_postgres_data:

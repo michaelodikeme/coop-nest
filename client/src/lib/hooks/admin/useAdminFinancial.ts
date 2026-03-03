@@ -468,14 +468,16 @@ export function useEnhancedLoansSummary(startDate?: string, endDate?: string) {
  * This provides an optimized view showing one row per member with aggregated totals
  */
 export function useMembersSavingsSummary(
-  page = 1, 
-  limit = 10, 
+  page = 1,
+  limit = 10,
   filters: {
     search?: string;
     department?: string;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
     status?: string;
+    startDate?: string;
+    endDate?: string;
   } = {}
 ) {
   return useQuery({

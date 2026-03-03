@@ -53,7 +53,7 @@ export default function Home() {
     {
       name: "Soft Loans",
       duration: "1-6 months",
-      interest: "10% monthly",
+      interest: "7.5% monthly",
       maxAmount: "₦500,000",
       description: "Quick access loans for immediate needs",
       features: ["Fast approval", "Flexible repayment", "No collateral required"],

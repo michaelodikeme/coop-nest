@@ -518,6 +518,8 @@ class SavingsService {
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
     status?: string;
+    startDate?: string;
+    endDate?: string;
   }): Promise<PaginatedResponse<MemberSavingsSummary>> {
     const queryParams = new URLSearchParams();
 
@@ -529,6 +531,8 @@ class SavingsService {
       if (params.sortBy) queryParams.append('sortBy', params.sortBy);
       if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
       if (params.status) queryParams.append('status', params.status);
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
     }
 
     const url = `/savings/members-summary${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;

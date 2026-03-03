@@ -619,7 +619,9 @@ export class SavingsService {
                 department,
                 sortBy = 'lastDeposit',
                 sortOrder = 'desc',
-                status
+                status,
+                startDate,
+                endDate
             } = params;
 
             // Build WHERE clause for SQL
@@ -645,6 +647,19 @@ export class SavingsService {
             if (department) {
                 conditions.push(`b.department = $${paramIndex}`);
                 sqlParams.push(department);
+                paramIndex++;
+            }
+
+            // Apply date range filter
+            if (startDate) {
+                conditions.push(`s."lastDeposit" >= $${paramIndex}`);
+                sqlParams.push(startDate);
+                paramIndex++;
+            }
+
+            if (endDate) {
+                conditions.push(`s."lastDeposit" <= $${paramIndex}`);
+                sqlParams.push(endDate);
                 paramIndex++;
             }
 

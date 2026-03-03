@@ -8,6 +8,7 @@ import { ApiError } from '../../../utils/apiError';
 import { LoanStatus } from '@prisma/client';
 import {
     loanApplicationSchema,
+    adminLoanCreationSchema,
     loanStatusUpdateSchema,
     loanCalculationSchema,
     loanEligibilitySchema
@@ -125,6 +126,46 @@ export class LoanController {
         }
     }
 
+    // Create loan for member (Admin only)
+    async createLoanForMember(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+        try {
+            // Get admin user ID
+            const adminUserId = req.user.id;
+
+            if (!adminUserId) {
+                throw new ApiError('Administrator authentication required', 401);
+            }
+
+            // Validate input with admin schema
+            const validatedData = await adminLoanCreationSchema.parseAsync(req.body);
+
+            // Fetch loan type details
+            const loanType = await this.loanService.getLoanTypeById(validatedData.loanTypeId);
+            if (!loanType) {
+                throw new ApiError('Loan type not found', 404);
+            }
+
+            // Build loan application data (biodataId and erpId from request body, not req.user)
+            const loanApplicationData: LoanApplication = {
+                biodataId: validatedData.biodataId,
+                erpId: validatedData.erpId,
+                loanTypeId: validatedData.loanTypeId,
+                loanAmount: validatedData.loanAmount,
+                loanTenure: validatedData.loanTenure,
+                loanPurpose: validatedData.loanPurpose,
+                loanTypeName: loanType.name,
+                loanTypeDescription: loanType.description,
+                loanTypeInterestRate: loanType.interestRate.toNumber()
+            };
+
+            // Create loan with admin user ID
+            const loan = await this.loanService.createLoanForMember(loanApplicationData, adminUserId);
+            return ApiResponse.created(res, 'Loan created and disbursed successfully', loan);
+        } catch (error) {
+            next(error);
+        }
+    }
+
     // Get member loans
     async getMemberLoans(req: AuthenticatedRequest, res: Response, next: NextFunction) {
         try {
@@ -212,10 +253,21 @@ export class LoanController {
     // Get all loans with filtering
     async getAllLoans(req: AuthenticatedRequest, res: Response, next: NextFunction) {
         try {
+            // Parse status parameter - handle comma-separated values
+            let parsedStatus: LoanStatus | LoanStatus[] | undefined;
+            if (req.query.status) {
+                const statusParam = req.query.status as string;
+                if (statusParam.includes(',')) {
+                    parsedStatus = statusParam.split(',') as LoanStatus[];
+                } else {
+                    parsedStatus = statusParam as LoanStatus;
+                }
+            }
+
             const filters = {
                 page: req.query.page ? Number(req.query.page) : undefined,
                 limit: req.query.limit ? Number(req.query.limit) : undefined,
-                status: req.query.status as LoanStatus | LoanStatus[] | undefined,
+                status: parsedStatus,
                 loanTypeId: req.query.loanTypeId as string | undefined,
                 erpId: req.query.erpId as string | undefined,
                 startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,

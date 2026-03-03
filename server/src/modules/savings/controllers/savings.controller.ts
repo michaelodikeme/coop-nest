@@ -289,14 +289,16 @@ export class SavingsController {
    */
   getMembersSummary = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { 
-        page, 
-        limit, 
+      const {
+        page,
+        limit,
         search,
         department,
         sortBy,
         sortOrder,
-        status
+        status,
+        startDate,
+        endDate
       } = req.query;
 
       const params = {
@@ -306,7 +308,9 @@ export class SavingsController {
         department: department as string,
         sortBy: sortBy as string,
         sortOrder: (sortOrder as 'asc' | 'desc'),
-        status: status as any
+        status: status as any,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined
       };
 
       const membersSummary = await this.savingsService.getMembersSummary(params);

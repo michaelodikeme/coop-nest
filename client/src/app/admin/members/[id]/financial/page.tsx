@@ -85,7 +85,7 @@ export default function MemberFinancialPage() {
   // Fetch loans data - use erpId for filtering
   const { data: loansData, isLoading: isLoansLoading } = useQuery<any>({
     queryKey: ['member-loans', memberErpId, loansPage, pageSize],
-    queryFn: () => apiService.get(`/loans?erpId=${memberErpId}&page=${loansPage}&limit=${pageSize}`),
+    queryFn: () => apiService.get(`/loan?erpId=${memberErpId}&page=${loansPage}&limit=${pageSize}`),
     enabled: !!memberErpId && tabIndex === 1,
   });
 

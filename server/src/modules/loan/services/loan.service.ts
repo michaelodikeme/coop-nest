@@ -352,6 +352,332 @@ export class LoanService {
     return loan;
 }
 
+/**
+ * Create loan for member (Admin only)
+ * Bypasses approval workflow by creating loan in DISBURSED status
+ * with auto-approved request record and disbursement transaction for audit trail
+ */
+async createLoanForMember(data: LoanApplication, createdBy: string): Promise<Loan> {
+    // 1. Get loan type first to determine rules
+    const loanType = await prisma.loanType.findUnique({
+        where: { id: data.loanTypeId }
+    });
+
+    if (!loanType) {
+        throw new ApiError('Invalid loan type', 404);
+    }
+
+    // 2. Get member profile with related data (same as applyForLoan)
+    const biodata = await prisma.biodata.findUnique({
+        where: { id: data.biodataId },
+        include: {
+            loans: {
+                where: {
+                    status: {
+                        in: ['ACTIVE', 'DEFAULTED', 'PENDING', 'IN_REVIEW']
+                    }
+                },
+                include: {
+                    loanType: true
+                }
+            },
+            users: true,
+            savings: {
+                where: { status: 'ACTIVE' },
+                orderBy: [
+                    { year: 'desc' },
+                    { month: 'desc' }
+                ],
+                take: 1,
+                select: {
+                    totalSavingsAmount: true,
+                    totalGrossAmount: true,
+                    balance: true,
+                    monthlyTarget: true,
+                    status: true,
+                    createdAt: true
+                }
+            }
+        }
+    });
+
+    // 3. Basic validations (same as applyForLoan)
+    if (!biodata) {
+        throw new ApiError('Member profile not found', 404);
+    }
+
+    const savingsSummary = biodata.savings[0];
+    if (!savingsSummary) {
+        throw new ApiError('No savings record found for member', 400);
+    }
+
+    if (savingsSummary.status !== 'ACTIVE') {
+        throw new ApiError('Savings account is not active', 400);
+    }
+
+    // 4. Check previous loan performance
+    const hasDefaultedLoans = biodata.loans.some(loan => loan.status === 'DEFAULTED');
+    if (hasDefaultedLoans) {
+        throw new ApiError('Cannot create loan for member with defaulted loans', 400);
+    }
+
+    // 5. Validate tenure against loan type
+    if (data.loanTenure < loanType.minDuration || data.loanTenure > loanType.maxDuration) {
+        throw new ApiError(
+            `Loan tenure must be between ${loanType.minDuration} and ${loanType.maxDuration} months`,
+            400
+        );
+    }
+
+    // 6. Check eligibility (full validation as per requirement)
+    const eligibilityResponse = await this.eligibilityService.checkLoanEligibility(
+        data.biodataId,
+        data.loanTypeId,
+        Number(data.loanAmount),
+        data.loanTenure
+    );
+
+    if (!eligibilityResponse.success || !eligibilityResponse.data.isEligible) {
+        throw new ApiError(
+            eligibilityResponse.data.reason || 'Member not eligible for this loan',
+            400
+        );
+    }
+
+    // 7. Validate against loan type rules
+    const isSoftLoan = loanType.name.toLowerCase().includes('soft');
+    if (isSoftLoan && Number(data.loanAmount) > 500000) {
+        throw new ApiError('Soft loan cannot exceed ₦500,000', 400);
+    }
+
+    // For regular loans, check against savings multiplier
+    if (!isSoftLoan) {
+        const maxLoanAmount = new Decimal(biodata.savings[0].totalSavingsAmount).mul(3);
+        if (new Decimal(data.loanAmount).gt(maxLoanAmount)) {
+            throw new ApiError(
+                `Regular loan cannot exceed 3x total savings (₦${maxLoanAmount.toFixed(2)})`,
+                400
+            );
+        }
+    }
+
+    // 8. Validate tenure based on loan type
+    if (isSoftLoan && (data.loanTenure < 1 || data.loanTenure > 6)) {
+        throw new ApiError('Soft loan tenure must be between 1-6 months', 400);
+    } else if (loanType.name.toLowerCase().includes('1 year plus')) {
+        if (data.loanTenure < 12 || data.loanTenure > 36) {
+            throw new ApiError('1 Year Plus loan tenure must be between 12-36 months', 400);
+        }
+    } else {
+        if (data.loanTenure < 1 || data.loanTenure > 12) {
+            throw new ApiError('Regular loan tenure must be between 1-12 months', 400);
+        }
+    }
+
+    // 9. Calculate loan schedule
+    const calculation = await this.calculatorService.calculateLoan(
+        data.loanTypeId,
+        Number(data.loanAmount),
+        data.loanTenure,
+        data.biodataId
+    );
+
+    // 10. Create loan with APPROVED status in transaction
+    const loan = await prisma.$transaction(async (tx) => {
+        // Fetch latest savings record within transaction
+        const latestSavings = await tx.savings.findFirst({
+            where: {
+                memberId: data.biodataId,
+                status: 'ACTIVE'
+            },
+            orderBy: [
+                { year: 'desc' },
+                { month: 'desc' }
+            ],
+            select: {
+                totalSavingsAmount: true,
+                totalGrossAmount: true,
+                balance: true,
+                monthlyTarget: true
+            }
+        });
+
+        if (!latestSavings) {
+            throw new ApiError('No active savings record found', 400);
+        }
+
+        // Create loan with DISBURSED status (admin-created loans are immediately disbursed)
+        const loan = await tx.loan.create({
+            data: {
+                memberId: data.biodataId,
+                erpId: data.erpId,
+                loanTypeId: data.loanTypeId,
+                principalAmount: data.loanAmount,
+                interestAmount: calculation.totalInterest,
+                totalAmount: calculation.totalRepayment,
+                remainingBalance: calculation.totalRepayment,
+                tenure: data.loanTenure,
+                purpose: data.loanPurpose,
+                status: 'DISBURSED',  // Immediately disbursed by admin
+                disbursedAt: new Date(),  // Set disbursement timestamp
+                paidAmount: 0,
+                savingsSnapshot: {
+                    totalSavingsAmount: latestSavings.totalSavingsAmount,
+                    totalGrossAmount: latestSavings.totalGrossAmount,
+                    monthlyTarget: latestSavings.monthlyTarget
+                }
+            }
+        });
+
+        // Create payment schedule (same as applyForLoan)
+        await Promise.all(
+            calculation.schedule.map((payment) =>
+                tx.loanSchedule.create({
+                    data: {
+                        loanId: loan.id,
+                        dueDate: payment.paymentDate,
+                        expectedAmount: payment.totalPayment,
+                        principalAmount: payment.principalAmount,
+                        interestAmount: payment.interestAmount,
+                        remainingBalance: payment.remainingBalance,
+                        paidAmount: 0,
+                        status: 'PENDING'
+                    }
+                })
+            )
+        );
+
+        // Auto-approved approval steps (all pre-approved by admin)
+        const approvalSteps = [
+            {
+                level: 1,
+                status: ApprovalStatus.APPROVED,
+                approverRole: 'TREASURER',
+                approverId: createdBy,
+                approvedAt: new Date(),
+                notes: 'Auto-approved by superadmin during loan creation'
+            },
+            {
+                level: 2,
+                status: ApprovalStatus.APPROVED,
+                approverRole: 'CHAIRMAN',
+                approverId: createdBy,
+                approvedAt: new Date(),
+                notes: 'Auto-approved by superadmin during loan creation'
+            },
+            {
+                level: 3,
+                status: ApprovalStatus.APPROVED,
+                approverRole: 'TREASURER',
+                approverId: createdBy,
+                approvedAt: new Date(),
+                notes: 'Auto-approved by superadmin during loan creation'
+            }
+        ];
+
+        // Create completed request for audit trail
+        await tx.request.create({
+            data: {
+                type: 'LOAN_APPLICATION',
+                status: 'COMPLETED',  // Completed immediately
+                priority: 'MEDIUM',
+                module: 'LOAN',
+                biodataId: data.biodataId,
+                initiatorId: createdBy,  // Admin who created it
+                approverId: createdBy,   // Same admin
+                loanId: loan.id,
+                nextApprovalLevel: 3,  // All levels completed
+                completedAt: new Date(),
+                content: {
+                    loanId: loan.id,
+                    erpId: data.erpId,
+                    amount: data.loanAmount.toString(),
+                    tenure: data.loanTenure,
+                    purpose: data.loanPurpose,
+                    totalRepayment: calculation.totalRepayment.toString(),
+                    monthlyPayment: calculation.schedule[0]?.totalPayment.toString() || '0',
+                    createdByAdmin: true
+                },
+                metadata: {
+                    loanType: {
+                        id: loanType.id,
+                        name: loanType.name,
+                        description: loanType.description,
+                        interestRate: loanType.interestRate.toString()
+                    },
+                    member: {
+                        erpId: biodata.erpId,
+                        fullName: biodata.fullName,
+                        department: biodata.department
+                    },
+                    savings: {
+                        totalSavings: latestSavings.totalSavingsAmount.toString(),
+                        monthlyTarget: latestSavings.monthlyTarget.toString()
+                    },
+                    adminCreated: {
+                        createdBy: createdBy,
+                        createdAt: new Date(),
+                        reason: 'Direct loan creation by superadmin'
+                    }
+                },
+                approvalSteps: {
+                    create: approvalSteps
+                }
+            },
+            include: {
+                approvalSteps: true
+            }
+        });
+
+        // Create disbursement transaction record
+        await this.transactionService.createTransactionWithTx(tx, {
+            transactionType: TransactionType.LOAN_DISBURSEMENT,
+            module: TransactionModule.LOAN,
+            amount: loan.totalAmount,
+            description: `Loan disbursement for admin-created loan #${loan.id}`,
+            initiatedBy: createdBy,
+            relatedEntityId: loan.id,
+            relatedEntityType: 'LOAN',
+            autoComplete: true,
+            metadata: {
+                loanType: loan.loanTypeId,
+                disbursementDate: new Date(),
+                adminCreated: true,
+                memberId: data.biodataId,
+                erpId: data.erpId
+            }
+        });
+
+        // Create status history
+        await tx.loanStatusHistory.create({
+            data: {
+                loanId: loan.id,
+                fromStatus: 'DISBURSED',
+                toStatus: 'DISBURSED',
+                changedBy: createdBy,
+                reason: 'Loan created and disbursed directly by superadmin'
+            }
+        });
+
+        return loan;
+    });
+
+    // Handle notification separately after transaction
+    try {
+        await LoanNotificationService.notifyLoanStatusChange(
+            loan.id,
+            'DISBURSED',
+            createdBy,
+            'Loan created and disbursed by administrator'
+        );
+    } catch (error) {
+        // Log notification error but don't fail the loan creation
+        logger.error('Failed to create loan notification:', error);
+    }
+
+    return loan;
+}
+
 // Enhance updateLoanStatus with proper status flow validation
 async updateLoanStatus(
     loanId: string,

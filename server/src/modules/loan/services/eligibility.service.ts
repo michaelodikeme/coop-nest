@@ -96,6 +96,22 @@ export class EligibilityService {
             };
         }
 
+        // Block soft loans when member has active regular or 1 year plus loan
+        // if (isSoftLoan && (hasActiveRegularLoan || hasActiveOneYearPlusLoan)) {
+        //     return {
+        //         hasConflict: true,
+        //         errorMessage: 'Cannot apply for a Soft loan when you have an active Regular or 1 Year Plus loan',
+        //         loanTypeInfo: {
+        //             isRegularLoan,
+        //             isOneYearPlusLoan,
+        //             isSoftLoan,
+        //             hasActiveRegularLoan,
+        //             hasActiveOneYearPlusLoan,
+        //             hasActiveSoftLoan
+        //         }
+        //     };
+        // }
+
         // Apply restriction logic for Regular Loans
         if (isRegularLoan && hasActiveOneYearPlusLoan) {
             return {

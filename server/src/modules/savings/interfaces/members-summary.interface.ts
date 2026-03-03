@@ -21,6 +21,8 @@ export interface MemberSavingsSummaryParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   status?: AccountStatus;
+  startDate?: Date;
+  endDate?: Date;
 }
 
 export interface MemberSavingsSummaryResponse {

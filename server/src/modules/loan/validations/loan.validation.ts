@@ -43,6 +43,25 @@ export const loanApplicationSchema = z.object({
     .max(500, "Loan purpose cannot exceed 500 characters"),
 });
 
+// Admin loan creation schema (loan purpose is optional for admin)
+export const adminLoanCreationSchema = z.object({
+  biodataId: z.string().uuid("Invalid biodata ID"),
+  erpId: erpIdSchema,
+  loanTypeId: z.string().uuid("Invalid loan type ID"),
+  loanAmount: positiveDecimal,
+  loanTenure: z
+    .number()
+    .int("Tenure must be a whole number")
+    .min(1, "Tenure must be at least 1 month")
+    .max(36, "Tenure cannot exceed 36 months"),
+  loanPurpose: z
+    .string()
+    .min(10, "Loan purpose must be at least 10 characters when provided")
+    .max(500, "Loan purpose cannot exceed 500 characters")
+    .optional()
+    .or(z.literal('')),
+});
+
 // Loan status update schema
 export const loanStatusUpdateSchema = z.object({
   status: z.nativeEnum(LoanStatus, {
@@ -167,6 +186,7 @@ export const loansQuerySchema = z.object({
 
 // Types
 export type LoanApplicationInput = z.infer<typeof loanApplicationSchema>;
+export type AdminLoanCreationInput = z.infer<typeof adminLoanCreationSchema>;
 export type LoanStatusUpdateInput = z.infer<typeof loanStatusUpdateSchema>;
 export type LoanQueryParams = z.infer<typeof loanQuerySchema>;
 export type LoanCalculationInput = z.infer<typeof loanCalculationSchema>;
