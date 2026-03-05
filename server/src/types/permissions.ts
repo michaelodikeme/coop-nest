@@ -269,6 +269,12 @@ export const PERMISSIONS: Permission[] = [
         requiredApprovalLevel: 2
     },
     {
+        name: 'CREATE_WITHDRAWALS',
+        description: 'Can create withdrawals for members',
+        module: Module.SAVINGS,
+        action: Action.CREATE
+    },
+    {
         name: 'VIEW_SAVINGS_STATS',
         description: 'Can view savings statistics and reports',
         module: Module.SAVINGS,

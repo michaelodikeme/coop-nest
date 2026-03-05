@@ -115,11 +115,22 @@ export default function CreateLoanPage() {
   const [memberPreSelected] = useState(!!memberId);
   const [memberSavingsBalance, setMemberSavingsBalance] = useState<number>(0);
   const [calculationError, setCalculationError] = useState<string | null>(null);
+  const [memberSearchTerm, setMemberSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
   // Conditional steps based on whether member is pre-selected
   const steps = memberPreSelected
     ? ["Loan Details", "Review & Submit"]
     : ["Select Member", "Loan Details", "Review & Submit"];
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(memberSearchTerm);
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timer);
+  }, [memberSearchTerm]);
 
   // Fetch pre-selected member data if memberId is provided
   const { data: preSelectedMemberData, isLoading: loadingPreSelectedMember } =
@@ -133,14 +144,19 @@ export default function CreateLoanPage() {
       enabled: !!memberId,
     });
 
-  // Fetch members only if no memberId (full 3-step flow)
+  // Fetch members with server-side search (only if no memberId - full 3-step flow)
   const { data: membersData, isLoading: loadingMembers } = useQuery({
-    queryKey: ["biodata"],
+    queryKey: ["biodata-search", debouncedSearchTerm],
     queryFn: async () => {
-      const response = await memberService.getAllBiodata();
+      const response = await memberService.getAllBiodata({
+        searchTerm: debouncedSearchTerm || undefined,
+        limit: 20, // Limit results for better performance
+      });
       return response.data;
     },
     enabled: !memberId,
+    // Keep previous data while loading new results
+    placeholderData: (previousData) => previousData,
   });
 
   // Fetch loan types
@@ -524,7 +540,11 @@ export default function CreateLoanPage() {
                 }
                 value={selectedMember}
                 onChange={(_, newValue) => handleMemberSelect(newValue)}
+                onInputChange={(_, newInputValue) => {
+                  setMemberSearchTerm(newInputValue);
+                }}
                 loading={loadingMembers}
+                filterOptions={(x) => x} // Disable client-side filtering
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -532,6 +552,17 @@ export default function CreateLoanPage() {
                     placeholder="Type to search by name or ERP ID"
                     fullWidth
                     margin="normal"
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {loadingMembers ? (
+                            <CircularProgress color="inherit" size={20} />
+                          ) : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
                   />
                 )}
                 renderOption={(props, option: any) => (

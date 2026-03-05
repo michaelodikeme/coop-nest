@@ -40,6 +40,14 @@ router.get(
     controller.getWithdrawalStatistics.bind(controller) as RouteHandler
 );
 
+// Create withdrawal for member (superadmin only)
+router.post(
+    '/admin-create',
+    authorizeRoles(['SUPER_ADMIN']),
+    checkPermission('CREATE_WITHDRAWALS'),
+    controller.createWithdrawalForMember.bind(controller) as RouteHandler
+);
+
 // Get withdrawal by ID
 router.get(
     '/:id',

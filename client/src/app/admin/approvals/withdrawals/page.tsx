@@ -21,6 +21,7 @@ import { DataTable } from '@/components/organisms/DataTable';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import AddIcon from '@mui/icons-material/Add';
 import { formatCurrency } from '@/utils/formatting/format';
 import { useToast } from '@/components/molecules/Toast';
 
@@ -119,8 +120,17 @@ export default function WithdrawalApprovalsPage() {
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight={600} mb={3}>Withdrawal Approvals</Typography>
-      
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" fontWeight={600}>Withdrawal Approvals</Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => router.push('/admin/financial/savings/withdrawals/new')}
+        >
+          Create Withdrawal
+        </Button>
+      </Box>
+
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>

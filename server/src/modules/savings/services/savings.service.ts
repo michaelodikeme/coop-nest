@@ -605,7 +605,50 @@ export class SavingsService {
             throw new ApiError('Failed to fetch savings summary', 500);
         }
     }
-    
+
+    /**
+     * Get the latest savings record for a member (most recent month/year)
+     * More efficient than fetching all savings records
+     */
+    async getLatestSavings(memberId: string) {
+        try {
+            const latestSavings = await prisma.savings.findFirst({
+                where: { memberId },
+                orderBy: [
+                    { year: 'desc' },
+                    { month: 'desc' }
+                ],
+                include: {
+                    member: {
+                        select: {
+                            id: true,
+                            fullName: true,
+                            erpId: true,
+                            department: true
+                        }
+                    },
+                    shares: {
+                        orderBy: [
+                            { year: 'desc' },
+                            { month: 'desc' }
+                        ],
+                        take: 1
+                    }
+                }
+            });
+
+            if (!latestSavings) {
+                throw new ApiError('No savings record found for this member', 404);
+            }
+
+            return latestSavings;
+        } catch (error) {
+            if (error instanceof ApiError) throw error;
+            logger.error('Error fetching latest savings:', error);
+            throw new ApiError('Failed to fetch latest savings', 500);
+        }
+    }
+
     /**
     * Get aggregated savings summary for all members with pagination and filtering
     * This provides a member-centric view rather than transaction-centric view

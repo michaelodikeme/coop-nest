@@ -8,6 +8,18 @@ export const createWithdrawalSchema = z.object({
     erpId: z.string().min(1, 'ERP ID is required')
 });
 
+export const adminWithdrawalCreationSchema = z.object({
+    biodataId: z.string().uuid('Invalid member ID'),
+    erpId: z.string().min(1, 'ERP ID is required'),
+    amount: z.number().positive('Amount must be positive').min(1000, 'Minimum withdrawal amount is ₦1,000'),
+    reason: z.string().min(10, 'Please provide a detailed reason for the withdrawal').max(500, 'Reason is too long'),
+    withdrawalType: z.enum(['SAVINGS', 'PERSONAL_SAVINGS'], {
+        errorMap: () => ({ message: 'Withdrawal type must be either SAVINGS or PERSONAL_SAVINGS' })
+    }),
+    savingsId: z.string().uuid('Invalid savings ID').optional(),
+    personalSavingsId: z.string().uuid('Invalid personal savings ID').optional()
+});
+
 export const updateWithdrawalSchema = z.object({
     status: z.enum(['PENDING', 'IN_REVIEW', 'REVIEWED', 'APPROVED', 'REJECTED', 'COMPLETED']),
     notes: z.string().optional()

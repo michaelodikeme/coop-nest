@@ -17,6 +17,7 @@ import {
   WithdrawalRequestInput,
   WithdrawalQueryParams,
   UpdateWithdrawalStatusInput,
+  AdminWithdrawalCreationInput,
 } from "../interfaces/withdrawal.interface";
 import { SavingsTransactionProcessor } from "../../transaction/services/processors/savings-transaction.processor";
 import { prisma } from "../../../utils/prisma";
@@ -393,6 +394,320 @@ class SavingsWithdrawalService {
       throw new SavingsError(
         SavingsErrorCodes.REQUEST_CREATION_FAILED,
         "Failed to create withdrawal request",
+        500
+      );
+    }
+  }
+
+  /**
+   * Creates a withdrawal for a member by admin, bypassing approval workflow
+   * All validation rules are still enforced (active loan check, annual limit, amount limits)
+   */
+  async createWithdrawalForMember(data: AdminWithdrawalCreationInput, createdBy: string) {
+    try {
+      const isPersonalSavings = data.withdrawalType === 'PERSONAL_SAVINGS';
+
+      // Validate active loan
+      const canWithdrawDueToLoan = await this.checkActiveLoan(data.biodataId);
+      if (!canWithdrawDueToLoan) {
+        throw new SavingsError(
+          SavingsErrorCodes.ACTIVE_LOAN_EXISTS,
+          "Cannot process withdrawal. Member has an active loan that must be cleared first.",
+          400
+        );
+      }
+
+      // Check annual withdrawal limit
+      const canWithdraw = await this.checkYearlyWithdrawalLimit(
+        data.biodataId,
+        isPersonalSavings
+      );
+      if (!canWithdraw) {
+        throw new SavingsError(
+          SavingsErrorCodes.WITHDRAWAL_LIMIT_EXCEEDED,
+          "Member has already made one savings withdrawal this year",
+          400
+        );
+      }
+
+      // Validate withdrawal amount
+      await this.validateWithdrawalAmount(
+        data.biodataId,
+        data.amount,
+        isPersonalSavings,
+        data.savingsId,
+        data.personalSavingsId
+      );
+
+      // Fetch member details with associated user
+      const member = await prisma.biodata.findUnique({
+        where: { id: data.biodataId },
+      });
+
+      if (!member) {
+        throw new SavingsError(
+          SavingsErrorCodes.MEMBER_NOT_FOUND,
+          "Member profile not found",
+          404
+        );
+      }
+
+      // Fetch the user associated with this biodata (for notification)
+      const memberUser = await prisma.user.findFirst({
+        where: { biodataId: member.id },
+      });
+
+      // Fetch savings data
+      let savingsData: any;
+      let savingsRecordId: string;
+      let balance: Decimal;
+
+      if (isPersonalSavings) {
+        if (!data.personalSavingsId) {
+          throw new SavingsError(
+            SavingsErrorCodes.VALIDATION_ERROR,
+            "Personal savings ID is required for personal savings withdrawal",
+            400
+          );
+        }
+
+        const personalSavings = await prisma.personalSavings.findUnique({
+          where: { id: data.personalSavingsId },
+          include: { planType: true },
+        });
+
+        if (!personalSavings) {
+          throw new SavingsError(
+            SavingsErrorCodes.INSUFFICIENT_BALANCE,
+            "Personal savings record not found",
+            400
+          );
+        }
+
+        savingsData = personalSavings;
+        savingsRecordId = personalSavings.id;
+        balance = personalSavings.currentBalance;
+      } else {
+        const latestSavings = await prisma.savings.findFirst({
+          where: {
+            memberId: data.biodataId,
+            status: "ACTIVE",
+          },
+          orderBy: [{ year: "desc" }, { month: "desc" }],
+        });
+
+        if (!latestSavings) {
+          throw new SavingsError(
+            SavingsErrorCodes.INSUFFICIENT_BALANCE,
+            "No active savings record found",
+            400
+          );
+        }
+
+        savingsData = latestSavings;
+        savingsRecordId = latestSavings.id;
+        balance = latestSavings.totalSavingsAmount;
+      }
+
+      // Create withdrawal in a transaction
+      const withdrawalRequest = await prisma.$transaction(async (tx) => {
+        // Create auto-approved approval steps
+        const approvalSteps = [
+          {
+            level: 1,
+            status: ApprovalStatus.APPROVED,
+            approverRole: "TREASURER",
+            approverId: createdBy,
+            approvedAt: new Date(),
+            notes: "Auto-approved by superadmin during withdrawal creation",
+          },
+          {
+            level: 2,
+            status: ApprovalStatus.APPROVED,
+            approverRole: "CHAIRMAN",
+            approverId: createdBy,
+            approvedAt: new Date(),
+            notes: "Auto-approved by superadmin during withdrawal creation",
+          },
+          {
+            level: 3,
+            status: ApprovalStatus.APPROVED,
+            approverRole: "TREASURER",
+            approverId: createdBy,
+            approvedAt: new Date(),
+            notes: "Auto-approved by superadmin during withdrawal creation",
+          },
+        ];
+
+        // Build request data
+        const requestData: any = {
+          id: uuidv4(),
+          type: isPersonalSavings ? RequestType.PERSONAL_SAVINGS_WITHDRAWAL : RequestType.SAVINGS_WITHDRAWAL,
+          module: RequestModule.SAVINGS,
+          status: RequestStatus.COMPLETED,
+          biodataId: data.biodataId,
+          initiatorId: createdBy,
+          approverId: createdBy,
+          nextApprovalLevel: 3,
+          completedAt: new Date(),
+          content: {
+            amount: data.amount.toString(),
+            reason: data.reason,
+            erpId: data.erpId,
+            requestDate: new Date().toISOString(),
+            withdrawalType: isPersonalSavings ? "PERSONAL_SAVINGS" : "SAVINGS",
+            createdByAdmin: true,
+          },
+          metadata: {
+            adminCreated: {
+              createdBy: createdBy,
+              createdAt: new Date().toISOString(),
+              reason: "Direct withdrawal creation by superadmin",
+            },
+            member: {
+              id: member.id,
+              erpId: member.erpId,
+              fullName: member.fullName,
+              department: member.department,
+            },
+          },
+        };
+
+        // Add savings-specific metadata
+        if (isPersonalSavings) {
+          requestData.personalSavingsId = savingsRecordId;
+          requestData.metadata.personalSavings = {
+            id: savingsRecordId,
+            currentBalance: balance.toString(),
+            planName: savingsData.planName || savingsData.planType?.name || "Unknown",
+            remainingBalance: new Decimal(balance).minus(data.amount).toString(),
+          };
+        } else {
+          requestData.savingsId = savingsRecordId;
+          requestData.metadata.savings = {
+            id: savingsRecordId,
+            currentBalance: balance.toString(),
+            totalSavings: savingsData.totalSavingsAmount?.toString() || "0",
+            remainingBalance: new Decimal(balance).minus(data.amount).toString(),
+          };
+        }
+
+        // Create request with auto-approved steps
+        const request = await tx.request.create({
+          data: {
+            ...requestData,
+            approvalSteps: {
+              create: approvalSteps,
+            },
+          },
+          include: {
+            approvalSteps: true,
+            biodata: {
+              select: {
+                id: true,
+                fullName: true,
+                department: true,
+                erpId: true,
+              },
+            },
+            savings: true,
+            personalSavings: true,
+          },
+        });
+
+        // Create withdrawal transaction
+        const transactionType = isPersonalSavings
+          ? TransactionType.PERSONAL_SAVINGS_WITHDRAWAL
+          : TransactionType.SAVINGS_WITHDRAWAL;
+
+        const relatedEntityType = isPersonalSavings
+          ? "PERSONAL_SAVINGS"
+          : "SAVINGS";
+
+        const transaction = await this.transactionService.createTransactionWithTx(
+          tx,
+          {
+            transactionType: transactionType,
+            module: TransactionModule.SAVINGS,
+            amount: new Decimal(data.amount).negated(),
+            balanceAfter: balance.minus(data.amount),
+            description: `Admin-created withdrawal: ${data.reason}`,
+            relatedEntityType: relatedEntityType,
+            relatedEntityId: savingsRecordId,
+            initiatedBy: createdBy,
+            requestId: request.id,
+            autoComplete: true,
+            metadata: {
+              adminCreated: true,
+              reason: data.reason,
+              erpId: data.erpId,
+              memberName: member.fullName,
+              withdrawalType: isPersonalSavings ? "PERSONAL_SAVINGS" : "SAVINGS",
+            },
+          }
+        );
+
+        // Connect transaction to request
+        await tx.request.update({
+          where: { id: request.id },
+          data: {
+            transactions: {
+              connect: { id: transaction.id },
+            },
+          },
+        });
+
+        // Process transaction (updates balance)
+        const processor = new SavingsTransactionProcessor();
+        await processor.processTransaction(transaction, tx);
+
+        // Send notification (async, don't fail if this errors)
+        try {
+          const withdrawalTypeText = isPersonalSavings ? "personal savings" : "savings";
+          // Send notification to member's user account if it exists, otherwise to admin
+          const notificationUserId = memberUser?.id || createdBy;
+
+          await tx.notification.create({
+            data: {
+              userId: notificationUserId,
+              type: "TRANSACTION",
+              title: "Withdrawal Processed by Administrator",
+              message: `A ${withdrawalTypeText} withdrawal of ${formatCurrency(
+                data.amount
+              )} has been processed by an administrator. Transaction completed.`,
+              transactionId: transaction.id,
+              metadata: {
+                requestId: request.id,
+                amount: data.amount,
+                status: "COMPLETED",
+                withdrawalType: isPersonalSavings ? "PERSONAL_SAVINGS" : "SAVINGS",
+                adminCreated: true,
+              },
+            },
+          });
+        } catch (notificationError) {
+          logger.error("Failed to send notification for admin withdrawal:", notificationError);
+          // Don't throw - notification failure shouldn't fail the withdrawal
+        }
+
+        return request;
+      });
+
+      logger.info(`Admin withdrawal created successfully for member ${member.fullName}`, {
+        requestId: withdrawalRequest.id,
+        amount: data.amount,
+        createdBy,
+      });
+
+      return withdrawalRequest;
+    } catch (error) {
+      logger.error("Error creating admin withdrawal:", error);
+      if (error instanceof SavingsError) {
+        throw error;
+      }
+      throw new SavingsError(
+        SavingsErrorCodes.REQUEST_CREATION_FAILED,
+        "Failed to create withdrawal",
         500
       );
     }

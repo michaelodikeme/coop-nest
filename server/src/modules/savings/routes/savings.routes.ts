@@ -144,5 +144,13 @@ router.get(
   savingsController.getMembersSummary.bind(savingsController) as RouteHandler
 );
 
+// Get latest savings record for a member (admin endpoint)
+router.get(
+  '/member/:memberId/latest',
+  checkPermission('VIEW_SAVINGS'),
+  authorizeRoles(['ADMIN', 'TREASURER', 'CHAIRMAN', 'SUPER_ADMIN']),
+  savingsController.getLatestSavings.bind(savingsController) as RouteHandler
+);
+
 
 export default router;

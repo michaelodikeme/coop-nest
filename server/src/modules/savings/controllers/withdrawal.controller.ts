@@ -8,10 +8,11 @@ import {
   createWithdrawalSchema,
   updateWithdrawalSchema,
   withdrawalQuerySchema,
+  adminWithdrawalCreationSchema,
 } from "../validations/withdrawal.validation";
 import { z } from "zod";
 import logger from "../../../utils/logger";
-import { WithdrawalRequestInput } from "../interfaces/withdrawal.interface";
+import { WithdrawalRequestInput, AdminWithdrawalCreationInput } from "../interfaces/withdrawal.interface";
 
 export class WithdrawalController {
   /**
@@ -58,6 +59,46 @@ export class WithdrawalController {
       );
     } catch (error) {
       logger.error("Error creating withdrawal request:", error);
+
+      if (error instanceof z.ZodError) {
+        next(new ApiError("Validation error", 400, error.errors));
+      } else if (error instanceof SavingsError) {
+        next(new ApiError(error.message, error.statusCode));
+      } else {
+        next(error);
+      }
+    }
+  }
+
+  /**
+   * Create a withdrawal for a member (Admin/Superadmin only)
+   * Bypasses approval workflow - withdrawal is immediately completed
+   * @route POST /api/savings/withdrawal/admin-create
+   */
+  public async createWithdrawalForMember(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const adminUserId = req.user.id;
+
+      // Validate input
+      const validatedData = adminWithdrawalCreationSchema.parse(req.body) as AdminWithdrawalCreationInput;
+
+      // Create withdrawal with admin user ID
+      const result = await SavingsWithdrawalService.createWithdrawalForMember(
+        validatedData,
+        adminUserId
+      );
+
+      ApiResponse.created(
+        res,
+        "Withdrawal created and processed successfully",
+        result
+      );
+    } catch (error) {
+      logger.error("Error creating admin withdrawal:", error);
 
       if (error instanceof z.ZodError) {
         next(new ApiError("Validation error", 400, error.errors));

@@ -284,6 +284,25 @@ export class SavingsController {
   };
 
   /**
+   * Get latest savings record for a member (admin endpoint)
+   * GET /api/savings/member/:memberId/latest
+   */
+  getLatestSavings = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { memberId } = req.params;
+
+      if (!memberId) {
+        throw new Error('Member ID is required');
+      }
+
+      const latestSavings = await this.savingsService.getLatestSavings(memberId);
+      ApiResponse.success(res, 'Latest savings record retrieved successfully', latestSavings);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
    * Get aggregated savings summary for all members with pagination
    * GET /api/savings/members-summary
    */

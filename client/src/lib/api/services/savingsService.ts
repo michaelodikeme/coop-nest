@@ -363,8 +363,28 @@ class SavingsService {
     }
     
     const url = `/savings/withdrawal/stats${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    
+
     return apiService.get(url);
+  }
+
+  /**
+   * Create withdrawal for member [SUPERADMIN ONLY]
+   * This endpoint allows superadmins to create withdrawals for members, bypassing approval workflow.
+   * POST /savings/withdrawal/admin-create
+   *
+   * @param data Withdrawal data including member info, amount, reason, and withdrawal type
+   * @returns The created and completed withdrawal request
+   */
+  async createWithdrawalForMember(data: {
+    biodataId: string;
+    erpId: string;
+    amount: number;
+    reason: string;
+    withdrawalType: 'SAVINGS' | 'PERSONAL_SAVINGS';
+    savingsId?: string;
+    personalSavingsId?: string;
+  }): Promise<any> {
+    return apiService.post('/savings/withdrawal/admin-create', data);
   }
 
   /**
@@ -539,6 +559,19 @@ class SavingsService {
 
     const response = await apiService.get<ApiResponse<PaginatedData<MemberSavingsSummary>>>(url);
     return response.data; // Unwrap the API response
+  }
+
+  /**
+   * Get latest savings record for a member [ADMIN ONLY]
+   * This endpoint retrieves only the most recent savings record for a member.
+   * GET /savings/member/:memberId/latest
+   *
+   * @param memberId The member ID (biodataId)
+   * @returns Latest savings record with member info and shares
+   */
+  async getLatestSavings(memberId: string): Promise<any> {
+    const response = await apiService.get<ApiResponse<any>>(`/savings/member/${memberId}/latest`);
+    return response.data;
   }
 }
 

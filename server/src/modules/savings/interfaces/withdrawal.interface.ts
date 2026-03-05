@@ -10,6 +10,16 @@ export interface WithdrawalRequestInput {
   personalSavingsId?: string; // For personal savings withdrawal
 }
 
+export interface AdminWithdrawalCreationInput {
+  biodataId: string;
+  erpId: string;
+  amount: number;
+  reason: string;
+  withdrawalType: 'SAVINGS' | 'PERSONAL_SAVINGS';
+  savingsId?: string;
+  personalSavingsId?: string;
+}
+
 export interface WithdrawalQueryParams {
   biodataId?: string;
   status?: TransactionStatus;
